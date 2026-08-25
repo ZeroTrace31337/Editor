@@ -8,7 +8,8 @@ import { ColorGrade, ColorWheelValue, createDefaultColorGrade } from '../../doma
 import { TimelineClip } from '../../domain/timeline/Clip';
 import { useEditor } from '../context/EditorContext';
 import { UpdateColorGradeCommand } from '../../engine/command/implementations/UpdateColorGradeCommand';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Sliders } from 'lucide-react';
+import { ThreeScopesRow } from './VideoScopesPanel';
 
 interface ColorWheelsViewProps {
   clip: TimelineClip;
@@ -16,17 +17,26 @@ interface ColorWheelsViewProps {
 
 type WheelName = 'lift' | 'gamma' | 'gain' | 'offset';
 
-const wheelMeta: Record<WheelName, { label: string; subtitle: string; color: string }> = {
-  lift: { label: 'Lift', subtitle: 'Shadows', color: 'text-indigo-400' },
-  gamma: { label: 'Gamma', subtitle: 'Midtones', color: 'text-emerald-400' },
-  gain: { label: 'Gain', subtitle: 'Highlights', color: 'text-amber-400' },
-  offset: { label: 'Offset', subtitle: 'Master', color: 'text-purple-400' },
+const wheelMeta: Record<WheelName, { label: string; subtitle: string; ringColor: string; textColor: string }> = {
+  lift: { label: 'Lift', subtitle: 'Shadows', ringColor: '#ef4444', textColor: 'text-red-400' },
+  gamma: { label: 'Gamma', subtitle: 'Midtones', ringColor: '#22c55e', textColor: 'text-emerald-400' },
+  gain: { label: 'Gain', subtitle: 'Highlights', ringColor: '#38bdf8', textColor: 'text-sky-400' },
+  offset: { label: 'Offset', subtitle: 'Master', ringColor: '#c084fc', textColor: 'text-purple-400' },
 };
 
 export const ColorWheelsView: React.FC<ColorWheelsViewProps> = ({ clip }) => {
   const { timelineEngine, commandManager } = useEditor();
   const grade: ColorGrade = clip.colorGrade || createDefaultColorGrade();
   const wheels = grade.wheels || createDefaultColorGrade().wheels;
+
+  const updateGrade = (changes: Partial<ColorGrade>) => {
+    const newGrade: ColorGrade = {
+      ...grade,
+      ...changes,
+    };
+    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, newGrade);
+    commandManager.execute(cmd);
+  };
 
   const updateWheel = (wheel: WheelName, changes: Partial<ColorWheelValue>) => {
     const current = wheels[wheel] || { r: 0, g: 0, b: 0, y: 0 };
@@ -38,13 +48,7 @@ export const ColorWheelsView: React.FC<ColorWheelsViewProps> = ({ clip }) => {
       },
     };
 
-    const newGrade: ColorGrade = {
-      ...grade,
-      wheels: updatedWheels,
-    };
-
-    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, newGrade);
-    commandManager.execute(cmd);
+    updateGrade({ wheels: updatedWheels });
   };
 
   const handleResetWheel = (wheel: WheelName) => {
@@ -52,24 +56,121 @@ export const ColorWheelsView: React.FC<ColorWheelsViewProps> = ({ clip }) => {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 select-none">
-      {(['lift', 'gamma', 'gain', 'offset'] as WheelName[]).map((wName) => {
-        const val = wheels[wName] || { r: 0, g: 0, b: 0, y: 0 };
-        const meta = wheelMeta[wName];
+    <div className="space-y-3 select-none">
+      {/* 4 Color Wheels Row */}
+      <div className="grid grid-cols-4 gap-1.5 bg-zinc-950/80 border border-zinc-800 rounded-xl p-2">
+        {(['lift', 'gamma', 'gain', 'offset'] as WheelName[]).map((wName) => {
+          const val = wheels[wName] || { r: 0, g: 0, b: 0, y: 0 };
+          const meta = wheelMeta[wName];
 
-        return (
-          <SingleColorWheel
-            key={wName}
-            name={wName}
-            label={meta.label}
-            subtitle={meta.subtitle}
-            color={meta.color}
-            value={val}
-            onChange={(changes) => updateWheel(wName, changes)}
-            onReset={() => handleResetWheel(wName)}
+          return (
+            <SingleColorWheel
+              key={wName}
+              name={wName}
+              label={meta.label}
+              subtitle={meta.subtitle}
+              ringColor={meta.ringColor}
+              textColor={meta.textColor}
+              value={val}
+              onChange={(changes) => updateWheel(wName, changes)}
+              onReset={() => handleResetWheel(wName)}
+            />
+          );
+        })}
+      </div>
+
+      {/* Primary Color Grading Sliders */}
+      <div className="space-y-2 bg-zinc-950/80 border border-zinc-800 rounded-xl p-3">
+        {/* Contrast */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-300 font-medium">Contrast</span>
+            <span className="text-zinc-200 font-mono">{(grade.contrast ?? 1.20).toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min="0.2"
+            max="2.0"
+            step="0.02"
+            value={grade.contrast ?? 1.20}
+            onChange={(e) => updateGrade({ contrast: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
           />
-        );
-      })}
+        </div>
+
+        {/* Exposure */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-300 font-medium">Exposure</span>
+            <span className="text-zinc-200 font-mono">
+              {grade.exposure > 0 ? `+${(grade.exposure || 0.10).toFixed(2)}` : (grade.exposure || 0.10).toFixed(2)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min="-3"
+            max="3"
+            step="0.05"
+            value={grade.exposure ?? 0.10}
+            onChange={(e) => updateGrade({ exposure: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
+        </div>
+
+        {/* Saturation */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-300 font-medium">Saturation</span>
+            <span className="text-zinc-200 font-mono">{(grade.saturation ?? 1.30).toFixed(2)}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="2.5"
+            step="0.05"
+            value={grade.saturation ?? 1.30}
+            onChange={(e) => updateGrade({ saturation: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
+        </div>
+
+        {/* Temperature */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-300 font-medium">Temperature</span>
+            <span className="text-zinc-200 font-mono">{(grade.temperature ?? -4).toFixed(0)}</span>
+          </div>
+          <input
+            type="range"
+            min="-100"
+            max="100"
+            step="1"
+            value={grade.temperature ?? -4}
+            onChange={(e) => updateGrade({ temperature: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-gradient-to-r from-sky-500 via-zinc-700 to-amber-500 rounded-lg appearance-none cursor-pointer"
+          />
+        </div>
+
+        {/* Tint */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-300 font-medium">Tint</span>
+            <span className="text-zinc-200 font-mono">{(grade.tint ?? 6).toFixed(0)}</span>
+          </div>
+          <input
+            type="range"
+            min="-100"
+            max="100"
+            step="1"
+            value={grade.tint ?? 6}
+            onChange={(e) => updateGrade({ tint: parseFloat(e.target.value) })}
+            className="w-full h-1 bg-gradient-to-r from-emerald-500 via-zinc-700 to-pink-500 rounded-lg appearance-none cursor-pointer"
+          />
+        </div>
+      </div>
+
+      {/* Live 3-Scope Diagnostics Row */}
+      <ThreeScopesRow />
     </div>
   );
 };
@@ -78,7 +179,8 @@ interface SingleColorWheelProps {
   name: WheelName;
   label: string;
   subtitle: string;
-  color: string;
+  ringColor: string;
+  textColor: string;
   value: ColorWheelValue;
   onChange: (changes: Partial<ColorWheelValue>) => void;
   onReset: () => void;
@@ -87,7 +189,8 @@ interface SingleColorWheelProps {
 const SingleColorWheel: React.FC<SingleColorWheelProps> = ({
   label,
   subtitle,
-  color,
+  ringColor,
+  textColor,
   value,
   onChange,
   onReset,
@@ -140,20 +243,17 @@ const SingleColorWheel: React.FC<SingleColorWheelProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 space-y-2">
-      {/* Wheel Title & Reset */}
+    <div className="flex flex-col items-center bg-zinc-900/60 border border-zinc-800 rounded-lg p-1.5 space-y-1">
+      {/* Wheel Title */}
       <div className="w-full flex items-center justify-between">
-        <div className="flex items-baseline space-x-1.5">
-          <span className={`text-xs font-semibold ${color}`}>{label}</span>
-          <span className="text-[10px] text-zinc-500">{subtitle}</span>
-        </div>
+        <span className={`text-[10px] font-bold ${textColor}`}>{label}</span>
         <button
           type="button"
           onClick={onReset}
-          className="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-zinc-800 transition"
-          title={`Reset ${label} Wheel`}
+          className="p-0.5 text-zinc-500 hover:text-zinc-300 rounded hover:bg-zinc-800 transition"
+          title={`Reset ${label}`}
         >
-          <RotateCcw className="w-3 h-3" />
+          <RotateCcw className="w-2.5 h-2.5" />
         </button>
       </div>
 
@@ -161,44 +261,39 @@ const SingleColorWheel: React.FC<SingleColorWheelProps> = ({
       <div
         ref={wheelRef}
         onMouseDown={handleMouseDown}
-        className="relative w-28 h-28 rounded-full border border-zinc-700/80 cursor-crosshair shadow-inner flex items-center justify-center overflow-hidden"
+        className="relative w-16 h-16 xl:w-20 xl:h-20 rounded-full border cursor-crosshair shadow-inner flex items-center justify-center overflow-hidden"
         style={{
-          background: `radial-gradient(circle at center, #27272a 0%, #18181b 70%, #09090b 100%), conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)`,
+          borderColor: ringColor,
+          background: `radial-gradient(circle at center, #18181b 0%, #09090b 75%), conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)`,
           backgroundBlendMode: 'screen',
         }}
       >
         {/* Center Crosshairs */}
-        <div className="absolute w-full h-[1px] bg-zinc-700/50 pointer-events-none" />
-        <div className="absolute h-full w-[1px] bg-zinc-700/50 pointer-events-none" />
-        <div className="absolute w-2 h-2 rounded-full border border-zinc-600 pointer-events-none" />
+        <div className="absolute w-full h-[0.5px] bg-zinc-600/40 pointer-events-none" />
+        <div className="absolute h-full w-[0.5px] bg-zinc-600/40 pointer-events-none" />
+        <div className="absolute w-1.5 h-1.5 rounded-full border border-zinc-500 pointer-events-none" />
 
         {/* Draggable Indicator Puck */}
         <div
-          className="absolute w-4 h-4 rounded-full border-2 border-white bg-amber-400 shadow-md transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+          className="absolute w-2.5 h-2.5 rounded-full border border-white bg-white shadow-md transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
           style={{
             left: `${50 + puckX * 42}%`,
             top: `${50 + puckY * 42}%`,
+            boxShadow: `0 0 6px ${ringColor}`,
           }}
         />
       </div>
 
-      {/* Master Luma / Y Slider */}
-      <div className="w-full space-y-1 pt-1">
-        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-          <span>Luma (Y)</span>
-          <span className="font-mono text-zinc-300 font-semibold">
-            {((value.y || 0) * 100).toFixed(0)}%
-          </span>
+      {/* Numeric Readouts underneath */}
+      <div className="w-full text-[9px] font-mono text-zinc-400 flex flex-col items-center leading-tight">
+        <div className="flex justify-between w-full px-0.5">
+          <span>R {(value.r || 0).toFixed(2)}</span>
+          <span>G {(value.g || 0).toFixed(2)}</span>
         </div>
-        <input
-          type="range"
-          min="-1"
-          max="1"
-          step="0.01"
-          value={value.y || 0}
-          onChange={(e) => onChange({ y: parseFloat(e.target.value) })}
-          className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-        />
+        <div className="flex justify-between w-full px-0.5">
+          <span>B {(value.b || 0).toFixed(2)}</span>
+          <span>Y {(value.y || 0).toFixed(2)}</span>
+        </div>
       </div>
     </div>
   );

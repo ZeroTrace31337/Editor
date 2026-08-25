@@ -22,7 +22,7 @@ interface ColorPanelProps {
 
 export const ColorPanel: React.FC<ColorPanelProps> = ({ clip }) => {
   const { timelineEngine, commandManager } = useEditor();
-  const [activeSubTab, setActiveSubTab] = useState<'primaries' | 'wheels' | 'curves' | 'hsl' | 'lut' | 'masks'>('primaries');
+  const [activeSubTab, setActiveSubTab] = useState<'basic' | 'curves' | 'wheels' | 'lut' | 'hsl' | 'masks'>('wheels');
 
   const grade = clip.colorGrade || createDefaultColorGrade();
   const lutEngine = LutEngine.getInstance();
@@ -44,30 +44,19 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip }) => {
 
   return (
     <div className="space-y-3.5 select-none">
-      {/* Top Navigation Tabs */}
+      {/* Top Navigation Subtabs */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[11px] overflow-x-auto max-w-[280px]">
+        <div className="flex items-center space-x-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[11px] overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveSubTab('primaries')}
+            onClick={() => setActiveSubTab('basic')}
             className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'primaries'
+              activeSubTab === 'basic'
                 ? 'bg-zinc-800 text-white shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            Primaries
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('wheels')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'wheels'
-                ? 'bg-zinc-800 text-amber-400 shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Wheels
+            Basic
           </button>
           <button
             type="button"
@@ -82,14 +71,14 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip }) => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('hsl')}
+            onClick={() => setActiveSubTab('wheels')}
             className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'hsl'
-                ? 'bg-zinc-800 text-pink-400 shadow-xs'
+              activeSubTab === 'wheels'
+                ? 'bg-zinc-800 text-purple-400 font-bold shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            HSL
+            Color Wheels
           </button>
           <button
             type="button"
@@ -104,14 +93,14 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip }) => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('masks')}
+            onClick={() => setActiveSubTab('hsl')}
             className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'masks'
-                ? 'bg-zinc-800 text-purple-400 shadow-xs'
+              activeSubTab === 'hsl'
+                ? 'bg-zinc-800 text-pink-400 shadow-xs'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            Masks
+            HSL
           </button>
         </div>
 
@@ -126,8 +115,8 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip }) => {
         </button>
       </div>
 
-      {/* 1. Primaries Controls */}
-      {activeSubTab === 'primaries' && (
+      {/* 1. Basic Controls */}
+      {activeSubTab === 'basic' && (
         <div className="space-y-3.5 bg-zinc-900/90 border border-zinc-800 rounded-lg p-3.5">
           {/* Exposure */}
           <div className="space-y-1">

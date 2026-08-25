@@ -333,3 +333,195 @@ export const VideoScopesPanel: React.FC = () => {
     </div>
   );
 };
+
+export const ThreeScopesRow: React.FC = () => {
+  const { currentTime, compositor, isPlaying } = useEditor();
+  const waveCanvasRef = useRef<HTMLCanvasElement>(null);
+  const vectorCanvasRef = useRef<HTMLCanvasElement>(null);
+  const histoCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let animId: number;
+
+    const renderAll = () => {
+      const compCanvas = (compositor as any).layerCanvas || document.querySelector('canvas');
+      if (!compCanvas) return;
+
+      const sampleW = 120;
+      const sampleH = 70;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = sampleW;
+      offscreen.height = sampleH;
+      const offCtx = offscreen.getContext('2d');
+      if (!offCtx) return;
+
+      try {
+        offCtx.drawImage(compCanvas, 0, 0, sampleW, sampleH);
+        const imgData = offCtx.getImageData(0, 0, sampleW, sampleH);
+        const data = imgData.data;
+
+        // 1. Waveform
+        if (waveCanvasRef.current) {
+          const ctx = waveCanvasRef.current.getContext('2d');
+          if (ctx) {
+            const w = waveCanvasRef.current.width;
+            const h = waveCanvasRef.current.height;
+            ctx.fillStyle = '#08080c';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = '#27272a';
+            ctx.lineWidth = 0.5;
+            for (const pct of [0.2, 0.5, 0.8]) {
+              ctx.beginPath();
+              ctx.moveTo(0, h * pct);
+              ctx.lineTo(w, h * pct);
+              ctx.stroke();
+            }
+            for (let x = 0; x < sampleW; x++) {
+              const screenX = (x / sampleW) * w;
+              for (let y = 0; y < sampleH; y++) {
+                const idx = (y * sampleW + x) * 4;
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                const screenY = h * (1 - (luma / 255) * 0.85 - 0.07);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+                ctx.fillRect(screenX, screenY, 1.5, 1.5);
+              }
+            }
+          }
+        }
+
+        // 2. Vectorscope
+        if (vectorCanvasRef.current) {
+          const ctx = vectorCanvasRef.current.getContext('2d');
+          if (ctx) {
+            const w = vectorCanvasRef.current.width;
+            const h = vectorCanvasRef.current.height;
+            ctx.fillStyle = '#08080c';
+            ctx.fillRect(0, 0, w, h);
+            const cx = w / 2;
+            const cy = h / 2;
+            const radius = Math.min(cx, cy) * 0.85;
+
+            ctx.strokeStyle = '#27272a';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2);
+            ctx.stroke();
+
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const u = -0.14713 * r - 0.28886 * g + 0.436 * b;
+              const v = 0.615 * r - 0.51499 * g - 0.10001 * b;
+              const px = cx + (u / 128) * radius * 1.3;
+              const py = cy - (v / 128) * radius * 1.3;
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.25)`;
+              ctx.fillRect(px, py, 1.2, 1.2);
+            }
+          }
+        }
+
+        // 3. Histogram
+        if (histoCanvasRef.current) {
+          const ctx = histoCanvasRef.current.getContext('2d');
+          if (ctx) {
+            const w = histoCanvasRef.current.width;
+            const h = histoCanvasRef.current.height;
+            ctx.fillStyle = '#08080c';
+            ctx.fillRect(0, 0, w, h);
+
+            const binsR = new Uint32Array(64);
+            const binsG = new Uint32Array(64);
+            const binsB = new Uint32Array(64);
+
+            for (let i = 0; i < data.length; i += 4) {
+              binsR[Math.floor(data[i] / 4)]++;
+              binsG[Math.floor(data[i + 1] / 4)]++;
+              binsB[Math.floor(data[i + 2] / 4)]++;
+            }
+
+            let maxCount = 1;
+            for (let i = 0; i < 64; i++) {
+              if (binsR[i] > maxCount) maxCount = binsR[i];
+              if (binsG[i] > maxCount) maxCount = binsG[i];
+              if (binsB[i] > maxCount) maxCount = binsB[i];
+            }
+
+            const barW = w / 64;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.45)';
+            for (let i = 0; i < 64; i++) {
+              const barH = (binsR[i] / maxCount) * (h * 0.85);
+              ctx.fillRect(i * barW, h - barH, barW, barH);
+            }
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.45)';
+            for (let i = 0; i < 64; i++) {
+              const barH = (binsG[i] / maxCount) * (h * 0.85);
+              ctx.fillRect(i * barW, h - barH, barW, barH);
+            }
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.45)';
+            for (let i = 0; i < 64; i++) {
+              const barH = (binsB[i] / maxCount) * (h * 0.85);
+              ctx.fillRect(i * barW, h - barH, barW, barH);
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (isPlaying) {
+        animId = requestAnimationFrame(renderAll);
+      }
+    };
+
+    renderAll();
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [currentTime, isPlaying, compositor]);
+
+  return (
+    <div className="space-y-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2">
+      <div className="flex items-center justify-between pb-1 border-b border-zinc-850">
+        <div className="flex items-center gap-1.5 text-zinc-300 text-[11px] font-semibold">
+          <Activity className="w-3.5 h-3.5 text-purple-400" />
+          <span>Scopes</span>
+        </div>
+        <span className="text-[9px] text-zinc-500 font-mono uppercase">Live GPU Parade</span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 pt-1">
+        <div className="flex flex-col items-center">
+          <canvas
+            ref={waveCanvasRef}
+            width={110}
+            height={64}
+            className="w-full h-16 rounded bg-black border border-zinc-850 object-contain"
+          />
+          <span className="text-[9px] font-mono text-zinc-400 mt-0.5">Waveform</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <canvas
+            ref={vectorCanvasRef}
+            width={110}
+            height={64}
+            className="w-full h-16 rounded bg-black border border-zinc-850 object-contain"
+          />
+          <span className="text-[9px] font-mono text-zinc-400 mt-0.5">Vectorscope</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <canvas
+            ref={histoCanvasRef}
+            width={110}
+            height={64}
+            className="w-full h-16 rounded bg-black border border-zinc-850 object-contain"
+          />
+          <span className="text-[9px] font-mono text-zinc-400 mt-0.5">Histogram</span>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -135,33 +135,27 @@ const StudioWorkspace: React.FC = () => {
       <TopEditingToolbar />
 
       {/* 3. WORKSPACE VIEWS */}
-      
-      {/* WORKSPACE MODE: EDIT / ADJUST / EFFECTS */}
-      {(workspaceMode === 'edit' || workspaceMode === 'adjust' || workspaceMode === 'effects') && (
+      {/* Unified Professional CineFlow Pro Desktop Layout */}
+      {workspaceMode === 'deliver' ? (
+        <div className="flex-1 flex min-h-0">
+          <DeliverWorkspaceView />
+        </div>
+      ) : (
         <>
-          {/* Top 3-Pane View (Left Nav + Stage Monitor with Mobile Preview + Right Inspector) */}
-          <div className="flex-1 flex min-h-0">
-            {/* Left: Sidebar Navigation + Library + Performance Panel */}
-            <div className="w-80 lg:w-88 shrink-0 h-full">
+          {/* Main 3-Pane View (Left Media Pool + Center Video Viewer + Right Inspector) */}
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* Left: Sidebar Navigation + Media Pool + Assets Library */}
+            <div className="w-80 xl:w-96 shrink-0 h-full border-r border-zinc-850">
               <LeftSidebarNav />
             </div>
 
-            {/* Center: Stage Preview Monitor with Docked Mobile Preview */}
-            <div className="flex-1 h-full min-w-0 relative flex">
-              <div className="flex-1 h-full min-w-0">
-                <PreviewMonitor />
-              </div>
-
-              {/* Live Mobile 9:16 Preview (Docked at bottom-right of preview area) */}
-              {showMobilePreview && (
-                <div className="absolute right-4 bottom-16 z-20">
-                  <MobilePreview />
-                </div>
-              )}
+            {/* Center: Professional Video Viewer / Preview Monitor */}
+            <div className="flex-1 h-full min-w-0 relative flex flex-col bg-black">
+              <PreviewMonitor />
             </div>
 
-            {/* Right: Inspector & Grading Controls (Transform, Adjust, Color, Effects, Presets) */}
-            <div className="w-80 lg:w-88 shrink-0 h-full">
+            {/* Right: Inspector & Color Grading Panel */}
+            <div className="w-88 xl:w-[420px] shrink-0 h-full border-l border-zinc-850">
               <InspectorPanel />
             </div>
           </div>
@@ -169,68 +163,11 @@ const StudioWorkspace: React.FC = () => {
           {/* Quick Action Bar directly above Timeline */}
           <QuickActionBar />
 
-          {/* Bottom: Multi-Track Timeline */}
-          <div className="h-72 lg:h-80 shrink-0 w-full">
+          {/* Bottom: Full-Width Multi-Track Timeline */}
+          <div className="h-72 xl:h-80 shrink-0 w-full border-t border-zinc-850">
             <TimelinePanel />
           </div>
         </>
-      )}
-
-      {/* WORKSPACE MODE: COLOR GRADING STUDIO */}
-      {workspaceMode === 'color' && (
-        <>
-          {/* Top Split: Stage Preview & Video Scopes */}
-          <div className="flex-1 flex min-h-0">
-            <div className="flex-1 h-full min-w-0">
-              <PreviewMonitor />
-            </div>
-            <div className="w-88 lg:w-96 shrink-0 h-full p-2 bg-zinc-950/80 border-l border-zinc-800">
-              <VideoScopesPanel />
-            </div>
-          </div>
-
-          <QuickActionBar />
-
-          {/* Bottom Split: Colorist Grading Deck & Timeline */}
-          <div className="h-88 lg:h-96 shrink-0 w-full flex border-t border-zinc-800">
-            <div className="flex-1 h-full min-w-0">
-              <TimelinePanel />
-            </div>
-            <div className="w-96 lg:w-[450px] shrink-0 h-full">
-              <InspectorPanel />
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* WORKSPACE MODE: AUDIO FAIRLIGHT STUDIO */}
-      {workspaceMode === 'audio' && (
-        <>
-          {/* Top Split: Left Nav, Stage Preview & Clip Inspector */}
-          <div className="flex-1 flex min-h-0">
-            <div className="w-72 shrink-0 h-full">
-              <LeftSidebarNav />
-            </div>
-            <div className="flex-1 h-full min-w-0">
-              <PreviewMonitor />
-            </div>
-            <div className="w-80 shrink-0 h-full">
-              <InspectorPanel />
-            </div>
-          </div>
-
-          {/* Bottom Split: Multi-Track Mixer */}
-          <div className="h-80 lg:h-88 shrink-0 w-full border-t border-zinc-800">
-            <AudioMixerPanel />
-          </div>
-        </>
-      )}
-
-      {/* WORKSPACE MODE: DELIVER & RENDER QUEUE STUDIO */}
-      {workspaceMode === 'deliver' && (
-        <div className="flex-1 flex min-h-0">
-          <DeliverWorkspaceView />
-        </div>
       )}
 
       {/* Export Modal */}
