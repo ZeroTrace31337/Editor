@@ -11,11 +11,22 @@ import { AddMaskCommand, UpdateMaskCommand, DeleteMaskCommand } from '../../engi
 import { Square, Circle, Shield, Plus, Trash2, Eye, EyeOff, Sparkles } from 'lucide-react';
 
 interface MasksPanelProps {
-  clip: TimelineClip;
+  clip?: TimelineClip;
 }
 
-export const MasksPanel: React.FC<MasksPanelProps> = ({ clip }) => {
-  const { timelineEngine, commandManager } = useEditor();
+export const MasksPanel: React.FC<MasksPanelProps> = ({ clip: propClip }) => {
+  const { timelineEngine, commandManager, selectedClip } = useEditor();
+  const clip = propClip || selectedClip;
+
+  if (!clip) {
+    return (
+      <div className="p-6 text-center text-zinc-500 text-xs">
+        <Shield className="w-8 h-8 mx-auto mb-2 opacity-30 text-zinc-400" />
+        <p>Select a clip on the timeline to configure shape & alpha masks.</p>
+      </div>
+    );
+  }
+
   const masks = clip.masks || [];
   const [activeMaskId, setActiveMaskId] = useState<string>(clip.activeMaskId || masks[0]?.id || '');
 

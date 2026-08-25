@@ -25,15 +25,26 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 interface EffectsPanelProps {
-  clip: TimelineClip;
+  clip?: TimelineClip;
 }
 
-export const EffectsPanel: React.FC<EffectsPanelProps> = ({ clip }) => {
-  const { timelineEngine, commandManager } = useEditor();
+export const EffectsPanel: React.FC<EffectsPanelProps> = ({ clip: propClip }) => {
+  const { timelineEngine, commandManager, selectedClip } = useEditor();
+  const clip = propClip || selectedClip;
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFx, setExpandedFx] = useState<Record<string, boolean>>({});
+
+  if (!clip) {
+    return (
+      <div className="p-6 text-center text-zinc-500 text-xs">
+        <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30 text-zinc-400" />
+        <p>Select a clip on the timeline to apply visual effects & animations.</p>
+      </div>
+    );
+  }
 
   const registry = EffectRegistry.getInstance();
   const allEffects = registry.getAllEffects();

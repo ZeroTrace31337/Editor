@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 interface TextPanelProps {
-  clip: TextClip;
+  clip?: TextClip;
 }
 
 const FONT_FAMILIES = [
@@ -117,8 +117,18 @@ const TEXT_PRESETS = [
   },
 ];
 
-export const TextPanel: React.FC<TextPanelProps> = ({ clip }) => {
-  const { project, projectService } = useEditor();
+export const TextPanel: React.FC<TextPanelProps> = ({ clip: propClip }) => {
+  const { project, projectService, selectedClip } = useEditor();
+  const clip = (propClip || (selectedClip?.type === 'text' ? (selectedClip as TextClip) : undefined)) as TextClip | undefined;
+
+  if (!clip) {
+    return (
+      <div className="p-6 text-center text-zinc-500 text-xs">
+        <Type className="w-8 h-8 mx-auto mb-2 opacity-30 text-zinc-400" />
+        <p>Select a title or text clip on the timeline to edit typography & styling.</p>
+      </div>
+    );
+  }
 
   const updateClip = (patch: Partial<TextClip>) => {
     Object.assign(clip, patch);

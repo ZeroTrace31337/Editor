@@ -37,7 +37,7 @@ import { ColorWheelsView } from '../color/ColorWheelsView';
 import { HslColorBandsView } from '../color/HslColorBandsView';
 
 interface AdjustPanelProps {
-  clip: TimelineClip;
+  clip?: TimelineClip;
 }
 
 interface AdjustmentRowProps {
@@ -53,7 +53,7 @@ interface AdjustmentRowProps {
   isTempTrack?: boolean;
   isTintTrack?: boolean;
   propertyPath?: string;
-  clip: TimelineClip;
+  clip?: TimelineClip;
   onChange: (val: number) => void;
 }
 
@@ -183,8 +183,10 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
   );
 };
 
-export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip }) => {
-  const { timelineEngine, commandManager, isBeforeAfterActive, toggleBeforeAfter } = useEditor();
+export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
+  const { timelineEngine, commandManager, isBeforeAfterActive, toggleBeforeAfter, selectedClip } = useEditor();
+  const clip = propClip || selectedClip;
+
   const [subTab, setSubTab] = useState<'basic' | 'light' | 'color' | 'detail' | 'hsl' | 'curves' | 'wheels' | 'lut'>('basic');
   const [openSections, setOpenSections] = useState({
     light: true,
@@ -195,6 +197,15 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lutEngine = LutEngine.getInstance();
   const allLuts = lutEngine.getAllLuts();
+
+  if (!clip) {
+    return (
+      <div className="p-6 text-center text-zinc-500 text-xs">
+        <Sun className="w-8 h-8 mx-auto mb-2 opacity-30 text-zinc-400" />
+        <p>Select a video or image clip on the timeline to adjust lighting, color, and LUTs.</p>
+      </div>
+    );
+  }
 
   const grade: ColorGrade = clip.colorGrade || createDefaultColorGrade();
 

@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { EditorProvider, useEditor } from './ui/context/EditorContext';
 import { EditorHeader } from './ui/header/EditorHeader';
-import { TopEditingToolbar } from './ui/header/TopEditingToolbar';
 import { LeftSidebarNav } from './ui/sidebar/LeftSidebarNav';
 import { PreviewMonitor } from './ui/preview/PreviewMonitor';
 import { MobilePreview } from './ui/preview/MobilePreview';
@@ -131,10 +130,7 @@ const StudioWorkspace: React.FC = () => {
       {/* 1. Main Studio Header */}
       <EditorHeader onOpenExport={() => setIsExportOpen(true)} />
 
-      {/* 2. Secondary Editing Toolbar */}
-      <TopEditingToolbar />
-
-      {/* 3. WORKSPACE VIEWS */}
+      {/* 2. WORKSPACE VIEWS */}
       {/* Unified Professional CineFlow Pro Desktop Layout */}
       {workspaceMode === 'deliver' ? (
         <div className="flex-1 flex min-h-0">
@@ -145,7 +141,7 @@ const StudioWorkspace: React.FC = () => {
           {/* Main 3-Pane View (Left Media Pool + Center Video Viewer + Right Inspector) */}
           <div className="flex-1 flex min-h-0 overflow-hidden">
             {/* Left: Sidebar Navigation + Media Pool + Assets Library */}
-            <div className="w-80 xl:w-96 shrink-0 h-full border-r border-zinc-850">
+            <div className="w-[380px] xl:w-[440px] shrink-0 h-full border-r border-zinc-850">
               <LeftSidebarNav />
             </div>
 
@@ -155,7 +151,7 @@ const StudioWorkspace: React.FC = () => {
             </div>
 
             {/* Right: Inspector & Color Grading Panel */}
-            <div className="w-88 xl:w-[420px] shrink-0 h-full border-l border-zinc-850">
+            <div className="w-80 xl:w-[360px] shrink-0 h-full border-l border-zinc-850">
               <InspectorPanel />
             </div>
           </div>
@@ -164,7 +160,7 @@ const StudioWorkspace: React.FC = () => {
           <QuickActionBar />
 
           {/* Bottom: Full-Width Multi-Track Timeline */}
-          <div className="h-72 xl:h-80 shrink-0 w-full border-t border-zinc-850">
+          <div className="h-64 xl:h-72 shrink-0 w-full border-t border-zinc-850">
             <TimelinePanel />
           </div>
         </>
