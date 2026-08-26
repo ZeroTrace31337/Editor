@@ -5,7 +5,7 @@
 
 import { ICommand } from '../Command';
 import { TimelineEngine } from '../../timeline/TimelineEngine';
-import { Keyframe, KeyframeTrack, createKeyframeTrack, createKeyframe } from '../../../domain/keyframe/Keyframe';
+import { Keyframe, KeyframeTrack, KeyframeInterpolation, createKeyframeTrack, createKeyframe } from '../../../domain/keyframe/Keyframe';
 import { RationalTime, compareRationalTime, rationalTimeToSeconds } from '../../../core/time/RationalTime';
 
 export class SetKeyframeCommand implements ICommand {
@@ -20,6 +20,7 @@ export class SetKeyframeCommand implements ICommand {
   private propertyName: string;
   private keyframeTime: RationalTime;
   private value: any;
+  private interpolation?: KeyframeInterpolation;
   private previousTrackState?: KeyframeTrack<any>;
 
   constructor(
@@ -28,7 +29,8 @@ export class SetKeyframeCommand implements ICommand {
     propertyPath: string,
     propertyName: string,
     keyframeTime: RationalTime,
-    value: any
+    value: any,
+    interpolation?: KeyframeInterpolation
   ) {
     this.timelineEngine = timelineEngine;
     this.clipId = clipId;
@@ -36,6 +38,7 @@ export class SetKeyframeCommand implements ICommand {
     this.propertyName = propertyName;
     this.keyframeTime = keyframeTime;
     this.value = value;
+    this.interpolation = interpolation;
     this.name = `Set Keyframe: ${propertyName}`;
     this.description = `Set keyframe on ${propertyName} at ${rationalTimeToSeconds(keyframeTime).toFixed(2)}s`;
   }
@@ -71,8 +74,11 @@ export class SetKeyframeCommand implements ICommand {
 
     if (existingIdx !== -1) {
       track.keyframes[existingIdx].value = this.value;
+      if (this.interpolation) {
+        track.keyframes[existingIdx].interpolation = this.interpolation;
+      }
     } else {
-      const newKf = createKeyframe(kfId, this.keyframeTime, this.value);
+      const newKf = createKeyframe(kfId, this.keyframeTime, this.value, this.interpolation || 'smooth');
       track.keyframes.push(newKf);
       track.keyframes.sort((a, b) => compareRationalTime(a.time, b.time));
     }

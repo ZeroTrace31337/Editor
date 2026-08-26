@@ -4,49 +4,75 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Crosshair, Play, Pause, RotateCcw, Target, Shield, Type, Layers, CheckCircle2 } from 'lucide-react';
+import {
+  Crosshair,
+  Play,
+  Pause,
+  RotateCcw,
+  Target,
+  Shield,
+  Type,
+  Layers,
+  CheckCircle2,
+  Sparkles,
+  User,
+  Smile,
+  Maximize2,
+  Plus,
+  Trash2,
+  Sliders,
+  Compass,
+  ArrowRight,
+  ArrowLeft,
+  Key,
+} from 'lucide-react';
 import { useEditor } from '../context/EditorContext';
 import { TrackingEngine } from '../../engine/tracking/TrackingEngine';
-import { TrackingData, TrackingMode, TrackingTargetType } from '../../engine/tracking/TrackingTypes';
+import {
+  TrackingData,
+  TrackingMode,
+  TrackingAccuracy,
+  TrackingTargetType,
+} from '../../engine/tracking/TrackingTypes';
 import { rationalTimeToSeconds } from '../../core/time/RationalTime';
 
 export const TrackingPanel: React.FC = () => {
-  const { selectedClip, currentTime } = useEditor();
+  const { selectedClip, currentTime, project, projectService } = useEditor();
   const trackingEngine = TrackingEngine.getInstance();
 
-  const [trackData, setTrackData] = useState<TrackingData | undefined>(
-    selectedClip ? trackingEngine.getTrack(selectedClip.id) : undefined
-  );
+  const [activeTrackId, setActiveTrackId] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     return trackingEngine.subscribe(() => {
-      if (selectedClip) {
-        setTrackData(trackingEngine.getTrack(selectedClip.id));
-      }
+      setTick((t) => t + 1);
     });
-  }, [selectedClip, trackingEngine]);
+  }, [trackingEngine]);
 
   if (!selectedClip) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center text-zinc-500">
-        <Crosshair className="w-10 h-10 mb-2 opacity-40" />
+        <Crosshair className="w-10 h-10 mb-2 opacity-40 text-cyan-400" />
         <p className="text-sm font-medium">Select a video or image clip on the timeline to enable Motion Tracking.</p>
       </div>
     );
   }
 
+  const tracks = trackingEngine.getTracksForClip(selectedClip.id);
+  const activeTrack = tracks.find((t) => t.id === activeTrackId) || tracks[0];
+
   const handleCreateTrack = (mode: TrackingMode = 'object') => {
-    const newTrack = trackingEngine.createTrack(selectedClip.id, `Track: ${selectedClip.name}`, mode);
-    setTrackData(newTrack);
+    const newTrack = trackingEngine.createTrack(selectedClip.id, undefined, mode, 'high');
+    setActiveTrackId(newTrack.id);
   };
 
   const handleStartAnalysis = async (direction: 'forward' | 'backward') => {
-    if (!selectedClip) return;
+    if (!selectedClip || !activeTrack) return;
     setIsAnalyzing(true);
     const durSec = rationalTimeToSeconds(selectedClip.timelineRange.duration);
-    await trackingEngine.analyzeTrack(selectedClip.id, direction, durSec, 30, (p) => setProgress(p));
+    await trackingEngine.analyzeTrack(selectedClip.id, direction, durSec, 30, (p) => setProgress(p), activeTrack.id);
     setIsAnalyzing(false);
   };
 
@@ -55,239 +81,402 @@ export const TrackingPanel: React.FC = () => {
     setIsAnalyzing(false);
   };
 
-  const handleClear = () => {
-    if (!selectedClip) return;
-    trackingEngine.clearTrack(selectedClip.id);
-    setTrackData(undefined);
-    setProgress(0);
+  const handleDeleteActiveTrack = () => {
+    if (!selectedClip || !activeTrack) return;
+    trackingEngine.deleteTrack(selectedClip.id, activeTrack.id);
+    setActiveTrackId(undefined);
   };
 
-  const handleTargetChange = (type: TrackingTargetType) => {
-    if (!selectedClip) return;
-    trackingEngine.setTargetAttachment(selectedClip.id, type);
-  };
+  const currentSec = rationalTimeToSeconds(currentTime);
+  const currentPt = activeTrack ? trackingEngine.evaluateTrackAtTime(selectedClip.id, currentSec, activeTrack.id) : null;
 
-  const currentFramePt = trackData
-    ? trackingEngine.evaluateTrackAtTime(selectedClip.id, rationalTimeToSeconds(currentTime))
-    : null;
+  // Find other clips on timeline (for attachment)
+  const otherClips = project.sequences[0]?.tracks
+    .flatMap((t) => t.clips)
+    .filter((c) => c.id !== selectedClip.id) || [];
 
   return (
-    <div className="flex flex-col gap-5 p-4 text-zinc-300">
+    <div className="flex flex-col gap-4 p-3 text-zinc-300 select-none">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
         <div className="flex items-center gap-2">
-          <Crosshair className="w-5 h-5 text-indigo-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Motion Tracking Engine</h3>
+          <Crosshair className="w-4 h-4 text-cyan-400" />
+          <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+            Motion Tracking Deck
+          </h3>
         </div>
-        {trackData && (
+        {activeTrack && (
           <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              trackData.status === 'completed'
+            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              activeTrack.status === 'completed'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                : trackData.status.startsWith('tracking')
-                ? 'bg-amber-500/20 text-amber-300 animate-pulse border border-amber-500/30'
+                : activeTrack.status.startsWith('tracking')
+                ? 'bg-cyan-500/20 text-cyan-300 animate-pulse border border-cyan-500/30'
                 : 'bg-zinc-800 text-zinc-400'
             }`}
           >
-            {trackData.status.toUpperCase()}
+            {activeTrack.status.replace('_', ' ').toUpperCase()}
           </span>
         )}
       </div>
 
-      {!trackData ? (
-        <div className="flex flex-col items-center justify-center p-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/40 text-center gap-3">
-          <Target className="w-8 h-8 text-indigo-400 opacity-60" />
-          <div>
-            <h4 className="text-sm font-semibold text-zinc-200">No Active Track</h4>
-            <p className="text-xs text-zinc-400 max-w-xs mt-1">
-              Analyze movement, camera pan, or subjects in this clip to automatically stick titles, masks, or privacy censors.
-            </p>
-          </div>
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={() => handleCreateTrack('object')}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow transition-all flex items-center gap-1.5"
-            >
-              <Target className="w-3.5 h-3.5" />
-              Object Track
-            </button>
-            <button
-              onClick={() => handleCreateTrack('point')}
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
-            >
-              <Crosshair className="w-3.5 h-3.5" />
-              Point Track
-            </button>
-          </div>
+      {/* Multi-Track Tabs / List */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-zinc-400">Clip Motion Tracks</span>
+          <button
+            onClick={() => handleCreateTrack('object')}
+            className="flex items-center gap-1 px-2 py-0.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded border border-cyan-500/30 text-[10px] font-bold transition"
+          >
+            <Plus className="w-3 h-3" />
+            <span>Add Track</span>
+          </button>
         </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {/* Tracking Mode & ROI */}
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800/80 space-y-3">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-zinc-400">Track Type:</span>
-              <span className="font-semibold text-indigo-400 capitalize">{trackData.mode} Tracking</span>
+
+        {tracks.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {tracks.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTrackId(t.id)}
+                className={`px-2.5 py-1 rounded border text-[11px] font-medium transition flex items-center gap-1.5 ${
+                  activeTrack?.id === t.id
+                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                }`}
+              >
+                {t.mode === 'face' ? (
+                  <Smile className="w-3 h-3 text-amber-400" />
+                ) : t.mode === 'person' ? (
+                  <User className="w-3 h-3 text-purple-400" />
+                ) : (
+                  <Target className="w-3 h-3 text-cyan-400" />
+                )}
+                <span>{t.name}</span>
+                <span className="text-[9px] opacity-60">({t.points.length} pts)</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 rounded-lg bg-zinc-900/60 border border-zinc-800/80 text-center space-y-2">
+            <Target className="w-6 h-6 mx-auto text-zinc-500" />
+            <p className="text-[11px] text-zinc-400">No tracks initialized for this clip.</p>
+            <div className="flex justify-center gap-1.5 pt-1">
+              <button
+                onClick={() => handleCreateTrack('object')}
+                className="px-2.5 py-1 rounded bg-cyan-500 text-black font-bold text-[10px] flex items-center gap-1"
+              >
+                <Target className="w-3 h-3" /> Object Track
+              </button>
+              <button
+                onClick={() => handleCreateTrack('face')}
+                className="px-2.5 py-1 rounded bg-zinc-800 text-zinc-200 text-[10px] flex items-center gap-1"
+              >
+                <Smile className="w-3 h-3 text-amber-400" /> Face Track
+              </button>
+              <button
+                onClick={() => handleCreateTrack('person')}
+                className="px-2.5 py-1 rounded bg-zinc-800 text-zinc-200 text-[10px] flex items-center gap-1"
+              >
+                <User className="w-3 h-3 text-purple-400" /> Person Track
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {activeTrack && (
+        <div className="space-y-4 pt-2 border-t border-zinc-800">
+          {/* Track Mode & Accuracy */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold text-zinc-400">Tracking Mode</span>
+              <select
+                value={activeTrack.mode}
+                onChange={(e) =>
+                  trackingEngine.updateTrack(selectedClip.id, activeTrack.id, {
+                    mode: e.target.value as TrackingMode,
+                  })
+                }
+                className="w-full bg-zinc-900 border border-zinc-800 rounded p-1 text-zinc-200 text-[11px] focus:outline-none focus:border-cyan-500"
+              >
+                <option value="object">Object Tracking</option>
+                <option value="face">Face Tracking</option>
+                <option value="person">Person / Body Tracking</option>
+                <option value="point">Single Point Tracking</option>
+                <option value="area">Area Feature Tracking</option>
+              </select>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-zinc-400">
-                <span>Region of Interest (ROI):</span>
-                <span>
-                  {Math.round(trackData.roi.width * 100)}% × {Math.round(trackData.roi.height * 100)}%
-                </span>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold text-zinc-400">AI Accuracy</span>
+              <select
+                value={activeTrack.accuracy}
+                onChange={(e) =>
+                  trackingEngine.updateTrack(selectedClip.id, activeTrack.id, {
+                    accuracy: e.target.value as TrackingAccuracy,
+                  })
+                }
+                className="w-full bg-zinc-900 border border-zinc-800 rounded p-1 text-zinc-200 text-[11px] focus:outline-none focus:border-cyan-500"
+              >
+                <option value="draft">Draft (Ultra Fast)</option>
+                <option value="standard">Standard Precision</option>
+                <option value="high">High Optical Flow</option>
+                <option value="ultra_ai">Ultra AI Deep Feature</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Region of Interest (ROI) adjustments */}
+          <div className="p-2.5 bg-zinc-900/80 rounded-lg border border-zinc-800 space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-zinc-300">Target Region Box (ROI)</span>
+              <button
+                onClick={() =>
+                  trackingEngine.updateROI(
+                    selectedClip.id,
+                    { x: 0.4, y: 0.4, width: 0.2, height: 0.2 },
+                    activeTrack.id
+                  )
+                }
+                className="text-[10px] text-cyan-400 hover:underline"
+              >
+                Reset Center
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div>
+                <span className="text-zinc-400">Box Center X:</span>{' '}
+                <span className="text-zinc-200 font-mono">{(activeTrack.roi.x * 100).toFixed(0)}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={activeTrack.roi.x}
+                  onChange={(e) =>
+                    trackingEngine.updateROI(selectedClip.id, { x: parseFloat(e.target.value) }, activeTrack.id)
+                  }
+                  className="w-full accent-cyan-400 h-1 bg-zinc-800 rounded cursor-pointer"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-zinc-950 px-2.5 py-1.5 rounded border border-zinc-800/60 flex justify-between">
-                  <span className="text-zinc-500">Center X</span>
-                  <span className="font-mono text-zinc-300">{(trackData.roi.x * 100).toFixed(1)}%</span>
-                </div>
-                <div className="bg-zinc-950 px-2.5 py-1.5 rounded border border-zinc-800/60 flex justify-between">
-                  <span className="text-zinc-500">Center Y</span>
-                  <span className="font-mono text-zinc-300">{(trackData.roi.y * 100).toFixed(1)}%</span>
-                </div>
+              <div>
+                <span className="text-zinc-400">Box Center Y:</span>{' '}
+                <span className="text-zinc-200 font-mono">{(activeTrack.roi.y * 100).toFixed(0)}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={activeTrack.roi.y}
+                  onChange={(e) =>
+                    trackingEngine.updateROI(selectedClip.id, { y: parseFloat(e.target.value) }, activeTrack.id)
+                  }
+                  className="w-full accent-cyan-400 h-1 bg-zinc-800 rounded cursor-pointer"
+                />
               </div>
             </div>
           </div>
 
-          {/* Analysis Controls */}
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800/80 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-zinc-200">Analysis Controls</span>
-              <span className="text-zinc-400">{trackData.points.length} Keyframes</span>
-            </div>
-
+          {/* Action Trigger Buttons */}
+          <div className="space-y-2">
             {isAnalyzing && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] text-zinc-400">
-                  <span>Tracking Progress</span>
-                  <span>{Math.round(progress * 100)}%</span>
-                </div>
-                <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-indigo-500 h-full rounded-full transition-all duration-75"
-                    style={{ width: `${progress * 100}%` }}
-                  />
-                </div>
+              <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full transition-all duration-75"
+                  style={{ width: `${progress * 100}%` }}
+                />
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex gap-1.5">
               <button
                 disabled={isAnalyzing}
                 onClick={() => handleStartAnalysis('backward')}
-                className="px-2 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 rounded text-xs font-medium flex items-center justify-center gap-1 transition-all"
+                className="flex-1 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40"
               >
-                ◀ Track Back
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Track Back</span>
               </button>
-
-              {isAnalyzing ? (
-                <button
-                  onClick={handlePause}
-                  className="px-2 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold flex items-center justify-center gap-1 transition-all shadow"
-                >
-                  <Pause className="w-3.5 h-3.5" /> Pause
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleStartAnalysis('forward')}
-                  className="px-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-semibold flex items-center justify-center gap-1 transition-all shadow"
-                >
-                  <Play className="w-3.5 h-3.5" /> Track Fwd ▶
-                </button>
-              )}
 
               <button
-                onClick={handleClear}
-                className="px-2 py-2 bg-zinc-800 hover:bg-rose-900/40 text-zinc-300 hover:text-rose-400 rounded text-xs font-medium flex items-center justify-center gap-1 transition-all"
+                disabled={isAnalyzing}
+                onClick={() => handleStartAnalysis('forward')}
+                className="flex-1 py-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-black text-[11px] font-bold flex items-center justify-center gap-1 transition shadow-sm disabled:opacity-40"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reset
+                <ArrowRight className="w-3.5 h-3.5" />
+                <span>Track Forward</span>
               </button>
+
+              {isAnalyzing && (
+                <button
+                  onClick={handlePause}
+                  className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Target Attachment */}
-          <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800/80 space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-zinc-200">Attached Layer / Destination</span>
-              {trackData.points.length > 0 && (
-                <div className="flex items-center gap-1 text-emerald-400 text-[11px]">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready
-                </div>
-              )}
+          <div className="p-3 bg-zinc-900/90 rounded-lg border border-zinc-800 space-y-3">
+            <span className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-cyan-400" />
+              Attach Layer to Follow Track
+            </span>
+
+            <div className="grid grid-cols-3 gap-1">
+              {(['text', 'sticker', 'mask', 'blur', 'mosaic', 'effect'] as TrackingTargetType[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() =>
+                    trackingEngine.setTargetAttachment(
+                      selectedClip.id,
+                      type,
+                      activeTrack.attachedClipId,
+                      activeTrack.attachedMaskId,
+                      activeTrack.id
+                    )
+                  }
+                  className={`py-1 rounded border text-[10px] capitalize transition ${
+                    activeTrack.targetType === type
+                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleTargetChange('text')}
-                className={`p-2 rounded border text-xs font-medium flex items-center gap-2 transition-all ${
-                  trackData.targetType === 'text'
-                    ? 'border-indigo-500 bg-indigo-950/40 text-indigo-200'
-                    : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Type className="w-4 h-4 text-indigo-400" />
-                <span>Text / Title</span>
-              </button>
-
-              <button
-                onClick={() => handleTargetChange('blur')}
-                className={`p-2 rounded border text-xs font-medium flex items-center gap-2 transition-all ${
-                  trackData.targetType === 'blur'
-                    ? 'border-indigo-500 bg-indigo-950/40 text-indigo-200'
-                    : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Shield className="w-4 h-4 text-indigo-400" />
-                <span>Blur / Censor</span>
-              </button>
-
-              <button
-                onClick={() => handleTargetChange('mosaic')}
-                className={`p-2 rounded border text-xs font-medium flex items-center gap-2 transition-all ${
-                  trackData.targetType === 'mosaic'
-                    ? 'border-indigo-500 bg-indigo-950/40 text-indigo-200'
-                    : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Layers className="w-4 h-4 text-indigo-400" />
-                <span>Pixel Censor</span>
-              </button>
-
-              <button
-                onClick={() => handleTargetChange('mask')}
-                className={`p-2 rounded border text-xs font-medium flex items-center gap-2 transition-all ${
-                  trackData.targetType === 'mask'
-                    ? 'border-indigo-500 bg-indigo-950/40 text-indigo-200'
-                    : 'border-zinc-800 bg-zinc-950/60 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Crosshair className="w-4 h-4 text-indigo-400" />
-                <span>Follow Mask</span>
-              </button>
-            </div>
+            {/* Link to specific clip on timeline */}
+            {otherClips.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] text-zinc-400">Target Timeline Clip:</span>
+                <select
+                  value={activeTrack.attachedClipId || ''}
+                  onChange={(e) => {
+                    const targetId = e.target.value || undefined;
+                    trackingEngine.setTargetAttachment(
+                      selectedClip.id,
+                      activeTrack.targetType || 'text',
+                      targetId,
+                      activeTrack.attachedMaskId,
+                      activeTrack.id
+                    );
+                    // Also bind clip back-reference
+                    if (targetId) {
+                      const targetClip = otherClips.find((c) => c.id === targetId);
+                      if (targetClip) {
+                        targetClip.attachedToClipId = selectedClip.id;
+                        targetClip.attachedToTrackId = activeTrack.id;
+                        projectService.setProject({ ...project });
+                      }
+                    }
+                  }}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded p-1 text-zinc-200 text-[11px] focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="">None (Stand-alone Tracking Data)</option>
+                  {otherClips.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      [{c.type.toUpperCase()}] {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* Current Frame Readout */}
-          {currentFramePt && (
-            <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800/80 font-mono text-[11px] text-zinc-400 space-y-1">
-              <div className="flex justify-between">
-                <span>Evaluated X/Y:</span>
-                <span className="text-zinc-200">
-                  {(currentFramePt.x * 100).toFixed(1)}%, {(currentFramePt.y * 100).toFixed(1)}%
+          {/* Manual Keyframe & Drift Correction */}
+          {currentPt && (
+            <div className="p-3 bg-zinc-900/60 rounded-lg border border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-zinc-300 flex items-center gap-1">
+                  <Key className="w-3.5 h-3.5 text-amber-400" /> Current Frame Track State
                 </span>
+                <span className="text-zinc-400 font-mono text-[10px]">{currentSec.toFixed(2)}s</span>
               </div>
-              <div className="flex justify-between">
-                <span>Rotation / Scale:</span>
-                <span className="text-zinc-200">
-                  {currentFramePt.rotation.toFixed(1)}° / {(currentFramePt.scale * 100).toFixed(0)}%
-                </span>
+
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-300">
+                <div>X: {(currentPt.x * 100).toFixed(1)}%</div>
+                <div>Y: {(currentPt.y * 100).toFixed(1)}%</div>
+                <div>Rot: {currentPt.rotation.toFixed(1)}°</div>
+                <div>Scale: {currentPt.scale.toFixed(2)}x</div>
               </div>
-              <div className="flex justify-between">
-                <span>Tracking Confidence:</span>
-                <span className="text-emerald-400">{(currentFramePt.confidence * 100).toFixed(0)}%</span>
+
+              {/* Quick Nudge Buttons for Drift Correction */}
+              <div className="space-y-1 pt-1 border-t border-zinc-800">
+                <span className="text-[10px] text-zinc-400">Manual Nudge Keyframe Correction:</span>
+                <div className="grid grid-cols-4 gap-1">
+                  <button
+                    onClick={() =>
+                      trackingEngine.addOrUpdateManualKeyframe(
+                        selectedClip.id,
+                        currentSec,
+                        { x: currentPt.x - 0.01, y: currentPt.y },
+                        activeTrack.id
+                      )
+                    }
+                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] text-center"
+                  >
+                    ← Left
+                  </button>
+                  <button
+                    onClick={() =>
+                      trackingEngine.addOrUpdateManualKeyframe(
+                        selectedClip.id,
+                        currentSec,
+                        { x: currentPt.x + 0.01, y: currentPt.y },
+                        activeTrack.id
+                      )
+                    }
+                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] text-center"
+                  >
+                    Right →
+                  </button>
+                  <button
+                    onClick={() =>
+                      trackingEngine.addOrUpdateManualKeyframe(
+                        selectedClip.id,
+                        currentSec,
+                        { x: currentPt.x, y: currentPt.y - 0.01 },
+                        activeTrack.id
+                      )
+                    }
+                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] text-center"
+                  >
+                    ↑ Up
+                  </button>
+                  <button
+                    onClick={() =>
+                      trackingEngine.addOrUpdateManualKeyframe(
+                        selectedClip.id,
+                        currentSec,
+                        { x: currentPt.x, y: currentPt.y + 0.01 },
+                        activeTrack.id
+                      )
+                    }
+                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] text-center"
+                  >
+                    Down ↓
+                  </button>
+                </div>
               </div>
             </div>
           )}
+
+          {/* Delete Track Button */}
+          <div className="pt-2 border-t border-zinc-800 flex justify-end">
+            <button
+              onClick={handleDeleteActiveTrack}
+              className="px-2.5 py-1 text-rose-400 hover:bg-rose-500/10 rounded border border-rose-500/30 text-[11px] font-medium transition flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Delete Track</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

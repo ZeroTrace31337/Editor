@@ -20,10 +20,21 @@ import {
   Clock,
   Layers,
   AlertTriangle,
+  AlertCircle,
+  FolderOpen,
 } from 'lucide-react';
 
 export const MediaPoolPanel: React.FC = () => {
-  const { project, projectService, mediaRegistry, timelineEngine, commandManager, importFile, currentTime } = useEditor();
+  const {
+    project,
+    timelineEngine,
+    commandManager,
+    importFile,
+    removeMediaAsset,
+    uploadStates,
+    currentTime,
+  } = useEditor();
+
   const [filterType, setFilterType] = useState<'all' | 'video' | 'audio' | 'image'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -67,6 +78,7 @@ export const MediaPoolPanel: React.FC = () => {
     );
 
     (clip as any).mediaAssetId = asset.id;
+    (clip as any).thumbnailUrl = asset.thumbnailUrl;
     if (asset.type === 'audio') {
       (clip as any).volume = 1.0;
       (clip as any).pan = 0.0;
@@ -82,9 +94,7 @@ export const MediaPoolPanel: React.FC = () => {
 
   const handleRemoveAsset = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    mediaRegistry.removeAsset(id);
-    project.mediaPool = project.mediaPool.filter((a) => a.id !== id);
-    projectService.setProject({ ...project });
+    removeMediaAsset(id);
   };
 
   return (
@@ -104,7 +114,7 @@ export const MediaPoolPanel: React.FC = () => {
       {/* Panel Header */}
       <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-indigo-400" />
+          <Layers className="w-4 h-4 text-cyan-400" />
           <span className="text-xs font-semibold text-zinc-200 tracking-wide uppercase">Media Pool</span>
           <span className="text-[10px] text-zinc-500 font-mono">({assets.length})</span>
         </div>
@@ -120,7 +130,7 @@ export const MediaPoolPanel: React.FC = () => {
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-300 bg-indigo-950/60 border border-indigo-800/60 rounded-md hover:bg-indigo-900/80 hover:text-white transition-all shadow-xs"
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 rounded-md hover:bg-cyan-900/80 hover:text-white transition-all shadow-xs"
         >
           <Upload className="w-3.5 h-3.5" />
           <span>Import</span>
@@ -136,7 +146,7 @@ export const MediaPoolPanel: React.FC = () => {
             placeholder="Search media..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-md pl-8 pr-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-md pl-8 pr-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition-colors"
           />
         </div>
 
@@ -157,6 +167,49 @@ export const MediaPoolPanel: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Uploading / Processing Banners */}
+      {uploadStates.length > 0 && (
+        <div className="p-2.5 pb-0 space-y-1.5">
+          {uploadStates.map((up) => (
+            <div
+              key={up.id}
+              className={`p-2 rounded-lg text-[11px] border ${
+                up.status === 'failed'
+                  ? 'bg-red-950/40 border-red-500/50 text-red-300'
+                  : up.status === 'ready'
+                  ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                  : 'bg-cyan-950/30 border-cyan-500/40 text-cyan-200'
+              }`}
+            >
+              <div className="flex items-center justify-between font-medium">
+                <span className="truncate max-w-[180px]">{up.name}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider">
+                  {up.status === 'generating_thumbnail'
+                    ? 'Thumbnail'
+                    : up.status === 'processing'
+                    ? 'Probing'
+                    : up.status}
+                </span>
+              </div>
+              {up.status !== 'failed' && (
+                <div className="w-full h-1.5 bg-black/60 rounded-full mt-1.5 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300 rounded-full"
+                    style={{ width: `${up.progress}%` }}
+                  />
+                </div>
+              )}
+              {up.error && (
+                <div className="text-[10px] text-red-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>{up.error}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Assets Grid */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
         {filteredAssets.length === 0 ? (
@@ -164,13 +217,20 @@ export const MediaPoolPanel: React.FC = () => {
             onClick={() => fileInputRef.current?.click()}
             className={`h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all ${
               isDraggingOver
-                ? 'border-indigo-500 bg-indigo-500/10'
-                : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/30'
+                ? 'border-cyan-500 bg-cyan-500/10'
+                : 'border-zinc-800 hover:border-cyan-500/50 bg-zinc-900/30'
             }`}
           >
             <Upload className="w-8 h-8 text-zinc-600 mb-2" />
-            <p className="text-xs font-medium text-zinc-400">Drag & Drop media here</p>
-            <p className="text-[10px] text-zinc-600 mt-1">MP4, MOV, WebM, PNG, JPG, WAV, MP3</p>
+            <p className="text-xs font-medium text-zinc-300">Drag & Drop media files</p>
+            <p className="text-[10px] text-zinc-500 mt-1">or click to browse from device</p>
+            <div className="flex flex-wrap gap-1 items-center justify-center mt-2.5 max-w-[220px]">
+              {['MP4', 'MOV', 'WebM', 'AVI', 'MKV', 'PNG', 'JPG', 'MP3', 'WAV'].map((fmt) => (
+                <span key={fmt} className="px-1.5 py-0.5 rounded bg-zinc-850 text-zinc-400 text-[9px] font-mono">
+                  {fmt}
+                </span>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
@@ -183,7 +243,7 @@ export const MediaPoolPanel: React.FC = () => {
                   onDragStart={(e) => {
                     e.dataTransfer.setData('application/json', JSON.stringify(asset));
                   }}
-                  className="group relative bg-zinc-900 border border-zinc-800/90 rounded-lg overflow-hidden hover:border-indigo-500/70 transition-all shadow-xs flex flex-col"
+                  className="group relative bg-zinc-900 border border-zinc-800/90 rounded-lg overflow-hidden hover:border-cyan-500/70 transition-all shadow-xs flex flex-col"
                 >
                   {/* Thumbnail Container */}
                   <div className="relative aspect-video bg-zinc-950 flex items-center justify-center overflow-hidden">
@@ -204,13 +264,13 @@ export const MediaPoolPanel: React.FC = () => {
                     {/* Duration Badge */}
                     <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[10px] font-mono text-zinc-200 flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5 text-zinc-400" />
-                      <span>{durSec.toFixed(1)}s</span>
+                      <span>{durSec > 0 ? `${durSec.toFixed(1)}s` : asset.type.toUpperCase()}</span>
                     </div>
 
                     {/* Media Type Icon Badge */}
                     <div className="absolute top-1 left-1 p-1 rounded bg-black/70 backdrop-blur-xs text-zinc-300">
                       {asset.type === 'video' ? (
-                        <Film className="w-3 h-3 text-indigo-400" />
+                        <Film className="w-3 h-3 text-cyan-400" />
                       ) : asset.type === 'audio' ? (
                         <Music className="w-3 h-3 text-emerald-400" />
                       ) : (
@@ -222,7 +282,7 @@ export const MediaPoolPanel: React.FC = () => {
                     <button
                       onClick={() => handleAddAssetToTimeline(asset)}
                       title="Add to Timeline at playhead"
-                      className="absolute inset-0 bg-indigo-950/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 text-xs font-medium"
+                      className="absolute inset-0 bg-cyan-950/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 text-xs font-medium"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Place</span>
@@ -237,7 +297,7 @@ export const MediaPoolPanel: React.FC = () => {
                       </p>
                       <p className="text-[9px] text-zinc-500 font-mono">
                         {asset.videoMetadata
-                          ? `${asset.videoMetadata.width}x${asset.videoMetadata.height}`
+                          ? `${asset.videoMetadata.width}×${asset.videoMetadata.height}`
                           : asset.audioMetadata
                           ? `${asset.audioMetadata.sampleRate}Hz`
                           : `${(asset.fileSize / 1024 / 1024).toFixed(1)}MB`}

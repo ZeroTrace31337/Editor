@@ -3,7 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type EffectCategory = 'blur' | 'color' | 'stylize' | 'lighting' | 'distortion' | 'utility' | 'keying' | 'image';
+export type EffectCategory =
+  | 'blur'
+  | 'color'
+  | 'stylize'
+  | 'lighting'
+  | 'distortion'
+  | 'utility'
+  | 'keying'
+  | 'image'
+  | 'glitch'
+  | 'retro'
+  | 'cinematic'
+  | 'noise'
+  | 'tracking'
+  | 'ai';
 
 export type ParameterType = 'number' | 'range' | 'color' | 'boolean' | 'select' | 'point';
 

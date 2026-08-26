@@ -21,9 +21,19 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   Maximize2,
   Minimize2,
+  FlipHorizontal,
+  FlipVertical,
+  Layers,
+  Music,
+  Activity,
+  Zap,
+  Play,
+  Rotate3D,
+  Sun,
+  Shield,
+  Palette,
 } from 'lucide-react';
 import { UpdateTransformCommand } from '../../engine/command/implementations/UpdateTransformCommand';
 import { Transform2D } from '../../core/math/Transform2D';
@@ -34,8 +44,12 @@ import { TransitionsPanel } from './TransitionsPanel';
 import { MasksPanel } from './MasksPanel';
 import { TextPanel } from './TextPanel';
 import { TrackingPanel } from './TrackingPanel';
+import { KeyframesPanel } from './KeyframesPanel';
+import { SpeedPanel } from './SpeedPanel';
+import { KeyframeControl } from './KeyframeControl';
+import { secondsToRationalTime, createRationalTime } from '../../core/time/RationalTime';
 
-export type InspectorMainTab = 'video' | 'audio' | 'speed' | 'animation' | 'adjustment' | 'ai_style';
+export type InspectorMainTab = 'video' | 'audio' | 'speed' | 'animation' | 'keyframes' | 'adjustment' | 'ai_style';
 export type VideoSubTab = 'basic' | 'remove_bg' | 'mask' | 'retouch';
 
 const blendModes: { label: string; value: GlobalCompositeOperation }[] = [
@@ -67,6 +81,31 @@ export const InspectorPanel: React.FC = () => {
   const [isBlendOpen, setIsBlendOpen] = useState(true);
   const [uniformScale, setUniformScale] = useState(true);
   const [blendEnabled, setBlendEnabled] = useState(true);
+
+  // Chroma Key & BG Removal state
+  const [chromaColor, setChromaColor] = useState('#00ff00');
+  const [chromaSimilarity, setChromaSimilarity] = useState(40);
+  const [chromaSmoothness, setChromaSmoothness] = useState(15);
+  const [chromaSpill, setChromaSpill] = useState(30);
+  const [autoCutoutEnabled, setAutoCutoutEnabled] = useState(false);
+
+  // Retouch state
+  const [faceSmooth, setFaceSmooth] = useState(35);
+  const [skinBright, setSkinBright] = useState(10);
+  const [eyeBright, setEyeBright] = useState(20);
+  const [teethWhite, setTeethWhite] = useState(15);
+  const [faceSlim, setFaceSlim] = useState(0);
+
+  // Speed Curve State
+  const [selectedSpeedCurve, setSelectedSpeedCurve] = useState('Standard');
+  const [speedReverse, setSpeedReverse] = useState(false);
+  const [keepPitch, setKeepPitch] = useState(true);
+  const [smoothSlowMo, setSmoothSlowMo] = useState(false);
+
+  // AI Style prompt state
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGeneratingAiStyle, setIsGeneratingAiStyle] = useState(false);
+  const [activeAiStyle, setActiveAiStyle] = useState<string | null>(null);
 
   // Sync workspace mode if needed
   React.useEffect(() => {
@@ -101,6 +140,51 @@ export const InspectorPanel: React.FC = () => {
     projectService.setProject({ ...project });
   };
 
+  const handleSpeedChange = (speedVal: number) => {
+    if (!selectedClip) return;
+    selectedClip.speed = Math.max(0.1, Math.min(100, speedVal));
+    projectService.setProject({ ...project });
+  };
+
+  const handleAudioPropChange = (prop: string, val: any) => {
+    if (!selectedClip) return;
+    (selectedClip as any)[prop] = val;
+    projectService.setProject({ ...project });
+  };
+
+  const handleApplyAiStyle = (styleName: string) => {
+    if (!selectedClip) return;
+    setActiveAiStyle(styleName);
+
+    if (styleName === 'Cyberpunk Neon') {
+      selectedClip.colorGrade.saturation = 1.6;
+      selectedClip.colorGrade.contrast = 1.3;
+      selectedClip.colorGrade.tint = 30;
+      selectedClip.colorGrade.temp = -20;
+    } else if (styleName === 'Cinematic Film Look') {
+      selectedClip.colorGrade.contrast = 1.25;
+      selectedClip.colorGrade.saturation = 0.9;
+      selectedClip.colorGrade.shadows = -0.15;
+      selectedClip.colorGrade.highlights = 0.1;
+      selectedClip.colorGrade.vignette = 0.35;
+    } else if (styleName === 'Anime Aesthetic') {
+      selectedClip.colorGrade.brightness = 0.1;
+      selectedClip.colorGrade.saturation = 1.4;
+      selectedClip.colorGrade.contrast = 1.15;
+      selectedClip.colorGrade.temp = 10;
+    } else if (styleName === 'Vintage 70s') {
+      selectedClip.colorGrade.temp = 35;
+      selectedClip.colorGrade.tint = 15;
+      selectedClip.colorGrade.saturation = 0.8;
+      selectedClip.colorGrade.contrast = 0.95;
+    } else if (styleName === 'Dramatic Noir') {
+      selectedClip.colorGrade.saturation = 0.0;
+      selectedClip.colorGrade.contrast = 1.5;
+      selectedClip.colorGrade.exposure = -0.2;
+    }
+    projectService.setProject({ ...project });
+  };
+
   const trans = selectedClip?.transform || {
     position: { x: 0, y: 0 },
     scale: { x: 1.0, y: 1.0 },
@@ -114,6 +198,7 @@ export const InspectorPanel: React.FC = () => {
     { id: 'audio', label: 'Audio' },
     { id: 'speed', label: 'Speed' },
     { id: 'animation', label: 'Animation' },
+    { id: 'keyframes', label: 'Keyframes ◆' },
     { id: 'adjustment', label: 'Adjustment' },
     { id: 'ai_style', label: 'AI style' },
   ];
@@ -190,11 +275,14 @@ export const InspectorPanel: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleTransformChange('position', { x: 0, y: 0 });
+                      handleTransformChange('scale', { x: 1.0, y: 1.0 });
+                      handleTransformChange('rotation', 0);
                     }}
-                    className="text-zinc-500 hover:text-cyan-400 transition"
-                    title="Add Keyframe"
+                    className="text-zinc-500 hover:text-cyan-400 transition text-[10px]"
+                    title="Reset Transform"
                   >
-                    <span className="text-xs">◇</span>
+                    <RotateCcw className="w-3 h-3" />
                   </button>
                   {isTransformOpen ? (
                     <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
@@ -211,12 +299,19 @@ export const InspectorPanel: React.FC = () => {
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400">Scale</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-zinc-500 hover:text-cyan-400 cursor-pointer">◇</span>
                         <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5">
                           <span className="text-zinc-200 font-mono text-[11px]">
                             {Math.round(trans.scale.x * 100)}%
                           </span>
                         </div>
+                        {selectedClip && (
+                          <KeyframeControl
+                            clip={selectedClip}
+                            propertyPath="transform.scale"
+                            propertyName="Scale"
+                            currentValue={trans.scale.x}
+                          />
+                        )}
                       </div>
                     </div>
                     <input
@@ -258,7 +353,24 @@ export const InspectorPanel: React.FC = () => {
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400">Position</span>
-                      <span className="text-zinc-500 hover:text-cyan-400 cursor-pointer">◇</span>
+                      {selectedClip && (
+                        <div className="flex items-center gap-1">
+                          <KeyframeControl
+                            clip={selectedClip}
+                            propertyPath="transform.position.x"
+                            propertyName="Pos X"
+                            currentValue={trans.position.x}
+                            compact
+                          />
+                          <KeyframeControl
+                            clip={selectedClip}
+                            propertyPath="transform.position.y"
+                            propertyName="Pos Y"
+                            currentValue={trans.position.y}
+                            compact
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded px-2 py-1 justify-between">
@@ -296,7 +408,14 @@ export const InspectorPanel: React.FC = () => {
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400">Rotate</span>
-                      <span className="text-zinc-500 hover:text-cyan-400 cursor-pointer">◇</span>
+                      {selectedClip && (
+                        <KeyframeControl
+                          clip={selectedClip}
+                          propertyPath="transform.rotation"
+                          propertyName="Rotation"
+                          currentValue={trans.rotation}
+                        />
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 flex items-center bg-zinc-900 border border-zinc-800 rounded px-2 py-1 justify-between">
@@ -314,6 +433,43 @@ export const InspectorPanel: React.FC = () => {
                         className="flex-1 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                       />
                     </div>
+                  </div>
+
+                  {/* Flip & Quick Rotate */}
+                  <div className="flex items-center justify-between gap-1 pt-1">
+                    <button
+                      onClick={() =>
+                        handleTransformChange('scale', {
+                          ...trans.scale,
+                          x: trans.scale.x * -1,
+                        })
+                      }
+                      className="flex-1 py-1 px-2 rounded bg-zinc-900 border border-zinc-800 hover:border-cyan-500 text-zinc-300 text-[10px] flex items-center justify-center gap-1"
+                    >
+                      <FlipHorizontal className="w-3 h-3" />
+                      <span>Flip H</span>
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleTransformChange('scale', {
+                          ...trans.scale,
+                          y: trans.scale.y * -1,
+                        })
+                      }
+                      className="flex-1 py-1 px-2 rounded bg-zinc-900 border border-zinc-800 hover:border-cyan-500 text-zinc-300 text-[10px] flex items-center justify-center gap-1"
+                    >
+                      <FlipVertical className="w-3 h-3" />
+                      <span>Flip V</span>
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleTransformChange('rotation', ((trans.rotation + 90) % 360))
+                      }
+                      className="flex-1 py-1 px-2 rounded bg-zinc-900 border border-zinc-800 hover:border-cyan-500 text-zinc-300 text-[10px] flex items-center justify-center gap-1"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      <span>90°</span>
+                    </button>
                   </div>
 
                   {/* Alignment Toolbar */}
@@ -358,7 +514,7 @@ export const InspectorPanel: React.FC = () => {
               )}
             </div>
 
-            {/* SECTION 2: BLEND */}
+            {/* SECTION 2: BLEND & OPACITY */}
             <div className="border border-zinc-800/80 rounded-xl bg-[#111320] overflow-hidden">
               <div
                 onClick={() => setIsBlendOpen(!isBlendOpen)}
@@ -378,7 +534,6 @@ export const InspectorPanel: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Eye className="w-3.5 h-3.5 text-zinc-500" />
-                  <span className="text-zinc-500 hover:text-cyan-400 cursor-pointer">◇</span>
                   {isBlendOpen ? (
                     <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
                   ) : (
@@ -410,10 +565,17 @@ export const InspectorPanel: React.FC = () => {
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400">Opacity</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-zinc-500 hover:text-cyan-400 cursor-pointer">◇</span>
                         <div className="bg-zinc-900 border border-zinc-800 rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px]">
                           {Math.round((selectedClip?.opacity ?? 1.0) * 100)}%
                         </div>
+                        {selectedClip && (
+                          <KeyframeControl
+                            clip={selectedClip}
+                            propertyPath="opacity"
+                            propertyName="Opacity"
+                            currentValue={selectedClip.opacity ?? 1.0}
+                          />
+                        )}
                       </div>
                     </div>
                     <input
@@ -432,23 +594,162 @@ export const InspectorPanel: React.FC = () => {
           </div>
         )}
 
-        {/* TAB: VIDEO -> OTHER SUBTABS */}
-        {activeTab === 'video' && videoSubTab === 'mask' && <MasksPanel />}
+        {/* TAB: VIDEO -> REMOVE BG */}
         {activeTab === 'video' && videoSubTab === 'remove_bg' && (
-          <div className="p-4 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-3">
-            <div className="font-bold text-zinc-200">AI Background Removal</div>
-            <p className="text-zinc-400 text-[11px]">
-              Automatically segments human subjects or foreground elements in real-time.
-            </p>
-            <button className="w-full py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs transition">
-              Extract Foreground Subject
-            </button>
+          <div className="space-y-3">
+            {/* Auto Cutout Card */}
+            <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-zinc-200 text-xs">Auto Subject Cutout</span>
+                <button
+                  onClick={() => setAutoCutoutEnabled(!autoCutoutEnabled)}
+                  className={`w-8 h-4 rounded-full transition-colors relative ${
+                    autoCutoutEnabled ? 'bg-cyan-500' : 'bg-zinc-800'
+                  }`}
+                >
+                  <div
+                    className={`w-3 h-3 rounded-full bg-black transition-transform absolute top-0.5 ${
+                      autoCutoutEnabled ? 'left-4.5' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-zinc-400 text-[11px]">
+                Intelligently isolates portrait subjects and foreground objects from the background.
+              </p>
+            </div>
+
+            {/* Chroma Key */}
+            <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-3">
+              <div className="font-bold text-zinc-200 text-xs">Chroma Key (Green/Blue Screen)</div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 text-[11px]">Key Color</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={chromaColor}
+                    onChange={(e) => setChromaColor(e.target.value)}
+                    className="w-6 h-6 rounded border border-zinc-700 bg-transparent cursor-pointer"
+                  />
+                  <span className="font-mono text-zinc-300 text-[11px]">{chromaColor}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-zinc-400 text-[11px]">
+                  <span>Similarity / Tolerance</span>
+                  <span className="font-mono text-zinc-200">{chromaSimilarity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={chromaSimilarity}
+                  onChange={(e) => setChromaSimilarity(parseInt(e.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-zinc-400 text-[11px]">
+                  <span>Smoothness & Feather</span>
+                  <span className="font-mono text-zinc-200">{chromaSmoothness}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="50"
+                  value={chromaSmoothness}
+                  onChange={(e) => setChromaSmoothness(parseInt(e.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-zinc-400 text-[11px]">
+                  <span>Spill Reduction</span>
+                  <span className="font-mono text-zinc-200">{chromaSpill}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={chromaSpill}
+                  onChange={(e) => setChromaSpill(parseInt(e.target.value))}
+                  className="w-full accent-cyan-400"
+                />
+              </div>
+            </div>
           </div>
         )}
+
+        {/* TAB: VIDEO -> MASK */}
+        {activeTab === 'video' && videoSubTab === 'mask' && <MasksPanel />}
+
+        {/* TAB: VIDEO -> RETOUCH */}
         {activeTab === 'video' && videoSubTab === 'retouch' && (
-          <div className="p-4 bg-zinc-900/80 rounded-xl border border-zinc-800 space-y-3">
-            <div className="font-bold text-zinc-200">Portrait & Face Retouch</div>
-            <p className="text-zinc-400 text-[11px]">Skin smoothing, eye brightening, and facial lighting enhancements.</p>
+          <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-3.5">
+            <div className="font-bold text-zinc-200 text-xs">Portrait & Face Beautify</div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-zinc-400 text-[11px]">
+                <span>Skin Smoothing</span>
+                <span className="font-mono text-cyan-400">{faceSmooth}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={faceSmooth}
+                onChange={(e) => setFaceSmooth(parseInt(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-zinc-400 text-[11px]">
+                <span>Skin Brightening</span>
+                <span className="font-mono text-cyan-400">{skinBright}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={skinBright}
+                onChange={(e) => setSkinBright(parseInt(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-zinc-400 text-[11px]">
+                <span>Eye Brightening</span>
+                <span className="font-mono text-cyan-400">{eyeBright}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={eyeBright}
+                onChange={(e) => setEyeBright(parseInt(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-zinc-400 text-[11px]">
+                <span>Teeth Whitening</span>
+                <span className="font-mono text-cyan-400">{teethWhite}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={teethWhite}
+                onChange={(e) => setTeethWhite(parseInt(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
+            </div>
           </div>
         )}
 
@@ -456,62 +757,203 @@ export const InspectorPanel: React.FC = () => {
         {activeTab === 'audio' && (
           <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-4">
             <div className="font-bold text-zinc-200 text-xs">Audio Master Controls</div>
-            <div className="space-y-2">
+
+            {/* Volume */}
+            <div className="space-y-1.5">
               <div className="flex justify-between text-zinc-400 text-[11px]">
                 <span>Volume</span>
-                <span className="font-mono text-zinc-200">0.0 dB</span>
+                <span className="font-mono text-cyan-400">
+                  {Math.round(((selectedClip as any)?.volume ?? 1.0) * 100)}%
+                </span>
               </div>
-              <input type="range" min="0" max="2.0" step="0.05" defaultValue="1.0" className="w-full accent-cyan-400" />
+              <input
+                type="range"
+                min="0"
+                max="2.0"
+                step="0.01"
+                value={(selectedClip as any)?.volume ?? 1.0}
+                onChange={(e) => handleAudioPropChange('volume', parseFloat(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
             </div>
+
+            {/* Stereo Pan */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-zinc-400 text-[11px]">
+                <span>Pan (Stereo Balance)</span>
+                <span className="font-mono text-zinc-300">
+                  {((selectedClip as any)?.pan ?? 0) === 0
+                    ? 'Center'
+                    : ((selectedClip as any)?.pan ?? 0) < 0
+                    ? `L ${Math.abs(Math.round(((selectedClip as any)?.pan ?? 0) * 100))}%`
+                    : `R ${Math.round(((selectedClip as any)?.pan ?? 0) * 100)}%`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-1.0"
+                max="1.0"
+                step="0.05"
+                value={(selectedClip as any)?.pan ?? 0}
+                onChange={(e) => handleAudioPropChange('pan', parseFloat(e.target.value))}
+                className="w-full accent-cyan-400"
+              />
+            </div>
+
+            {/* Fade In / Fade Out */}
             <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="p-2 rounded bg-zinc-900 border border-zinc-800">
-                <div className="font-semibold text-zinc-300">Fade In</div>
-                <div className="text-zinc-500 font-mono">0.0s</div>
+              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 space-y-1">
+                <span className="text-zinc-400">Fade In</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  defaultValue="0.0"
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px]"
+                />
               </div>
-              <div className="p-2 rounded bg-zinc-900 border border-zinc-800">
-                <div className="font-semibold text-zinc-300">Fade Out</div>
-                <div className="text-zinc-500 font-mono">0.0s</div>
+              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 space-y-1">
+                <span className="text-zinc-400">Fade Out</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  defaultValue="0.0"
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px]"
+                />
               </div>
             </div>
-            <div className="p-2 rounded bg-zinc-900 border border-zinc-800 space-y-2">
-              <div className="font-semibold text-zinc-300">Noise Reduction</div>
-              <input type="range" min="0" max="100" defaultValue="40" className="w-full accent-cyan-400" />
+
+            {/* Equalizer (Bass / Mid / Treble) */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800">
+              <span className="text-zinc-300 font-semibold text-[11px]">3-Band Equalizer</span>
+              <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
+                  <span className="text-zinc-400">Bass</span>
+                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
+                </div>
+                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
+                  <span className="text-zinc-400">Mid</span>
+                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
+                </div>
+                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
+                  <span className="text-zinc-400">Treble</span>
+                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Noise Reduction & Voice Isolation */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-300">AI Noise Reduction</span>
+                <input type="checkbox" defaultChecked className="rounded bg-zinc-800 text-cyan-500" />
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-300">AI Vocal Isolation</span>
+                <input type="checkbox" className="rounded bg-zinc-800 text-cyan-500" />
+              </div>
             </div>
           </div>
         )}
 
         {/* TAB: SPEED */}
-        {activeTab === 'speed' && (
-          <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-4">
-            <div className="font-bold text-zinc-200 text-xs">Playback Speed & Curve</div>
-            <div className="flex items-center gap-1.5">
-              {['0.5x', '1x', '2x', '5x', '10x'].map((spd) => (
-                <button
-                  key={spd}
-                  className="flex-1 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-cyan-500 text-zinc-300 text-[11px] font-medium"
-                >
-                  {spd}
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-zinc-400 text-[11px]">
-                <span>Speed Multiplier</span>
-                <span className="text-cyan-400 font-mono">1.00x</span>
-              </div>
-              <input type="range" min="0.1" max="10.0" step="0.1" defaultValue="1.0" className="w-full accent-cyan-400" />
-            </div>
-          </div>
-        )}
+        {activeTab === 'speed' && <SpeedPanel clip={selectedClip || undefined} />}
 
         {/* TAB: ANIMATION */}
         {activeTab === 'animation' && <EffectsPanel />}
+
+        {/* TAB: KEYFRAMES */}
+        {activeTab === 'keyframes' && <KeyframesPanel />}
 
         {/* TAB: ADJUSTMENT (Color Grading Deck) */}
         {activeTab === 'adjustment' && <ColorPanel />}
 
         {/* TAB: AI STYLE */}
-        {activeTab === 'ai_style' && <TrackingPanel />}
+        {activeTab === 'ai_style' && (
+          <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-4">
+            <div className="font-bold text-zinc-200 text-xs">AI Visual Style Transformations</div>
+
+            {/* Text-to-Style Prompt Engine */}
+            <div className="space-y-1.5 p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+              <span className="text-[11px] font-semibold text-cyan-400">Text-to-Style Prompt</span>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="e.g. Cinematic golden hour sunlight with teal shadows, moody 35mm film..."
+                rows={2}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-zinc-200 text-[11px] focus:outline-none focus:border-cyan-500 resize-none"
+              />
+              <button
+                disabled={isGeneratingAiStyle}
+                onClick={() => {
+                  setIsGeneratingAiStyle(true);
+                  setTimeout(() => {
+                    handleApplyAiStyle('Cinematic Film Look');
+                    setIsGeneratingAiStyle(false);
+                  }, 600);
+                }}
+                className="w-full py-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-[11px] transition flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>{isGeneratingAiStyle ? 'Applying Neural Style...' : 'Generate & Apply Style'}</span>
+              </button>
+            </div>
+
+            {/* AI Style Presets */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-zinc-300">AI Visual Presets</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  'Cinematic Film Look',
+                  'Cyberpunk Neon',
+                  'Anime Aesthetic',
+                  'Vintage 70s',
+                  'Dramatic Noir',
+                  'Golden Hour Magic',
+                ].map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => handleApplyAiStyle(style)}
+                    className={`p-2 rounded-lg border text-left flex flex-col justify-between h-16 transition ${
+                      activeAiStyle === style
+                        ? 'bg-cyan-500/20 border-cyan-400 text-white font-bold'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                    }`}
+                  >
+                    <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-[10px] truncate">{style}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* AI Scene Relighting */}
+            <div className="space-y-2 pt-2 border-t border-zinc-800">
+              <span className="text-[11px] font-semibold text-zinc-300">AI Scene Relighting</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {['Studio Key', 'Rim Light', 'Neon Sun', 'Sunset Glow', 'Moody Noir', 'Spotlight'].map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => {
+                      if (selectedClip) {
+                        selectedClip.colorGrade.exposure = 0.2;
+                        selectedClip.colorGrade.highlights = 0.3;
+                        projectService.setProject({ ...project });
+                      }
+                    }}
+                    className="p-1.5 rounded bg-zinc-900 border border-zinc-800 hover:border-cyan-500 text-zinc-300 text-[10px] text-center"
+                  >
+                    <Sun className="w-3 h-3 mx-auto mb-0.5 text-amber-400" />
+                    <span>{l}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

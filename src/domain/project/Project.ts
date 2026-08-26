@@ -8,7 +8,7 @@ import { Sequence, createDefaultSequence } from '../timeline/Sequence';
 import { MediaAsset } from '../media/MediaAsset';
 import { createTrack } from '../timeline/Track';
 
-export type AspectRatioPreset = '16:9' | '9:16' | '1:1' | '4:3' | '21:9';
+export type AspectRatioPreset = '16:9' | '9:16' | '1:1' | '4:3' | '4:5' | '21:9';
 
 export interface ProjectSettings {
   canvasWidth: number;

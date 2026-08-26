@@ -328,7 +328,7 @@ export class TimelineEngine {
     return { snappedTime: bestSnap, didSnap, snapTargetName };
   }
 
-  private recalculateSequenceDuration(): void {
+  public recalculateSequenceDuration(): void {
     let maxEnd = createRationalTime(0);
     for (const track of this.sequence.tracks) {
       for (const clip of track.clips) {
@@ -339,6 +339,7 @@ export class TimelineEngine {
       }
     }
     this.sequence.duration = maxEnd;
+    this.notify();
   }
 
   public subscribe(listener: () => void): () => void {

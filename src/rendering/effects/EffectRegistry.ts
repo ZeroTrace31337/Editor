@@ -6,6 +6,7 @@
 import { IEffect, EffectCategory } from './EffectTypes';
 import { BlurEffect } from './implementations/BlurEffect';
 import { MotionBlurEffect } from './implementations/MotionBlurEffect';
+import { RadialBlurEffect } from './implementations/RadialBlurEffect';
 import { GlowEffect } from './implementations/GlowEffect';
 import { BloomEffect } from './implementations/BloomEffect';
 import { VignetteEffect } from './implementations/VignetteEffect';
@@ -20,6 +21,13 @@ import { GlitchEffect } from './implementations/GlitchEffect';
 import { PixelateEffect } from './implementations/PixelateEffect';
 import { ChromaKeyEffect } from './implementations/ChromaKeyEffect';
 import { LumaKeyEffect } from './implementations/LumaKeyEffect';
+import { WaveDistortionEffect } from './implementations/WaveDistortionEffect';
+import { ScanlinesEffect } from './implementations/ScanlinesEffect';
+import { LightLeakEffect } from './implementations/LightLeakEffect';
+import { VHSRetroEffect } from './implementations/VHSRetroEffect';
+import { LetterboxCinematicEffect } from './implementations/LetterboxCinematicEffect';
+import { BodyOutlineGlowEffect } from './implementations/BodyOutlineGlowEffect';
+import { AISceneRelightEffect } from './implementations/AISceneRelightEffect';
 
 export class EffectRegistry {
   private static instance: EffectRegistry;
@@ -40,11 +48,13 @@ export class EffectRegistry {
     // Blur
     this.register(new BlurEffect());
     this.register(new MotionBlurEffect());
+    this.register(new RadialBlurEffect());
 
     // Lighting & Glow
     this.register(new GlowEffect());
     this.register(new BloomEffect());
     this.register(new VignetteEffect());
+    this.register(new LightLeakEffect());
 
     // Stylize & Image
     this.register(new SharpenEffect());
@@ -58,6 +68,18 @@ export class EffectRegistry {
     // Distortion
     this.register(new FisheyeEffect());
     this.register(new GlitchEffect());
+    this.register(new WaveDistortionEffect());
+
+    // Retro & Glitch
+    this.register(new ScanlinesEffect());
+    this.register(new VHSRetroEffect());
+
+    // Cinematic
+    this.register(new LetterboxCinematicEffect());
+
+    // Body & AI
+    this.register(new BodyOutlineGlowEffect());
+    this.register(new AISceneRelightEffect());
 
     // Keying
     this.register(new ChromaKeyEffect());

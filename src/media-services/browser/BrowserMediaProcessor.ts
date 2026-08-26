@@ -4,8 +4,7 @@
  */
 
 import { IMediaProcessor, MediaProbeResult } from '../contracts/IMediaProcessor';
-import { MediaType } from '../../domain/media/MediaAsset';
-import { secondsToRationalTime, createRationalTime } from '../../core/time/RationalTime';
+import { secondsToRationalTime } from '../../core/time/RationalTime';
 import { LuminaError, ErrorCode } from '../../core/errors/AppErrors';
 import { logger } from '../../core/logging/Logger';
 
@@ -22,15 +21,20 @@ export class BrowserMediaProcessor implements IMediaProcessor {
 
   public async probeMedia(fileOrUri: File | Blob | string, name: string): Promise<MediaProbeResult> {
     const extension = name.split('.').pop()?.toLowerCase() || '';
-    const isVideo = ['mp4', 'mov', 'webm', 'mkv', 'm4v'].includes(extension);
-    const isAudio = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac'].includes(extension);
-    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(extension);
+    const isVideo = ['mp4', 'mov', 'webm', 'mkv', 'm4v', 'avi', 'wmv', 'flv', '3gp', 'ogv', 'ts'].includes(extension) ||
+      (fileOrUri instanceof Blob && fileOrUri.type.startsWith('video/'));
+    const isAudio = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'opus', 'wma', 'aiff'].includes(extension) ||
+      (fileOrUri instanceof Blob && fileOrUri.type.startsWith('audio/'));
+    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp', 'avif'].includes(extension) ||
+      (fileOrUri instanceof Blob && fileOrUri.type.startsWith('image/'));
 
     let uri: string;
+    let shouldRevoke = false;
     if (typeof fileOrUri === 'string') {
       uri = fileOrUri;
     } else {
       uri = URL.createObjectURL(fileOrUri);
+      shouldRevoke = false; // Kept open for playback/render session
     }
 
     try {
@@ -42,7 +46,7 @@ export class BrowserMediaProcessor implements IMediaProcessor {
         return await this.probeImage(uri);
       } else {
         // Fallback probe
-        return await this.probeVideo(uri).catch(() => this.probeImage(uri));
+        return await this.probeVideo(uri).catch(() => this.probeImage(uri)).catch(() => this.probeAudio(fileOrUri, uri));
       }
     } catch (err: any) {
       logger.error('BrowserMediaProcessor', `Failed to probe media: ${name}`, { error: err.message });
@@ -57,14 +61,39 @@ export class BrowserMediaProcessor implements IMediaProcessor {
   private probeVideo(uri: string): Promise<MediaProbeResult> {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
-      video.preload = 'metadata';
+      video.preload = 'auto';
       video.muted = true;
+      video.playsInline = true;
       video.crossOrigin = 'anonymous';
 
+      let resolved = false;
+
       const timeout = setTimeout(() => {
-        cleanup();
-        reject(new Error('Video metadata probe timed out'));
-      }, 10000);
+        if (!resolved) {
+          cleanup();
+          // Provide fallback duration if video loaded partially
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            resolve({
+              type: 'video',
+              duration: secondsToRationalTime(video.duration || 5.0),
+              videoMetadata: {
+                width: video.videoWidth || 1920,
+                height: video.videoHeight || 1080,
+                fps: 30,
+                codec: 'h264/avc',
+              },
+              audioMetadata: {
+                sampleRate: 48000,
+                channels: 2,
+                codec: 'aac',
+              },
+              thumbnailUrl: '',
+            });
+            return;
+          }
+          reject(new Error('Video metadata probe timed out. Please check file format.'));
+        }
+      }, 12000);
 
       const cleanup = () => {
         clearTimeout(timeout);
@@ -73,32 +102,38 @@ export class BrowserMediaProcessor implements IMediaProcessor {
         video.onseeked = null;
       };
 
-      video.onloadedmetadata = async () => {
-        const durationSec = video.duration || 10;
+      const captureFrameThumbnail = () => {
+        let thumb = '';
+        try {
+          const width = video.videoWidth || 1920;
+          const height = video.videoHeight || 1080;
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, 360 / width);
+          canvas.width = Math.max(160, Math.round(width * scale));
+          canvas.height = Math.max(90, Math.round(height * scale));
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            thumb = canvas.toDataURL('image/jpeg', 0.85);
+          }
+        } catch (e) {
+          console.warn('Could not generate canvas thumbnail', e);
+        }
+        return thumb;
+      };
+
+      video.onloadedmetadata = () => {
+        const durationSec = isFinite(video.duration) && video.duration > 0 ? video.duration : 10.0;
         const width = video.videoWidth || 1920;
         const height = video.videoHeight || 1080;
         const durationRational = secondsToRationalTime(durationSec);
 
-        // Seek to 0.5s or 10% to capture representative thumbnail
-        const seekTarget = Math.min(0.5, durationSec * 0.1);
-        video.currentTime = seekTarget;
-
-        video.onseeked = () => {
-          let thumb = '';
-          try {
-            const canvas = document.createElement('canvas');
-            const scale = Math.min(1, 320 / width);
-            canvas.width = Math.round(width * scale);
-            canvas.height = Math.round(height * scale);
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              thumb = canvas.toDataURL('image/jpeg', 0.8);
-            }
-          } catch (e) {
-            console.warn('Could not generate canvas thumbnail', e);
-          }
-
+        const seekTarget = Math.min(0.2, Math.max(0, durationSec * 0.05));
+        
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
+          const thumb = captureFrameThumbnail();
           cleanup();
           resolve({
             type: 'video',
@@ -106,7 +141,7 @@ export class BrowserMediaProcessor implements IMediaProcessor {
             videoMetadata: {
               width,
               height,
-              fps: 30, // Standard WebCodecs/HTML5 default
+              fps: 30,
               codec: 'h264/avc',
             },
             audioMetadata: {
@@ -117,6 +152,16 @@ export class BrowserMediaProcessor implements IMediaProcessor {
             thumbnailUrl: thumb,
           });
         };
+
+        video.onseeked = finish;
+        // Also fallback in case onseeked doesn't fire immediately
+        setTimeout(finish, 800);
+
+        try {
+          video.currentTime = seekTarget;
+        } catch {
+          finish();
+        }
       };
 
       video.onerror = () => {
@@ -125,6 +170,7 @@ export class BrowserMediaProcessor implements IMediaProcessor {
       };
 
       video.src = uri;
+      video.load();
     });
   }
 
@@ -162,13 +208,12 @@ export class BrowserMediaProcessor implements IMediaProcessor {
       img.crossOrigin = 'anonymous';
 
       img.onload = () => {
-        // Default 5 seconds duration for static photos placed on timeline
         const durationRational = secondsToRationalTime(5.0);
 
         let thumb = uri;
         try {
           const canvas = document.createElement('canvas');
-          const scale = Math.min(1, 320 / img.width);
+          const scale = Math.min(1, 360 / img.width);
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
           const ctx = canvas.getContext('2d');
@@ -236,7 +281,7 @@ export class BrowserMediaProcessor implements IMediaProcessor {
   }
 
   private extractWaveformPeaks(audioBuffer: AudioBuffer, samplesCount: number): number[] {
-    const rawData = audioBuffer.getChannelData(0); // Primary channel
+    const rawData = audioBuffer.getChannelData(0);
     const blockSize = Math.floor(rawData.length / samplesCount);
     const peaks: number[] = [];
 

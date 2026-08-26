@@ -20,6 +20,8 @@ export interface Transform2D {
   scale: Vector2D;    // 1.0 is 100%
   rotation: number;   // Angle in degrees (-180 to +180)
   anchor: Vector2D;   // Normalized (0.5, 0.5 is center)
+  skew?: Vector2D;    // Skew angles in degrees (X, Y)
+  perspective?: number; // Perspective factor (0 to 100)
   flipH?: boolean;
   flipV?: boolean;
   crop?: CropRect;
@@ -31,6 +33,8 @@ export function createDefaultTransform(): Transform2D {
     scale: { x: 1.0, y: 1.0 },
     rotation: 0,
     anchor: { x: 0.5, y: 0.5 },
+    skew: { x: 0, y: 0 },
+    perspective: 0,
     flipH: false,
     flipV: false,
     crop: { left: 0, top: 0, right: 0, bottom: 0 },
@@ -50,6 +54,13 @@ export function applyTransformMatrix(
 
   ctx.translate(centerX, centerY);
   ctx.rotate((transform.rotation * Math.PI) / 180);
+
+  // Apply Skew if defined
+  if (transform.skew && (transform.skew.x !== 0 || transform.skew.y !== 0)) {
+    const tanX = Math.tan((transform.skew.x * Math.PI) / 180);
+    const tanY = Math.tan((transform.skew.y * Math.PI) / 180);
+    ctx.transform(1, tanY, tanX, 1, 0, 0);
+  }
 
   const scaleX = (transform.flipH ? -1 : 1) * (transform.scale?.x ?? 1.0);
   const scaleY = (transform.flipV ? -1 : 1) * (transform.scale?.y ?? 1.0);

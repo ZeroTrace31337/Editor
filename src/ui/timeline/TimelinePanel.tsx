@@ -18,16 +18,25 @@ import {
   VolumeX,
   Crosshair,
   Layers,
+  Diamond,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
 } from 'lucide-react';
 import {
   RationalTime,
   createRationalTime,
   secondsToRationalTime,
   rationalTimeToSeconds,
+  addRationalTime,
+  subtractRationalTime,
+  compareRationalTime,
 } from '../../core/time/RationalTime';
 import { SplitClipCommand } from '../../engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from '../../engine/command/implementations/DeleteClipCommand';
 import { RippleDeleteCommand } from '../../engine/command/implementations/RippleDeleteCommand';
+import { MoveKeyframeCommand } from '../../engine/command/implementations/MoveKeyframeCommand';
+import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { createBaseClip, TimelineClip } from '../../domain/timeline/Clip';
 import { createTrack } from '../../domain/timeline/Track';
 
@@ -38,12 +47,23 @@ export const TimelinePanel: React.FC = () => {
     timelineEngine,
     commandManager,
     currentTime,
+    seek,
     seekSeconds,
     selectedClipId,
     setSelectedClipId,
+    selectedClip,
     snappingEnabled,
     timelineZoom,
     setTimelineZoom,
+    selectedKeyframeId,
+    selectedKeyframePropertyPath,
+    setSelectedKeyframe,
+    autoKeyframeEnabled,
+    setAutoKeyframeEnabled,
+    jumpToPrevKeyframe,
+    jumpToNextKeyframe,
+    isKeyframeLaneOpen,
+    setKeyframeLaneOpen,
   } = useEditor();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +78,14 @@ export const TimelinePanel: React.FC = () => {
     initialDuration: RationalTime;
     initialSourceIn: RationalTime;
     initialTrackId: string;
+  } | null>(null);
+
+  const [activeKfDrag, setActiveKfDrag] = useState<{
+    clipId: string;
+    propertyPath: string;
+    keyframeId: string;
+    startMouseX: number;
+    initialKfTime: RationalTime;
   } | null>(null);
 
   const [snapLineSec, setSnapLineSec] = useState<number | null>(null);
@@ -155,6 +183,23 @@ export const TimelinePanel: React.FC = () => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isScrubbing) {
         updatePlayheadFromMouse(e.clientX);
+      } else if (activeKfDrag) {
+        const deltaPx = e.clientX - activeKfDrag.startMouseX;
+        const deltaSec = deltaPx / timelineZoom;
+        const initSec = rationalTimeToSeconds(activeKfDrag.initialKfTime);
+        const newSec = Math.max(0, initSec + deltaSec);
+        const newKfTime = secondsToRationalTime(newSec);
+
+        const found = timelineEngine.findClip(activeKfDrag.clipId);
+        if (found && found.clip.keyframeTracks?.[activeKfDrag.propertyPath]) {
+          const trk = found.clip.keyframeTracks[activeKfDrag.propertyPath];
+          const kf = trk.keyframes.find((k) => k.id === activeKfDrag.keyframeId);
+          if (kf) {
+            kf.time = newKfTime;
+            trk.keyframes.sort((a, b) => compareRationalTime(a.time, b.time));
+            projectService.setProject({ ...project });
+          }
+        }
       } else if (activeDrag) {
         const deltaPx = e.clientX - activeDrag.startMouseX;
         const deltaSec = deltaPx / timelineZoom;
@@ -218,6 +263,9 @@ export const TimelinePanel: React.FC = () => {
 
     const handleMouseUp = () => {
       if (isScrubbing) setIsScrubbing(false);
+      if (activeKfDrag) {
+        setActiveKfDrag(null);
+      }
       if (activeDrag) {
         setSnapLineSec(null);
         setActiveDrag(null);
@@ -230,7 +278,7 @@ export const TimelinePanel: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isScrubbing, activeDrag, timelineZoom, snappingEnabled, currentTimeSec, timelineEngine, project, projectService]);
+  }, [isScrubbing, activeDrag, activeKfDrag, timelineZoom, snappingEnabled, currentTimeSec, timelineEngine, project, projectService]);
 
   // Generate ruler tick marks: 00:00, 00:05, 00:15, 00:25...
   const rulerTicks = [];
@@ -479,8 +527,67 @@ export const TimelinePanel: React.FC = () => {
                                 FX
                               </span>
                             )}
+                            {clip.keyframeTracks && Object.keys(clip.keyframeTracks).length > 0 && (
+                              <span className="px-1 py-0.2 bg-amber-500/90 text-black rounded text-[7px] font-extrabold shadow-xs flex items-center gap-0.5">
+                                <Diamond className="w-1.5 h-1.5 fill-black" />
+                                <span>KF</span>
+                              </span>
+                            )}
                           </div>
                         </div>
+
+                        {/* Keyframe Markers overlay on Clip */}
+                        {(() => {
+                          const kfs = KeyframeEvaluator.getAllKeyframesForClip(clip);
+                          if (kfs.length === 0) return null;
+                          return (
+                            <div className="absolute inset-x-0 bottom-0.5 h-3 pointer-events-auto z-30 flex items-center">
+                              {kfs.map((k) => {
+                                const kfSec = rationalTimeToSeconds(k.time);
+                                const kfLeftPx = kfSec * timelineZoom;
+                                const isKfSelected = selectedKeyframeId === k.id;
+                                return (
+                                  <div
+                                    key={`${k.propertyPath}_${k.id}`}
+                                    style={{ left: Math.min(widthPx - 8, Math.max(0, kfLeftPx - 4)) }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedClipId(clip.id);
+                                      setSelectedKeyframe(k.propertyPath, k.id);
+                                      seek(addRationalTime(clip.timelineRange.start, k.time));
+                                    }}
+                                    onMouseDown={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedClipId(clip.id);
+                                      setSelectedKeyframe(k.propertyPath, k.id);
+                                      setActiveKfDrag({
+                                        clipId: clip.id,
+                                        propertyPath: k.propertyPath,
+                                        keyframeId: k.id,
+                                        startMouseX: e.clientX,
+                                        initialKfTime: k.time,
+                                      });
+                                    }}
+                                    className={`absolute cursor-grab active:cursor-grabbing p-0.5 rounded transition-transform hover:scale-125 group/kfmarker ${
+                                      isKfSelected
+                                        ? 'text-amber-300 scale-110 z-40'
+                                        : 'text-amber-400/90 hover:text-amber-200'
+                                    }`}
+                                    title={`${k.propertyPath.split('.').pop() || 'Keyframe'} @ ${kfSec.toFixed(2)}s (${k.interpolation})`}
+                                  >
+                                    <Diamond
+                                      className={`w-2.5 h-2.5 drop-shadow-md ${
+                                        isKfSelected
+                                          ? 'fill-amber-300 stroke-black stroke-1'
+                                          : 'fill-amber-400 stroke-black/80 stroke-[0.8]'
+                                      }`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
 
                         {/* Right Trim Handle */}
                         <div
@@ -560,6 +667,73 @@ export const TimelinePanel: React.FC = () => {
           >
             <Layers className="w-3 h-3 text-cyan-400" />
             <span>+ Adjustment Layer</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-zinc-800" />
+
+          {/* Keyframe Jump & CapCut Navigation */}
+          <div className="flex items-center gap-1 bg-zinc-900/90 px-1.5 py-0.5 rounded border border-zinc-800">
+            <button
+              onClick={() => jumpToPrevKeyframe(selectedKeyframePropertyPath || undefined)}
+              disabled={!selectedClip}
+              className="text-zinc-400 hover:text-cyan-400 disabled:opacity-30 transition p-0.5"
+              title="Jump to Previous Keyframe"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => {
+                if (selectedClip) {
+                  // Quick toggle keyframe
+                  jumpToNextKeyframe(selectedKeyframePropertyPath || undefined);
+                }
+              }}
+              disabled={!selectedClip}
+              className={`p-0.5 rounded transition ${
+                selectedClip?.keyframeTracks && Object.keys(selectedClip.keyframeTracks).length > 0
+                  ? 'text-amber-400 hover:text-amber-300'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              } disabled:opacity-30`}
+              title="Keyframe System Active"
+            >
+              <Diamond
+                className={`w-3.5 h-3.5 ${
+                  selectedClip?.keyframeTracks && Object.keys(selectedClip.keyframeTracks).length > 0
+                    ? 'fill-amber-400 stroke-black'
+                    : ''
+                }`}
+              />
+            </button>
+
+            <button
+              onClick={() => jumpToNextKeyframe(selectedKeyframePropertyPath || undefined)}
+              disabled={!selectedClip}
+              className="text-zinc-400 hover:text-cyan-400 disabled:opacity-30 transition p-0.5"
+              title="Jump to Next Keyframe"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+
+            <span className="text-[10px] font-mono text-zinc-400 pl-1">KF</span>
+          </div>
+
+          {/* Auto Keyframe Quick Toggle */}
+          <button
+            onClick={() => setAutoKeyframeEnabled(!autoKeyframeEnabled)}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition border ${
+              autoKeyframeEnabled
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 animate-pulse'
+                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+            }`}
+            title="Auto-record keyframes when modifying properties"
+          >
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${
+                autoKeyframeEnabled ? 'bg-rose-500' : 'bg-zinc-500'
+              }`}
+            />
+            <span>Auto KF</span>
           </button>
         </div>
 

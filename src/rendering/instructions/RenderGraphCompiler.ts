@@ -8,6 +8,7 @@ import {
   subtractRationalTime,
   addRationalTime,
   rationalTimeToSeconds,
+  secondsToRationalTime,
   compareRationalTime,
   createRationalTime,
 } from '../../core/time/RationalTime';
@@ -18,6 +19,7 @@ import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { RenderInstructionTree, RenderInstruction, ClipRenderInstruction } from './RenderInstruction';
 import { Transform2D } from '../../core/math/Transform2D';
 import { ColorGrade } from '../../domain/color/ColorGrade';
+import { SpeedEngine } from '../../engine/speed/SpeedEngine';
 
 export class RenderGraphCompiler {
   /**
@@ -62,22 +64,52 @@ export class RenderGraphCompiler {
       const elapsedOnTimeline = subtractRationalTime(currentTime, clip.timelineRange.start);
       const clipDuration = clip.timelineRange.duration;
 
-      // Source offset time
-      const sourceTime = addRationalTime(clip.sourceRange.start, elapsedOnTimeline);
-      const sourceSeconds = Math.max(0, rationalTimeToSeconds(sourceTime));
+      // Source offset time with speed and curve integration
+      const elapsedOnTimelineSec = Math.max(0, rationalTimeToSeconds(elapsedOnTimeline));
+      const clipDurationSec = Math.max(0.001, rationalTimeToSeconds(clipDuration));
+      const sourceStartSec = Math.max(0, rationalTimeToSeconds(clip.sourceRange.start));
+      const sourceDurationSec = Math.max(0.001, rationalTimeToSeconds(clip.sourceRange.duration));
+
+      let sourceSeconds = sourceStartSec + elapsedOnTimelineSec * (clip.speed ?? 1.0);
+      if (clip.speedSettings && (clip.speedSettings.curvePreset !== 'Standard' || clip.speedSettings.reverse)) {
+        const speedEngine = SpeedEngine.getInstance();
+        sourceSeconds = speedEngine.evaluateSourceSeconds(
+          clip.id,
+          elapsedOnTimelineSec,
+          clipDurationSec,
+          sourceStartSec,
+          sourceDurationSec
+        );
+      } else if (clip.speedSettings?.reverse) {
+        sourceSeconds = sourceStartSec + Math.max(0, sourceDurationSec - elapsedOnTimelineSec * (clip.speed ?? 1.0));
+      }
+      sourceSeconds = Math.max(0, sourceSeconds);
+      const sourceTime = secondsToRationalTime(sourceSeconds);
 
       // Evaluate animated Transform
+      const uniformScale = this.evaluateProp(clip, 'transform.scale', clip.transform.scale?.x ?? 1.0, elapsedOnTimeline);
       const evaluatedTransform: Transform2D = {
         position: {
-          x: this.evaluateProp(clip, 'transform.position.x', clip.transform.position.x, elapsedOnTimeline),
-          y: this.evaluateProp(clip, 'transform.position.y', clip.transform.position.y, elapsedOnTimeline),
+          x: this.evaluateProp(clip, 'transform.position.x', clip.transform.position?.x ?? 0, elapsedOnTimeline),
+          y: this.evaluateProp(clip, 'transform.position.y', clip.transform.position?.y ?? 0, elapsedOnTimeline),
         },
         scale: {
-          x: this.evaluateProp(clip, 'transform.scale.x', clip.transform.scale.x, elapsedOnTimeline),
-          y: this.evaluateProp(clip, 'transform.scale.y', clip.transform.scale.y, elapsedOnTimeline),
+          x: this.evaluateProp(clip, 'transform.scale.x', clip.transform.scale?.x ?? uniformScale, elapsedOnTimeline),
+          y: this.evaluateProp(clip, 'transform.scale.y', clip.transform.scale?.y ?? uniformScale, elapsedOnTimeline),
         },
-        rotation: this.evaluateProp(clip, 'transform.rotation', clip.transform.rotation, elapsedOnTimeline),
-        anchor: { ...clip.transform.anchor },
+        rotation: this.evaluateProp(clip, 'transform.rotation', clip.transform.rotation ?? 0, elapsedOnTimeline),
+        anchor: {
+          x: this.evaluateProp(clip, 'transform.anchor.x', clip.transform.anchor?.x ?? 0.5, elapsedOnTimeline),
+          y: this.evaluateProp(clip, 'transform.anchor.y', clip.transform.anchor?.y ?? 0.5, elapsedOnTimeline),
+        },
+        skew: {
+          x: this.evaluateProp(clip, 'transform.skew.x', clip.transform.skew?.x ?? 0, elapsedOnTimeline),
+          y: this.evaluateProp(clip, 'transform.skew.y', clip.transform.skew?.y ?? 0, elapsedOnTimeline),
+        },
+        perspective: this.evaluateProp(clip, 'transform.perspective', clip.transform.perspective ?? 0, elapsedOnTimeline),
+        flipH: clip.transform.flipH,
+        flipV: clip.transform.flipV,
+        crop: clip.transform.crop,
       };
 
       // Evaluate animated Opacity

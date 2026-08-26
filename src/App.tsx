@@ -19,8 +19,16 @@ import { DeliverWorkspaceView } from './ui/export/DeliverWorkspaceView';
 import { SplitClipCommand } from './engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from './engine/command/implementations/DeleteClipCommand';
 import { secondsToRationalTime, addRationalTime, subtractRationalTime } from './core/time/RationalTime';
+import { HomePage } from './ui/home/HomePage';
+import { MobileEditorWorkspace } from './ui/mobile/MobileEditorWorkspace';
+import { useDeviceDetection } from './ui/hooks/useDeviceDetection';
 
-const StudioWorkspace: React.FC = () => {
+interface StudioWorkspaceProps {
+  onReturnHome: () => void;
+  onToggleMobileMode?: () => void;
+}
+
+const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({ onReturnHome, onToggleMobileMode }) => {
   const {
     togglePlay,
     undo,
@@ -127,8 +135,12 @@ const StudioWorkspace: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans select-none antialiased">
-      {/* 1. Main Studio Header */}
-      <EditorHeader onOpenExport={() => setIsExportOpen(true)} />
+      {/* 1. Main Studio Header with Home return button */}
+      <EditorHeader
+        onOpenExport={() => setIsExportOpen(true)}
+        onReturnHome={onReturnHome}
+        onToggleMobileMode={onToggleMobileMode}
+      />
 
       {/* 2. WORKSPACE VIEWS */}
       {/* Unified Professional CineFlow Pro Desktop Layout */}
@@ -172,10 +184,70 @@ const StudioWorkspace: React.FC = () => {
   );
 };
 
+const RootApp: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'home' | 'editor'>('home');
+  const { project, projectService } = useEditor();
+  const { isMobileLayout, isTablet, setDeviceMode } = useDeviceDetection();
+
+  const handleOpenEditor = (config?: {
+    projectName?: string;
+    aspectRatio?: string;
+    width?: number;
+    height?: number;
+    fps?: number;
+    templateId?: string;
+  }) => {
+    if (config?.projectName) {
+      project.metadata.name = config.projectName;
+    }
+    if (config?.width && config?.height) {
+      project.settings.canvasWidth = config.width;
+      project.settings.canvasHeight = config.height;
+    }
+    if (config?.aspectRatio) {
+      project.settings.aspectRatio = config.aspectRatio as any;
+    }
+    if (config?.fps) {
+      project.settings.frameRate = { numerator: config.fps, denominator: 1 };
+    }
+    projectService.setProject({ ...project });
+    setCurrentView('editor');
+  };
+
+  if (currentView === 'home') {
+    return (
+      <HomePage
+        onOpenEditor={handleOpenEditor}
+        hasActiveSession={true}
+        currentProjectName={project.metadata.name || 'Iceland 4K Master'}
+      />
+    );
+  }
+
+  // Purpose-built mobile / tablet touch interface
+  if (isMobileLayout) {
+    return (
+      <MobileEditorWorkspace
+        onReturnHome={() => setCurrentView('home')}
+        onToggleDesktopMode={() => setDeviceMode('desktop')}
+        isTablet={isTablet}
+      />
+    );
+  }
+
+  // Desktop / PC interface (kept exactly as it is)
+  return (
+    <StudioWorkspace
+      onReturnHome={() => setCurrentView('home')}
+      onToggleMobileMode={() => setDeviceMode('mobile')}
+    />
+  );
+};
+
 export function App() {
   return (
     <EditorProvider>
-      <StudioWorkspace />
+      <RootApp />
     </EditorProvider>
   );
 }

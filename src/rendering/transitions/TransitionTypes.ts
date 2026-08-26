@@ -6,17 +6,42 @@
 import { RationalTime } from '../../core/time/RationalTime';
 
 export type TransitionType =
+  // Basic
   | 'cross-dissolve'
   | 'fade-black'
   | 'fade-white'
+  | 'cut'
   | 'wipe-left'
   | 'wipe-right'
   | 'wipe-up'
   | 'wipe-down'
   | 'slide-left'
   | 'slide-right'
+  | 'push'
   | 'zoom-in'
-  | 'zoom-out';
+  | 'zoom-out'
+  // Motion
+  | 'camera-pan'
+  | 'spin'
+  | 'shake'
+  | 'whip-pan'
+  | 'swipe'
+  | 'roll'
+  | 'bounce-trans'
+  // Stylized
+  | 'glitch-trans'
+  | 'flash-color'
+  | 'light-leak'
+  | 'rgb-split'
+  | 'blur-dissolve'
+  | 'distortion-warp'
+  | 'cube-3d'
+  // Advanced
+  | 'mask-transition'
+  | 'ai-seamless'
+  | 'beat-snap';
+
+export type TransitionCategory = 'basic' | 'motion' | 'stylized' | 'advanced';
 
 export type TransitionPosition = 'in' | 'out' | 'cross';
 

@@ -3,8 +3,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { Blend, Moon, Sun, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoveLeft, MoveRight, Maximize, Minimize, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Blend,
+  Moon,
+  Sun,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  MoveLeft,
+  MoveRight,
+  Maximize,
+  Minimize,
+  Trash2,
+  Scissors,
+  Camera,
+  RotateCw,
+  Activity,
+  Zap,
+  MoveUpRight,
+  RotateCcw,
+  Sparkle,
+  Layers,
+  Droplet,
+  Waves,
+  Box,
+  Circle,
+  Sparkles,
+  Music,
+} from 'lucide-react';
 import { TimelineClip } from '../../domain/timeline/Clip';
 import { useEditor } from '../context/EditorContext';
 import { TransitionRegistry } from '../../rendering/transitions/TransitionRegistry';
@@ -16,18 +44,37 @@ interface TransitionsPanelProps {
   clip?: TimelineClip;
 }
 
-const transitionIcons: Record<TransitionType, React.ReactNode> = {
+const transitionIcons: Record<string, React.ReactNode> = {
   'cross-dissolve': <Blend className="w-4 h-4 text-cyan-400" />,
   'fade-black': <Moon className="w-4 h-4 text-zinc-400" />,
   'fade-white': <Sun className="w-4 h-4 text-amber-300" />,
+  'cut': <Scissors className="w-4 h-4 text-red-400" />,
   'wipe-left': <ChevronLeft className="w-4 h-4 text-blue-400" />,
   'wipe-right': <ChevronRight className="w-4 h-4 text-blue-400" />,
   'wipe-up': <ChevronUp className="w-4 h-4 text-blue-400" />,
   'wipe-down': <ChevronDown className="w-4 h-4 text-blue-400" />,
   'slide-left': <MoveLeft className="w-4 h-4 text-purple-400" />,
   'slide-right': <MoveRight className="w-4 h-4 text-purple-400" />,
+  'push': <MoveRight className="w-4 h-4 text-emerald-400" />,
   'zoom-in': <Maximize className="w-4 h-4 text-emerald-400" />,
   'zoom-out': <Minimize className="w-4 h-4 text-emerald-400" />,
+  'camera-pan': <Camera className="w-4 h-4 text-cyan-400" />,
+  'spin': <RotateCw className="w-4 h-4 text-amber-400" />,
+  'shake': <Activity className="w-4 h-4 text-rose-400" />,
+  'whip-pan': <Zap className="w-4 h-4 text-yellow-400" />,
+  'swipe': <MoveUpRight className="w-4 h-4 text-indigo-400" />,
+  'roll': <RotateCcw className="w-4 h-4 text-teal-400" />,
+  'bounce-trans': <Sparkle className="w-4 h-4 text-pink-400" />,
+  'glitch-trans': <Zap className="w-4 h-4 text-fuchsia-400" />,
+  'flash-color': <Sun className="w-4 h-4 text-cyan-300" />,
+  'light-leak': <Sun className="w-4 h-4 text-orange-400" />,
+  'rgb-split': <Layers className="w-4 h-4 text-purple-400" />,
+  'blur-dissolve': <Droplet className="w-4 h-4 text-blue-400" />,
+  'distortion-warp': <Waves className="w-4 h-4 text-cyan-400" />,
+  'cube-3d': <Box className="w-4 h-4 text-amber-400" />,
+  'mask-transition': <Circle className="w-4 h-4 text-emerald-400" />,
+  'ai-seamless': <Sparkles className="w-4 h-4 text-purple-300" />,
+  'beat-snap': <Music className="w-4 h-4 text-rose-400" />,
 };
 
 export const TransitionsPanel: React.FC<TransitionsPanelProps> = ({ clip: propClip }) => {

@@ -49,6 +49,7 @@ export interface ColorGrade {
   saturation: number;   // 0.0 to 2.0 (1.0 = default)
   vibrance: number;     // -100 to +100 (0 = neutral)
   temperature: number;  // -100 to +100 (0 = neutral)
+  temp?: number;        // alias for temperature
   tint: number;         // -100 to +100 (0 = neutral)
   hue: number;          // -180 to +180 deg
   highlights: number;   // -100 to +100

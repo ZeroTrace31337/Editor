@@ -250,6 +250,387 @@ Provide a JSON object with:
   }
 });
 
+// ==========================================
+// CINEFLOW VIDEO EDITOR AI SERVICES
+// ==========================================
+
+// POST /api/ai/text-writing
+app.post("/api/ai/text-writing", async (req, res) => {
+  const { instruction, style = "cinematic", tone = "epic", context = "" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      title: instruction ? instruction.toUpperCase() : "CINEMATIC MASTERPIECE",
+      variations: [
+        "UNLEASH THE NEXT CHAPTER",
+        "WHERE VISIONS BECOME REALITY",
+        "THE DEFINITIVE EXPERIENCE",
+      ],
+      suggestedStyle: {
+        fontFamily: "Cinzel, serif",
+        fontSize: 56,
+        textColor: "#fef08a",
+        strokeColor: "#000000",
+        strokeWidth: 3,
+        shadowColor: "rgba(0,0,0,0.9)",
+        shadowBlur: 14,
+        animation: "fade",
+      },
+    });
+  }
+
+  try {
+    const prompt = `You are a professional video editor copywriter and typography director.
+Instruction from editor: "${instruction || "Create a powerful video title and subtitle hook"}"
+Style: ${style}, Tone: ${tone}, Video Context: "${context}"
+
+Return a JSON object with:
+{
+  "title": "Primary high-impact title text (short, punchy)",
+  "subtitle": "Secondary subtitle or lower third line",
+  "variations": ["Alternative title 1", "Alternative title 2", "Alternative title 3"],
+  "suggestedStyle": {
+    "fontFamily": "Inter, sans-serif | Montserrat, sans-serif | Cinzel, serif | Bebas Neue, sans-serif | Oswald, sans-serif | Playfair Display, serif",
+    "fontSize": number (between 36 and 72),
+    "textColor": "hex color e.g. #ffffff or #fef08a or #22d3ee or #facc15",
+    "strokeColor": "hex color e.g. #000000 or #ec4899",
+    "strokeWidth": number (0 to 6),
+    "shadowColor": "rgba string",
+    "shadowBlur": number (4 to 20),
+    "animation": "fade | slide-up | pop | bounce | typewriter | glitch | word-reveal"
+  }
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.error("AI Text Writing error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate text" });
+  }
+});
+
+// POST /api/ai/smart-text-style
+app.post("/api/ai/smart-text-style", async (req, res) => {
+  const { text, mood = "modern" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      fontFamily: "Montserrat, sans-serif",
+      fontSize: 52,
+      textColor: "#38bdf8",
+      gradientType: "linear",
+      gradientColors: ["#38bdf8", "#818cf8"],
+      strokeColor: "#0f172a",
+      strokeWidth: 4,
+      shadowColor: "rgba(0,0,0,0.85)",
+      shadowBlur: 12,
+      animation: "pop",
+    });
+  }
+
+  try {
+    const prompt = `Analyze this video text: "${text}" with desired mood "${mood}".
+Recommend the ideal visual styling parameters for a top-tier video editor.
+Return JSON:
+{
+  "fontFamily": "Inter, sans-serif | Montserrat, sans-serif | Cinzel, serif | Bebas Neue, sans-serif | Oswald, sans-serif | Playfair Display, serif | Pacifico, cursive",
+  "fontSize": number (32 to 72),
+  "fontWeight": "600 | 700 | 800",
+  "textColor": "hex color",
+  "gradientType": "none | linear | radial",
+  "gradientColors": ["#hex1", "#hex2"],
+  "strokeColor": "hex color",
+  "strokeWidth": number (0 to 8),
+  "shadowColor": "rgba color",
+  "shadowBlur": number,
+  "glowColor": "rgba color",
+  "glowIntensity": number (0 to 1),
+  "backgroundColor": "transparent or rgba",
+  "alignment": "center | left | right",
+  "animation": "fade | slide-up | pop | bounce | typewriter | glitch | word-reveal"
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Smart text style error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/ai/auto-captions
+app.post("/api/ai/auto-captions", async (req, res) => {
+  const { audioContext = "video speech", style = "social" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      captions: [
+        {
+          id: "cap_1",
+          startSec: 0.5,
+          durationSec: 2.5,
+          text: "Welcome back to the ultimate video editing masterclass!",
+          speaker: "Speaker 1",
+          words: [
+            { word: "Welcome", start: 0.5, end: 0.9, isKeyword: false },
+            { word: "back", start: 0.9, end: 1.2, isKeyword: false },
+            { word: "to", start: 1.2, end: 1.4, isKeyword: false },
+            { word: "the", start: 1.4, end: 1.6, isKeyword: false },
+            { word: "ultimate", start: 1.6, end: 2.1, isKeyword: true },
+            { word: "masterclass!", start: 2.1, end: 3.0, isKeyword: true },
+          ],
+        },
+        {
+          id: "cap_2",
+          startSec: 3.2,
+          durationSec: 2.8,
+          text: "Today we are crafting mind-blowing cinematic transitions.",
+          speaker: "Speaker 1",
+          words: [
+            { word: "Today", start: 3.2, end: 3.6, isKeyword: false },
+            { word: "we", start: 3.6, end: 3.8, isKeyword: false },
+            { word: "are", start: 3.8, end: 4.0, isKeyword: false },
+            { word: "crafting", start: 4.0, end: 4.5, isKeyword: true },
+            { word: "cinematic", start: 4.5, end: 5.2, isKeyword: true },
+            { word: "transitions.", start: 5.2, end: 6.0, isKeyword: true },
+          ],
+        },
+      ],
+    });
+  }
+
+  try {
+    const prompt = `Generate realistic synchronized video subtitles and captions for a modern video production.
+Context: "${audioContext}", Style: "${style}"
+Return a JSON array of caption blocks with realistic speech timing (startSec, durationSec), clean punctuation, speaker detection, and word-level timing breakdown highlighting key impactful words.
+Schema:
+{
+  "captions": [
+    {
+      "id": "string",
+      "startSec": number,
+      "durationSec": number,
+      "text": "string",
+      "speaker": "Speaker 1",
+      "words": [
+        { "word": "string", "start": number, "end": number, "isKeyword": boolean }
+      ]
+    }
+  ]
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Auto captions error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/ai/cleanup-captions
+app.post("/api/ai/cleanup-captions", async (req, res) => {
+  const { captions = [] } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai || captions.length === 0) {
+    const cleaned = captions.map((c: any) => ({
+      ...c,
+      text: c.text
+        .replace(/\b(um|uh|like|you know|sort of|basically)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    }));
+    return res.json({ captions: cleaned });
+  }
+
+  try {
+    const prompt = `Clean and enhance these video captions by removing filler words ('um', 'uh', 'you know', stuttered repeats), fixing capitalization, grammar, and punctuation while preserving word timing structure:
+${JSON.stringify(captions)}
+
+Return cleaned JSON with the same structure: { "captions": [...] }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    res.json({ captions });
+  }
+});
+
+// POST /api/ai/translate-captions
+app.post("/api/ai/translate-captions", async (req, res) => {
+  const { captions = [], targetLanguage = "Spanish" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      captions: captions.map((c: any) => ({
+        ...c,
+        text: `[${targetLanguage}] ${c.text}`,
+      })),
+    });
+  }
+
+  try {
+    const prompt = `Translate the following video subtitle captions into ${targetLanguage}. Maintain the exact timestamp IDs and durations:
+${JSON.stringify(captions)}
+
+Return JSON: { "captions": [...] }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    res.json({ captions });
+  }
+});
+
+// POST /api/ai/smart-filter
+app.post("/api/ai/smart-filter", async (req, res) => {
+  const { sceneDescription = "cinematic outdoor scene", desiredVibe = "warm blockbuster" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      filterName: "Golden Blockbuster",
+      description: "Warm golden sunlight with deep teal shadows and rich contrast",
+      colorGrade: {
+        exposure: 0.15,
+        contrast: 1.25,
+        saturation: 1.2,
+        temperature: 25,
+        tint: 10,
+        highlights: -15,
+        shadows: 10,
+        whites: 5,
+        blacks: -10,
+        clarity: 15,
+        sharpen: 20,
+        vignette: 0.25,
+      },
+    });
+  }
+
+  try {
+    const prompt = `You are a Hollywood colorist. Recommend optimal color grade and filter parameters for scene: "${sceneDescription}", vibe: "${desiredVibe}".
+Return JSON:
+{
+  "filterName": "string",
+  "description": "string",
+  "colorGrade": {
+    "exposure": number (-2 to 2),
+    "contrast": number (0.8 to 1.6),
+    "saturation": number (0.5 to 1.6),
+    "vibrance": number (-50 to 50),
+    "temperature": number (-50 to 50),
+    "tint": number (-50 to 50),
+    "highlights": number (-50 to 50),
+    "shadows": number (-50 to 50),
+    "whites": number (-50 to 50),
+    "blacks": number (-50 to 50),
+    "clarity": number (0 to 50),
+    "sharpen": number (0 to 50),
+    "noiseReduction": number (0 to 50),
+    "vignette": number (0 to 0.6),
+    "grain": number (0 to 40)
+  }
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/ai/auto-adjust
+app.post("/api/ai/auto-adjust", async (req, res) => {
+  const { currentGrade = {}, sceneType = "general" } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    return res.json({
+      enhancedGrade: {
+        ...currentGrade,
+        exposure: 0.1,
+        contrast: 1.15,
+        saturation: 1.1,
+        vibrance: 12,
+        highlights: -10,
+        shadows: 15,
+        whites: 5,
+        blacks: -8,
+        clarity: 10,
+        sharpen: 15,
+      },
+    });
+  }
+
+  try {
+    const prompt = `Perform automated 1-click professional image balance for scene type: "${sceneType}".
+Balance white point, black point, contrast recovery, highlight protection, and shadow lift.
+Return JSON:
+{
+  "enhancedGrade": {
+    "exposure": number,
+    "contrast": number,
+    "saturation": number,
+    "vibrance": number,
+    "temperature": number,
+    "tint": number,
+    "highlights": number,
+    "shadows": number,
+    "whites": number,
+    "blacks": number,
+    "clarity": number,
+    "sharpen": number
+  }
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start Server and mount Vite middleware
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -267,7 +648,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Prompt to App Studio server running on http://localhost:${PORT}`);
+    console.log(`CineFlow Studio server running on http://localhost:${PORT}`);
   });
 }
 

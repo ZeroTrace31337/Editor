@@ -25,7 +25,7 @@ import {
   MoreHorizontal,
   ChevronDown,
 } from 'lucide-react';
-import { ProxyManagerModal } from '../media-pool/ProxyManagerModal';
+import { ProxyManagerModal } from '../proxy/ProxyManagerModal';
 import { SplitClipCommand } from '../../engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from '../../engine/command/implementations/DeleteClipCommand';
 import { AddMaskCommand } from '../../engine/command/implementations/MaskCommands';

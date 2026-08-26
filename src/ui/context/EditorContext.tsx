@@ -16,15 +16,28 @@ import { createCinematicThumbnail } from '../../rendering/assets/ProceduralThumb
 import { createTrack } from '../../domain/timeline/Track';
 import { createBaseClip, TimelineClip } from '../../domain/timeline/Clip';
 import { Project } from '../../domain/project/Project';
+import { MediaAsset } from '../../domain/media/MediaAsset';
 import {
   RationalTime,
   createRationalTime,
   rationalTimeToSeconds,
   formatTimecode,
 } from '../../core/time/RationalTime';
-import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
+import { KeyframeTrack, cloneKeyframeTrack } from '../../domain/keyframe/Keyframe';
+import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
+import { PasteKeyframesCommand } from '../../engine/command/implementations/PasteKeyframesCommand';
+import { addRationalTime, subtractRationalTime } from '../../core/time/RationalTime';
 
 export type WorkspaceMode = 'edit' | 'adjust' | 'effects' | 'color' | 'audio' | 'export' | 'deliver';
+
+export interface UploadState {
+  id: string;
+  name: string;
+  size: number;
+  progress: number;
+  status: 'uploading' | 'processing' | 'generating_thumbnail' | 'ready' | 'failed';
+  error?: string;
+}
 
 export interface EditorContextValue {
   projectService: ProjectService;
@@ -50,6 +63,17 @@ export interface EditorContextValue {
   canRedo: boolean;
   workspaceMode: WorkspaceMode;
   isBeforeAfterActive: boolean;
+
+  // Upload Management State
+  uploadStates: UploadState[];
+  isUploading: boolean;
+
+  // Keyframe System State
+  autoKeyframeEnabled: boolean;
+  selectedKeyframeId: string | null;
+  selectedKeyframePropertyPath: string | null;
+  isKeyframeLaneOpen: boolean;
+  copiedKeyframes: { clipId: string; tracks: Record<string, KeyframeTrack<any>> } | null;
   
   // State Setters & Actions
   setWorkspaceMode: (mode: WorkspaceMode) => void;
@@ -59,12 +83,21 @@ export interface EditorContextValue {
   setActiveSnapGuideline: (time: RationalTime | null) => void;
   toggleBeforeAfter: () => void;
   setBeforeAfterActive: (active: boolean) => void;
+  setAutoKeyframeEnabled: (enabled: boolean) => void;
+  setSelectedKeyframe: (propertyPath: string | null, keyframeId: string | null) => void;
+  setKeyframeLaneOpen: (open: boolean) => void;
+  copyClipKeyframes: (clipId?: string, propertyPath?: string) => void;
+  pasteClipKeyframes: (targetClipId?: string, atPlayhead?: boolean) => void;
+  jumpToPrevKeyframe: (propertyPath?: string) => void;
+  jumpToNextKeyframe: (propertyPath?: string) => void;
   seek: (time: RationalTime) => void;
   seekSeconds: (seconds: number) => void;
   togglePlay: () => void;
   undo: () => void;
   redo: () => void;
-  importFile: (file: File) => Promise<void>;
+  importFile: (file: File) => Promise<MediaAsset | null>;
+  importFiles: (files: FileList | File[]) => Promise<MediaAsset[]>;
+  removeMediaAsset: (assetId: string) => void;
   addSampleMedia: () => Promise<void>;
 }
 
@@ -99,14 +132,118 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('edit');
   const [isBeforeAfterActive, setBeforeAfterActive] = useState<boolean>(false);
 
+  // Upload States
+  const [uploadStates, setUploadStates] = useState<UploadState[]>([]);
+
+  // Keyframe State
+  const [autoKeyframeEnabled, setAutoKeyframeEnabled] = useState<boolean>(false);
+  const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
+  const [selectedKeyframePropertyPath, setSelectedKeyframePropertyPath] = useState<string | null>(null);
+  const [isKeyframeLaneOpen, setKeyframeLaneOpen] = useState<boolean>(false);
+  const [copiedKeyframes, setCopiedKeyframes] = useState<{ clipId: string; tracks: Record<string, KeyframeTrack<any>> } | null>(null);
+
   const toggleBeforeAfter = () => {
     setBeforeAfterActive((prev) => !prev);
   };
 
-  // Keyboard shortcut listener for Before/After toggle ('\') and Space for Play/Pause
+  const setSelectedKeyframe = (propertyPath: string | null, keyframeId: string | null) => {
+    setSelectedKeyframePropertyPath(propertyPath);
+    setSelectedKeyframeId(keyframeId);
+  };
+
+  // Find currently selected clip object
+  const selectedClip: TimelineClip | null = useMemo(() => {
+    if (!selectedClipId) return null;
+    const res = timelineEngine.findClip(selectedClipId);
+    return res ? res.clip : null;
+  }, [selectedClipId, timelineEngine, project]);
+
+  const copyClipKeyframes = (clipId?: string, propertyPath?: string) => {
+    const targetId = clipId || selectedClipId;
+    if (!targetId) return;
+    const found = timelineEngine.findClip(targetId);
+    if (!found || !found.clip.keyframeTracks) return;
+
+    const tracksToCopy: Record<string, KeyframeTrack<any>> = {};
+    if (propertyPath) {
+      if (found.clip.keyframeTracks[propertyPath]) {
+        tracksToCopy[propertyPath] = cloneKeyframeTrack(found.clip.keyframeTracks[propertyPath] as KeyframeTrack<any>);
+      }
+    } else {
+      for (const [path, track] of Object.entries(found.clip.keyframeTracks)) {
+        if (track) {
+          tracksToCopy[path] = cloneKeyframeTrack(track as KeyframeTrack<any>);
+        }
+      }
+    }
+
+    if (Object.keys(tracksToCopy).length > 0) {
+      setCopiedKeyframes({ clipId: targetId, tracks: tracksToCopy });
+    }
+  };
+
+  const pasteClipKeyframes = (targetClipId?: string, atPlayhead = true) => {
+    const targetId = targetClipId || selectedClipId;
+    if (!targetId || !copiedKeyframes) return;
+    const found = timelineEngine.findClip(targetId);
+    if (!found) return;
+
+    let offset: RationalTime | undefined = undefined;
+    if (atPlayhead) {
+      const clipStart = found.clip.timelineRange.start;
+      offset = subtractRationalTime(currentTime, clipStart);
+      if (rationalTimeToSeconds(offset) < 0) {
+        offset = createRationalTime(0);
+      }
+    }
+
+    const cmd = new PasteKeyframesCommand(timelineEngine, targetId, copiedKeyframes.tracks, offset);
+    commandManager.execute(cmd);
+  };
+
+  const jumpToPrevKeyframe = (propertyPath?: string) => {
+    if (!selectedClip) return;
+    const clipTime = subtractRationalTime(currentTime, selectedClip.timelineRange.start);
+    if (propertyPath && selectedClip.keyframeTracks?.[propertyPath]) {
+      const { prev } = KeyframeEvaluator.getNeighborKeyframes(selectedClip.keyframeTracks[propertyPath], clipTime);
+      if (prev) {
+        const globalTime = addRationalTime(selectedClip.timelineRange.start, prev.time);
+        seek(globalTime);
+        setSelectedKeyframe(propertyPath, prev.id);
+        return;
+      }
+    }
+    const { prev } = KeyframeEvaluator.getNeighborKeyframesAcrossClip(selectedClip, clipTime);
+    if (prev) {
+      const globalTime = addRationalTime(selectedClip.timelineRange.start, prev.time);
+      seek(globalTime);
+      setSelectedKeyframe(prev.propertyPath, prev.id);
+    }
+  };
+
+  const jumpToNextKeyframe = (propertyPath?: string) => {
+    if (!selectedClip) return;
+    const clipTime = subtractRationalTime(currentTime, selectedClip.timelineRange.start);
+    if (propertyPath && selectedClip.keyframeTracks?.[propertyPath]) {
+      const { next } = KeyframeEvaluator.getNeighborKeyframes(selectedClip.keyframeTracks[propertyPath], clipTime);
+      if (next) {
+        const globalTime = addRationalTime(selectedClip.timelineRange.start, next.time);
+        seek(globalTime);
+        setSelectedKeyframe(propertyPath, next.id);
+        return;
+      }
+    }
+    const { next } = KeyframeEvaluator.getNeighborKeyframesAcrossClip(selectedClip, clipTime);
+    if (next) {
+      const globalTime = addRationalTime(selectedClip.timelineRange.start, next.time);
+      seek(globalTime);
+      setSelectedKeyframe(next.propertyPath, next.id);
+    }
+  };
+
+  // Keyboard shortcut listener for Before/After toggle ('\')
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input, textarea, etc.
       const target = e.target as HTMLElement;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
@@ -121,6 +258,20 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Restore persistent media object URLs upon startup or project change
+  useEffect(() => {
+    const restoreAllAssets = async () => {
+      const currProject = projectService.getProject();
+      if (currProject && currProject.mediaPool) {
+        for (const asset of currProject.mediaPool) {
+          mediaRegistry.registerAsset(asset);
+          await mediaRegistry.restoreAssetUri(asset);
+        }
+      }
+    };
+    restoreAllAssets();
+  }, [projectService, mediaRegistry]);
 
   // Sync Project updates from projectService without recursive looping
   useEffect(() => {
@@ -145,6 +296,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentProj.sequences[seqIdx] = updatedSeq;
       }
       setProject({ ...currentProj });
+      projectService.triggerAutosave();
     });
   }, [timelineEngine, projectService]);
 
@@ -163,13 +315,6 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCanRedo(commandManager.canRedo());
     });
   }, [commandManager]);
-
-  // Find currently selected clip object
-  const selectedClip: TimelineClip | null = useMemo(() => {
-    if (!selectedClipId) return null;
-    const res = timelineEngine.findClip(selectedClipId);
-    return res ? res.clip : null;
-  }, [selectedClipId, timelineEngine, project]);
 
   const seek = (time: RationalTime) => {
     playbackEngine.seek(time);
@@ -191,14 +336,110 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     commandManager.redo();
   };
 
-  const importFile = async (file: File) => {
-    const asset = await mediaRegistry.registerFile(file);
-    project.mediaPool.push(asset);
-    projectService.setProject({ ...project });
+  // Real User File Importer with validation, live progress states, and storage persistence
+  const importFile = async (file: File): Promise<MediaAsset | null> => {
+    const uploadId = `upl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    
+    // File validation
+    const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2GB
+    if (file.size > maxSizeBytes) {
+      setUploadStates((prev) => [
+        {
+          id: uploadId,
+          name: file.name,
+          size: file.size,
+          progress: 0,
+          status: 'failed',
+          error: 'File size exceeds maximum supported limit (2GB)',
+        },
+        ...prev,
+      ]);
+      return null;
+    }
+
+    const stateItem: UploadState = {
+      id: uploadId,
+      name: file.name,
+      size: file.size,
+      progress: 10,
+      status: 'uploading',
+    };
+
+    setUploadStates((prev) => [stateItem, ...prev]);
+
+    try {
+      // Step 1: Uploading
+      setUploadStates((prev) =>
+        prev.map((s) => (s.id === uploadId ? { ...s, progress: 40, status: 'processing' } : s))
+      );
+
+      // Step 2: Processing & thumbnail generation via MediaRegistry
+      setUploadStates((prev) =>
+        prev.map((s) => (s.id === uploadId ? { ...s, progress: 75, status: 'generating_thumbnail' } : s))
+      );
+
+      const asset = await mediaRegistry.importFile(file);
+
+      // Step 3: Add to project media pool
+      const currentProj = projectService.getProject();
+      const existingIdx = currentProj.mediaPool.findIndex((m) => m.id === asset.id);
+      if (existingIdx >= 0) {
+        currentProj.mediaPool[existingIdx] = asset;
+      } else {
+        currentProj.mediaPool.unshift(asset);
+      }
+
+      projectService.setProject({ ...currentProj });
+      projectService.saveToLocalStorage();
+
+      // Step 4: Ready
+      setUploadStates((prev) =>
+        prev.map((s) => (s.id === uploadId ? { ...s, progress: 100, status: 'ready' } : s))
+      );
+
+      // Auto-clear ready items after 4 seconds
+      setTimeout(() => {
+        setUploadStates((prev) => prev.filter((s) => s.id !== uploadId));
+      }, 4000);
+
+      return asset;
+    } catch (err: any) {
+      console.error('Import error:', err);
+      setUploadStates((prev) =>
+        prev.map((s) =>
+          s.id === uploadId
+            ? {
+                ...s,
+                status: 'failed',
+                error: err.message || 'Unsupported codec or corrupted file',
+              }
+            : s
+        )
+      );
+      return null;
+    }
+  };
+
+  const importFiles = async (files: FileList | File[]): Promise<MediaAsset[]> => {
+    const list = Array.from(files);
+    const results: MediaAsset[] = [];
+    for (const f of list) {
+      const res = await importFile(f);
+      if (res) results.push(res);
+    }
+    return results;
+  };
+
+  const removeMediaAsset = (assetId: string) => {
+    mediaRegistry.removeAsset(assetId);
+    const currentProj = projectService.getProject();
+    currentProj.mediaPool = currentProj.mediaPool.filter((a) => a.id !== assetId);
+    projectService.setProject({ ...currentProj });
+    projectService.saveToLocalStorage();
   };
 
   const addSampleMedia = async () => {
-    // Generate Procedural High-Fidelity Thumbnails
+    // Kept separate: Sample/demo loader strictly when explicitly requested
     const thumbCinematic = createCinematicThumbnail('man_bokeh');
     const thumbCity = createCinematicThumbnail('city_night');
     const thumbForest = createCinematicThumbnail('forest');
@@ -206,208 +447,81 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const thumbAudio = createCinematicThumbnail('waveform');
     const thumbLogo = createCinematicThumbnail('logo');
 
-    // 1. Media Assets
-    const assetCinematic = {
-      id: 'asset_cinematic_01',
-      name: 'Cinematic_01.mp4',
-      type: 'video' as const,
-      duration: createRationalTime(24 * 120000, 120000), // 00:24
-      width: 1920,
-      height: 1080,
-      frameRate: { numerator: 60, denominator: 1 },
+    const assetCinematic: MediaAsset = {
+      id: 'sample_asset_cinematic_01',
+      name: '[Sample] Cinematic_01.mp4',
+      type: 'video',
+      uri: '',
+      fileSize: 15400000,
+      duration: createRationalTime(24 * 120000, 120000),
+      videoMetadata: { width: 1920, height: 1080, fps: 60, codec: 'h264' },
       thumbnailUrl: thumbCinematic,
-      isProxy: false,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
     };
 
-    const assetCity = {
-      id: 'asset_city_night',
-      name: 'City_Night.mp4',
-      type: 'video' as const,
-      duration: createRationalTime(18 * 120000, 120000), // 00:18
-      width: 1920,
-      height: 1080,
-      frameRate: { numerator: 60, denominator: 1 },
+    const assetCity: MediaAsset = {
+      id: 'sample_asset_city_night',
+      name: '[Sample] City_Night.mp4',
+      type: 'video',
+      uri: '',
+      fileSize: 12800000,
+      duration: createRationalTime(18 * 120000, 120000),
+      videoMetadata: { width: 1920, height: 1080, fps: 60, codec: 'h264' },
       thumbnailUrl: thumbCity,
-      isProxy: false,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
     };
 
-    const assetForest = {
-      id: 'asset_forest_walk',
-      name: 'Forest_Walk.mp4',
-      type: 'video' as const,
-      duration: createRationalTime(32 * 120000, 120000), // 00:32
-      width: 1920,
-      height: 1080,
-      frameRate: { numerator: 60, denominator: 1 },
+    const assetForest: MediaAsset = {
+      id: 'sample_asset_forest_walk',
+      name: '[Sample] Forest_Walk.mp4',
+      type: 'video',
+      uri: '',
+      fileSize: 22000000,
+      duration: createRationalTime(32 * 120000, 120000),
+      videoMetadata: { width: 1920, height: 1080, fps: 60, codec: 'h264' },
       thumbnailUrl: thumbForest,
-      isProxy: false,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
     };
 
-    const assetDrone = {
-      id: 'asset_drone_shot',
-      name: 'Drone_Shot.mp4',
-      type: 'video' as const,
-      duration: createRationalTime(26 * 120000, 120000), // 00:26
-      width: 1920,
-      height: 1080,
-      frameRate: { numerator: 60, denominator: 1 },
+    const assetDrone: MediaAsset = {
+      id: 'sample_asset_drone_shot',
+      name: '[Sample] Drone_Shot.mp4',
+      type: 'video',
+      uri: '',
+      fileSize: 18500000,
+      duration: createRationalTime(26 * 120000, 120000),
+      videoMetadata: { width: 1920, height: 1080, fps: 60, codec: 'h264' },
       thumbnailUrl: thumbDrone,
-      isProxy: false,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
     };
 
-    const assetMusic = {
-      id: 'asset_music_track',
-      name: 'Music_Track.mp3',
-      type: 'audio' as const,
-      duration: createRationalTime(222 * 120000, 120000), // 03:42
+    const assetMusic: MediaAsset = {
+      id: 'sample_asset_music_track',
+      name: '[Sample] Music_Track.mp3',
+      type: 'audio',
+      uri: '',
+      fileSize: 5600000,
+      duration: createRationalTime(222 * 120000, 120000),
       thumbnailUrl: thumbAudio,
-      isProxy: false,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
     };
 
-    const assetLogo = {
-      id: 'asset_logo_png',
-      name: 'Logo.png',
-      type: 'image' as const,
-      duration: createRationalTime(6 * 120000, 120000), // 00:06
-      width: 512,
-      height: 512,
-      thumbnailUrl: thumbLogo,
-      isProxy: false,
-    };
+    const sampleList = [assetCinematic, assetCity, assetForest, assetDrone, assetMusic];
+    sampleList.forEach((a) => mediaRegistry.registerAsset(a));
 
-    project.mediaPool = [assetCinematic, assetCity, assetForest, assetDrone, assetMusic, assetLogo];
-
-    // 2. Multi-track arrangement
-    const trackV3 = createTrack('track_v3', 'Video 3', 'video');
-    const trackV2 = createTrack('track_v2', 'Video 2', 'video');
-    const trackV1 = createTrack('track_v1', 'Video 1', 'video');
-    const trackA1 = createTrack('track_a1', 'Audio 1', 'audio');
-    const trackA2 = createTrack('track_a2', 'Music', 'audio');
-
-    // Clip 1 on V3: Forest_Walk.mp4
-    const clipForest = createBaseClip(
-      'clip_forest_walk',
-      'video',
-      'Forest_Walk.mp4',
-      trackV3.id,
-      { start: createRationalTime(7 * 120000, 120000), duration: createRationalTime(18 * 120000, 120000) },
-      { start: createRationalTime(0), duration: createRationalTime(18 * 120000, 120000) }
-    );
-    (clipForest as any).mediaAssetId = assetForest.id;
-    (clipForest as any).thumbnailUrl = thumbForest;
-    clipForest.effects = [
-      {
-        id: 'fx_forest_glow',
-        effectId: 'glow',
-        name: 'Glow',
-        enabled: true,
-        params: { radius: 15, intensity: 0.8 },
-        opacity: 1.0,
-      },
-    ];
-
-    // Clip 2 on V2: City_Night.mp4
-    const clipCity = createBaseClip(
-      'clip_city_night',
-      'video',
-      'City_Night.mp4',
-      trackV2.id,
-      { start: createRationalTime(12 * 120000, 120000), duration: createRationalTime(20 * 120000, 120000) },
-      { start: createRationalTime(0), duration: createRationalTime(20 * 120000, 120000) }
-    );
-    (clipCity as any).mediaAssetId = assetCity.id;
-    (clipCity as any).thumbnailUrl = thumbCity;
-    clipCity.effects = [
-      {
-        id: 'fx_city_sharpen',
-        effectId: 'sharpen',
-        name: 'Sharpen',
-        enabled: true,
-        params: { amount: 0.6 },
-        opacity: 1.0,
-      },
-    ];
-
-    // Clip 3 on V2: Drone_Shot.mp4
-    const clipDrone = createBaseClip(
-      'clip_drone_shot',
-      'video',
-      'Drone_Shot.mp4',
-      trackV2.id,
-      { start: createRationalTime(65 * 120000, 120000), duration: createRationalTime(20 * 120000, 120000) },
-      { start: createRationalTime(0), duration: createRationalTime(20 * 120000, 120000) }
-    );
-    (clipDrone as any).mediaAssetId = assetDrone.id;
-    (clipDrone as any).thumbnailUrl = thumbDrone;
-
-    // Clip 4 on V1: Cinematic_01.mp4 (Selected Hero clip)
-    const clipCinematic = createBaseClip(
-      'clip_cinematic_01',
-      'video',
-      'Cinematic_01.mp4',
-      trackV1.id,
-      { start: createRationalTime(0), duration: createRationalTime(48 * 120000, 120000) },
-      { start: createRationalTime(0), duration: createRationalTime(48 * 120000, 120000) }
-    );
-    (clipCinematic as any).mediaAssetId = assetCinematic.id;
-    (clipCinematic as any).thumbnailUrl = thumbCinematic;
-
-    const defaultGrade = createDefaultColorGrade();
-    clipCinematic.colorGrade = {
-      ...defaultGrade,
-      exposure: 3.10,
-      contrast: 1.20,
-      highlights: -0.30,
-      shadows: 0.40,
-      whites: 0.15,
-      blacks: -0.20,
-      saturation: 1.10,
-      vibrance: 0.60,
-      temperature: 4,
-      tint: 0,
-      hue: 0.00,
-      sharpen: 0.40,
-      clarity: 0.25,
-      noiseReduction: 0.30,
-    };
-
-    // Clip 5 on A1: Music_Track.mp3
-    const clipMusic = createBaseClip(
-      'clip_music_track',
-      'audio',
-      'Music_Track.mp3',
-      trackA1.id,
-      { start: createRationalTime(8 * 120000, 120000), duration: createRationalTime(77 * 120000, 120000) },
-      { start: createRationalTime(0), duration: createRationalTime(77 * 120000, 120000) }
-    );
-    (clipMusic as any).mediaAssetId = assetMusic.id;
-    (clipMusic as any).volume = 1.0;
-    (clipMusic as any).pan = 0.0;
-
-    trackV3.clips = [clipForest as TimelineClip];
-    trackV2.clips = [clipCity as TimelineClip, clipDrone as TimelineClip];
-    trackV1.clips = [clipCinematic as TimelineClip];
-    trackA1.clips = [clipMusic as TimelineClip];
-    trackA2.clips = [];
-
-    const seq = project.sequences[0];
-    seq.tracks = [trackV3, trackV2, trackV1, trackA1, trackA2];
-    seq.duration = createRationalTime(86 * 120000, 120000); // 01:26:08
-
-    projectService.setProject({ ...project });
-    setSelectedClipId(clipCinematic.id);
-    playbackEngine.seek(createRationalTime(12.5 * 120000, 120000)); // ~00:12:14
+    const currentProj = projectService.getProject();
+    currentProj.mediaPool = [...currentProj.mediaPool, ...sampleList];
+    projectService.setProject({ ...currentProj });
   };
-
-  // Automatically initialize sample clips on first load if empty
-  useEffect(() => {
-    if (project.mediaPool.length === 0) {
-      addSampleMedia();
-    }
-  }, []);
 
   const currentTimeSeconds = rationalTimeToSeconds(currentTime);
   const formattedTimecode = formatTimecode(currentTime, project.settings.frameRate);
+  const isUploading = uploadStates.some((u) => u.status === 'uploading' || u.status === 'processing' || u.status === 'generating_thumbnail');
 
   const value: EditorContextValue = {
     projectService,
@@ -431,6 +545,20 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     canRedo,
     workspaceMode,
     isBeforeAfterActive,
+    uploadStates,
+    isUploading,
+    autoKeyframeEnabled,
+    selectedKeyframeId,
+    selectedKeyframePropertyPath,
+    copiedKeyframes,
+    isKeyframeLaneOpen,
+    setAutoKeyframeEnabled,
+    setSelectedKeyframe,
+    copyClipKeyframes,
+    pasteClipKeyframes,
+    jumpToPrevKeyframe,
+    jumpToNextKeyframe,
+    setKeyframeLaneOpen,
     setWorkspaceMode,
     setSelectedClipId,
     setSnappingEnabled,
@@ -444,6 +572,8 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     undo,
     redo,
     importFile,
+    importFiles,
+    removeMediaAsset,
     addSampleMedia,
   };
 

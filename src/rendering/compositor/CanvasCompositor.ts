@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RationalTime } from '../../core/time/RationalTime';
+import { RationalTime, rationalTimeToSeconds } from '../../core/time/RationalTime';
 import { TimelineClip, VideoClip, ImageClip, TextClip } from '../../domain/timeline/Clip';
 import { MediaRegistry } from '../../engine/media/MediaRegistry';
 import { Sequence } from '../../domain/timeline/Sequence';
@@ -15,6 +15,10 @@ import { MaskRenderer } from '../mask/MaskRenderer';
 import { EffectRegistry } from '../effects/EffectRegistry';
 import { TransitionRegistry } from '../transitions/TransitionRegistry';
 import { RenderCache } from '../cache/RenderCache';
+import { StabilizationEngine } from '../../engine/stabilization/StabilizationEngine';
+import { ChromaKeyRenderer } from '../chroma/ChromaKeyRenderer';
+import { TrackingEngine } from '../../engine/tracking/TrackingEngine';
+import { SmoothSlowMoEngine } from '../../engine/speed/SmoothSlowMoEngine';
 
 export class CanvasCompositor {
   private mediaRegistry: MediaRegistry;
@@ -99,16 +103,43 @@ export class CanvasCompositor {
 
     const { clip, evaluatedTransform, evaluatedColorGrade, evaluatedEffects, evaluatedMasks, evaluatedOpacity, blendMode, sourceSeconds } = instr;
 
+    // Check if clip follows a motion track
+    let finalTransform = { ...evaluatedTransform };
+    if (clip.attachedToClipId) {
+      const trackingEngine = TrackingEngine.getInstance();
+      const currentSec = rationalTimeToSeconds(currentTime);
+      const trackPoint = trackingEngine.evaluateTrackAtTime(clip.attachedToClipId, currentSec, clip.attachedToTrackId);
+      if (trackPoint) {
+        finalTransform = {
+          ...finalTransform,
+          position: {
+            x: (trackPoint.x - 0.5) * canvasWidth,
+            y: (trackPoint.y - 0.5) * canvasHeight,
+          },
+          rotation: finalTransform.rotation + trackPoint.rotation,
+          scale: {
+            x: finalTransform.scale.x * trackPoint.scale,
+            y: finalTransform.scale.y * trackPoint.scale,
+          },
+        };
+      }
+    }
+
     // 1. Render Base Media / Text / Adjustment content onto layer context
     if (clip.type === 'video') {
-      this.drawVideo(this.layerCtx, canvasWidth, canvasHeight, clip as VideoClip, sourceSeconds, evaluatedTransform);
+      this.drawVideo(this.layerCtx, canvasWidth, canvasHeight, clip as VideoClip, sourceSeconds, finalTransform);
     } else if (clip.type === 'image') {
-      this.drawImage(this.layerCtx, canvasWidth, canvasHeight, clip as ImageClip, evaluatedTransform);
+      this.drawImage(this.layerCtx, canvasWidth, canvasHeight, clip as ImageClip, finalTransform);
     } else if (clip.type === 'text') {
-      this.drawText(this.layerCtx, canvasWidth, canvasHeight, clip as TextClip, evaluatedTransform, sourceSeconds);
+      this.drawText(this.layerCtx, canvasWidth, canvasHeight, clip as TextClip, finalTransform, sourceSeconds);
     } else if (clip.type === 'adjustment') {
       // Snapshot the current canvas below this layer so effects/grade apply to everything beneath
       this.layerCtx.drawImage(ctx.canvas, 0, 0, canvasWidth, canvasHeight);
+    }
+
+    // 1b. Apply Real-time Chroma Keying & Background Matting
+    if (clip.chromaKey && clip.chromaKey.enabled) {
+      ChromaKeyRenderer.applyChromaKey(this.layerCtx, canvasWidth, canvasHeight, clip.chromaKey);
     }
 
     if (!bypassColorGradeAndEffects) {
@@ -126,9 +157,10 @@ export class CanvasCompositor {
       }
     }
 
-    // 4. Apply Mask clipping
+    // 4. Apply Mask clipping (supports rectangle, ellipse, bezier, feather, invert, combine modes)
     if (evaluatedMasks && evaluatedMasks.length > 0) {
-      MaskRenderer.applyMasks(this.layerCtx, evaluatedMasks, canvasWidth, canvasHeight);
+      const currentSec = rationalTimeToSeconds(currentTime);
+      MaskRenderer.applyMasks(this.layerCtx, evaluatedMasks, canvasWidth, canvasHeight, currentSec);
     }
 
     this.layerCtx.restore();
@@ -192,11 +224,40 @@ export class CanvasCompositor {
     const mediaWidth = asset.videoMetadata?.width || canvasWidth;
     const mediaHeight = asset.videoMetadata?.height || canvasHeight;
 
+    let effectiveTransform = { ...transform };
+
+    // Apply real-time optical flow & gyro stabilization compensation
+    if (clip.stabilization && clip.stabilization.enabled) {
+      const stabEngine = StabilizationEngine.getInstance();
+      const stabData = stabEngine.evaluateStabilization(clip.id, sourceSeconds, canvasWidth, canvasHeight);
+      if (!stabData.isBypassed) {
+        effectiveTransform = {
+          ...effectiveTransform,
+          position: {
+            x: (effectiveTransform.position?.x || 0) + stabData.offsetX,
+            y: (effectiveTransform.position?.y || 0) + stabData.offsetY,
+          },
+          rotation: (effectiveTransform.rotation || 0) + stabData.rotation,
+          scale: {
+            x: (effectiveTransform.scale?.x || 1.0) * stabData.scale,
+            y: (effectiveTransform.scale?.y || 1.0) * stabData.scale,
+          },
+        };
+      }
+    }
+
     ctx.save();
-    applyTransformMatrix(ctx, transform, canvasWidth, canvasHeight, mediaWidth, mediaHeight);
+    applyTransformMatrix(ctx, effectiveTransform, canvasWidth, canvasHeight, mediaWidth, mediaHeight);
     try {
-      ctx.drawImage(video, 0, 0, mediaWidth, mediaHeight);
-    } catch {}
+      // Evaluate smooth optical-flow interpolated frame if active
+      const slowMoEngine = SmoothSlowMoEngine.getInstance();
+      const renderSource = slowMoEngine.getInterpolatedFrame(video, clip, sourceSeconds, mediaWidth, mediaHeight);
+      ctx.drawImage(renderSource, 0, 0, mediaWidth, mediaHeight);
+    } catch {
+      try {
+        ctx.drawImage(video, 0, 0, mediaWidth, mediaHeight);
+      } catch {}
+    }
     ctx.restore();
   }
 
@@ -248,31 +309,69 @@ export class CanvasCompositor {
     let animOffsetX = 0;
     let animOffsetY = 0;
     let animScale = 1.0;
+    let animRotate = 0;
     let animAlpha = 1.0;
+    let animBlur = 0;
     const anim = clip.animation || 'none';
-    const animDur = clip.animationDuration || 0.6;
+    const animDur = Math.max(0.1, clip.animationDuration || 0.6);
+    const progress = Math.min(1.0, Math.max(0, sourceSeconds / animDur));
 
     if (anim === 'fade') {
-      animAlpha = Math.min(1.0, sourceSeconds / animDur);
+      animAlpha = progress;
     } else if (anim === 'slide-up') {
-      const progress = Math.min(1.0, sourceSeconds / animDur);
-      animOffsetY = (1.0 - Math.pow(progress, 2)) * 60;
+      animOffsetY = (1.0 - Math.pow(progress, 2)) * 80;
       animAlpha = progress;
     } else if (anim === 'slide-down') {
-      const progress = Math.min(1.0, sourceSeconds / animDur);
-      animOffsetY = -(1.0 - Math.pow(progress, 2)) * 60;
+      animOffsetY = -(1.0 - Math.pow(progress, 2)) * 80;
+      animAlpha = progress;
+    } else if (anim === 'slide-left') {
+      animOffsetX = (1.0 - Math.pow(progress, 2)) * 120;
+      animAlpha = progress;
+    } else if (anim === 'slide-right') {
+      animOffsetX = -(1.0 - Math.pow(progress, 2)) * 120;
+      animAlpha = progress;
+    } else if (anim === 'zoom-in') {
+      animScale = 0.3 + 0.7 * progress;
+      animAlpha = progress;
+    } else if (anim === 'zoom-out') {
+      animScale = 1.6 - 0.6 * progress;
       animAlpha = progress;
     } else if (anim === 'pop') {
-      const progress = Math.min(1.0, sourceSeconds / animDur);
       animScale = progress < 1.0 ? 0.2 + 0.8 * Math.sin(progress * Math.PI * 0.5) * 1.15 : 1.0;
       animAlpha = Math.min(1.0, progress * 1.5);
     } else if (anim === 'bounce') {
-      const progress = Math.min(1.0, sourceSeconds / animDur);
-      const bounce = Math.abs(Math.sin(progress * Math.PI * 3)) * (1.0 - progress) * 30;
+      const bounce = Math.abs(Math.sin(progress * Math.PI * 3)) * (1.0 - progress) * 35;
       animOffsetY = -bounce;
+      animAlpha = Math.min(1.0, progress * 2);
+    } else if (anim === 'blur') {
+      animBlur = (1.0 - progress) * 20;
+      animAlpha = progress;
+    } else if (anim === 'rotate') {
+      animRotate = (1.0 - progress) * -Math.PI * 0.5;
+      animAlpha = progress;
+      animScale = 0.5 + 0.5 * progress;
+    } else if (anim === 'glitch') {
+      if (progress < 1.0 && Math.random() > 0.4) {
+        animOffsetX = (Math.random() - 0.5) * 20;
+        animOffsetY = (Math.random() - 0.5) * 10;
+      }
+    }
+
+    // Loop animations
+    const loopAnim = clip.loopAnimation || 'none';
+    if (loopAnim === 'pulse') {
+      animScale *= 1.0 + Math.sin(sourceSeconds * 4) * 0.08;
+    } else if (loopAnim === 'float') {
+      animOffsetY += Math.sin(sourceSeconds * 2.5) * 12;
+    } else if (loopAnim === 'shake') {
+      animOffsetX += Math.sin(sourceSeconds * 16) * 4;
+      animOffsetY += Math.cos(sourceSeconds * 14) * 3;
     }
 
     ctx.globalAlpha = (ctx.globalAlpha || 1.0) * animAlpha;
+    if (animBlur > 0) {
+      ctx.filter = `blur(${animBlur}px)`;
+    }
 
     const modifiedTransform = {
       ...transform,
@@ -284,15 +383,21 @@ export class CanvasCompositor {
         x: (transform?.scale?.x || 1.0) * animScale,
         y: (transform?.scale?.y || 1.0) * animScale,
       },
+      rotation: (transform?.rotation || 0) + (animRotate * 180) / Math.PI,
     };
 
-    // Split text into lines
+    // Text content preparation
     let fullText = clip.text || '';
     if (anim === 'typewriter') {
       const typeDuration = clip.animationDuration || 2.0;
-      const progress = Math.min(1.0, Math.max(0, sourceSeconds / typeDuration));
-      const visibleChars = Math.floor(fullText.length * progress);
+      const typeProgress = Math.min(1.0, Math.max(0, sourceSeconds / typeDuration));
+      const visibleChars = Math.floor(fullText.length * typeProgress);
       fullText = fullText.substring(0, visibleChars);
+    } else if (anim === 'word-reveal') {
+      const words = fullText.split(' ');
+      const wordProgress = Math.min(1.0, Math.max(0, sourceSeconds / animDur));
+      const visibleWords = Math.ceil(words.length * wordProgress);
+      fullText = words.slice(0, visibleWords).join(' ');
     }
 
     const lines = fullText.split('\n');
@@ -303,7 +408,7 @@ export class CanvasCompositor {
     const lineHeight = clip.lineHeight ? fontSize * clip.lineHeight : fontSize * 1.25;
 
     ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
-    ctx.textAlign = clip.alignment || 'center';
+    ctx.textAlign = clip.alignment === 'justify' ? 'center' : clip.alignment || 'center';
     ctx.textBaseline = 'middle';
 
     // Measure total text bounds for background box
@@ -326,12 +431,14 @@ export class CanvasCompositor {
     if (clip.backgroundColor && clip.backgroundColor !== 'transparent') {
       const pad = clip.backgroundPadding ?? 16;
       const radius = clip.backgroundRadius ?? 8;
+      const bgOpacity = clip.backgroundOpacity ?? 1.0;
       const bgX = centerX - maxWidth / 2 - pad;
       const bgY = centerY - totalHeight / 2 - pad / 2;
       const bgW = maxWidth + pad * 2;
       const bgH = totalHeight + pad;
 
       ctx.save();
+      ctx.globalAlpha = (ctx.globalAlpha || 1.0) * bgOpacity;
       ctx.fillStyle = clip.backgroundColor;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -343,8 +450,13 @@ export class CanvasCompositor {
       ctx.restore();
     }
 
-    // Configure drop shadow
-    if (clip.shadowColor && clip.shadowColor !== 'transparent') {
+    // Configure drop shadow & glow
+    if (clip.glowColor && clip.glowBlur) {
+      ctx.shadowColor = clip.glowColor;
+      ctx.shadowBlur = (clip.glowBlur ?? 16) * (clip.glowIntensity ?? 1.0);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else if (clip.shadowColor && clip.shadowColor !== 'transparent') {
       ctx.shadowColor = clip.shadowColor;
       ctx.shadowBlur = clip.shadowBlur ?? 8;
       ctx.shadowOffsetX = clip.shadowOffsetX ?? 2;
@@ -356,16 +468,81 @@ export class CanvasCompositor {
       ctx.shadowOffsetY = 2;
     }
 
+    // Gradient or Solid Fill
+    let fillStyle: string | CanvasGradient = clip.textColor || '#ffffff';
+    if (clip.gradientType === 'linear' && clip.gradientColors && clip.gradientColors.length >= 2) {
+      const angle = ((clip.gradientAngle ?? 0) * Math.PI) / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const grad = ctx.createLinearGradient(
+        centerX - (maxWidth / 2) * cos,
+        centerY - (totalHeight / 2) * sin,
+        centerX + (maxWidth / 2) * cos,
+        centerY + (totalHeight / 2) * sin
+      );
+      clip.gradientColors.forEach((col, idx) => {
+        grad.addColorStop(idx / (clip.gradientColors!.length - 1), col);
+      });
+      fillStyle = grad;
+    } else if (clip.gradientType === 'radial' && clip.gradientColors && clip.gradientColors.length >= 2) {
+      const radGrad = ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, maxWidth / 2);
+      clip.gradientColors.forEach((col, idx) => {
+        radGrad.addColorStop(idx / (clip.gradientColors!.length - 1), col);
+      });
+      fillStyle = radGrad;
+    }
+
+    // Render Curved Text
+    if (clip.curvedText && clip.curveAmount && clip.curveAmount !== 0) {
+      const curveRad = Math.max(100, 500 - Math.abs(clip.curveAmount) * 3.5);
+      const direction = clip.curveAmount > 0 ? 1 : -1;
+      const textToCurve = lines.join(' ');
+      const totalChars = textToCurve.length;
+      const arcAngle = (maxWidth / curveRad) * direction;
+      const startAngle = -Math.PI / 2 - arcAngle / 2;
+
+      ctx.save();
+      ctx.translate(centerX, centerY + (direction > 0 ? curveRad : -curveRad));
+
+      for (let i = 0; i < totalChars; i++) {
+        const char = textToCurve[i];
+        const charAngle = startAngle + (i / Math.max(1, totalChars - 1)) * arcAngle;
+        ctx.save();
+        ctx.rotate(charAngle + Math.PI / 2);
+        ctx.translate(0, direction > 0 ? -curveRad : curveRad);
+
+        if (clip.strokeWidth && clip.strokeWidth > 0 && clip.strokeColor) {
+          ctx.lineWidth = clip.strokeWidth;
+          ctx.strokeStyle = clip.strokeColor;
+          ctx.strokeText(char, 0, 0);
+        }
+
+        ctx.fillStyle = fillStyle;
+        ctx.fillText(char, 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+      ctx.restore();
+      return;
+    }
+
     // Render each line of text
     const startY = centerY - ((lines.length - 1) * lineHeight) / 2;
 
     lines.forEach((line, index) => {
-      const lineY = startY + index * lineHeight;
+      let lineY = startY + index * lineHeight;
       let textX = centerX;
       if (clip.alignment === 'left') {
         textX = centerX - maxWidth / 2;
       } else if (clip.alignment === 'right') {
         textX = centerX + maxWidth / 2;
+      }
+
+      // Text Warp (Wave / Arch)
+      if (clip.textWarp === 'wave') {
+        lineY += Math.sin((index + sourceSeconds * 3)) * (clip.warpIntensity ?? 12);
+      } else if (clip.textWarp === 'arch') {
+        textX += Math.sin((index / Math.max(1, lines.length)) * Math.PI) * (clip.warpIntensity ?? 10);
       }
 
       // Draw stroke / outline if present
@@ -379,8 +556,22 @@ export class CanvasCompositor {
       }
 
       // Fill text
-      ctx.fillStyle = clip.textColor || '#ffffff';
+      ctx.fillStyle = fillStyle;
       ctx.fillText(line, textX, lineY);
+
+      // Underline
+      if (clip.underline) {
+        ctx.save();
+        ctx.strokeStyle = typeof fillStyle === 'string' ? fillStyle : '#ffffff';
+        ctx.lineWidth = Math.max(2, fontSize * 0.06);
+        ctx.beginPath();
+        const lineMetrics = ctx.measureText(line);
+        const uX = clip.alignment === 'left' ? textX : textX - lineMetrics.width / 2;
+        ctx.moveTo(uX, lineY + fontSize * 0.55);
+        ctx.lineTo(uX + lineMetrics.width, lineY + fontSize * 0.55);
+        ctx.stroke();
+        ctx.restore();
+      }
     });
 
     ctx.restore();

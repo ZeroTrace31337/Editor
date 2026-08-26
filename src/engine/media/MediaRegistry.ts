@@ -6,11 +6,13 @@
 import { MediaAsset } from '../../domain/media/MediaAsset';
 import { IMediaProcessor } from '../../media-services/contracts/IMediaProcessor';
 import { logger } from '../../core/logging/Logger';
+import { mediaStorage } from '../storage/MediaStorageService';
 
 export class MediaRegistry {
   private assets: Map<string, MediaAsset> = new Map();
   private mediaProcessor: IMediaProcessor;
   private listeners: Set<() => void> = new Set();
+  private blobObjectUrls: Map<string, string> = new Map();
 
   constructor(mediaProcessor: IMediaProcessor) {
     this.mediaProcessor = mediaProcessor;
@@ -30,16 +32,55 @@ export class MediaRegistry {
     return this.assets.get(id);
   }
 
+  /**
+   * Restores object URLs for persistent assets from IndexedDB upon project load or re-open
+   */
+  public async restoreAssetUri(asset: MediaAsset): Promise<string> {
+    if (asset.uri && !asset.uri.startsWith('blob:') && !asset.isOffline) {
+      return asset.uri;
+    }
+
+    if (this.blobObjectUrls.has(asset.id)) {
+      const cached = this.blobObjectUrls.get(asset.id)!;
+      asset.uri = cached;
+      asset.isOffline = false;
+      return cached;
+    }
+
+    const stored = await mediaStorage.getMediaBlob(asset.id);
+    if (stored && stored.blob) {
+      const newUrl = URL.createObjectURL(stored.blob);
+      this.blobObjectUrls.set(asset.id, newUrl);
+      asset.uri = newUrl;
+      asset.isOffline = false;
+      this.assets.set(asset.id, asset);
+      this.notify();
+      return newUrl;
+    }
+
+    return asset.uri;
+  }
+
+  public async registerFile(file: File): Promise<MediaAsset> {
+    return this.importFile(file);
+  }
+
   public async importFile(file: File): Promise<MediaAsset> {
     const id = `asset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    logger.info('MediaRegistry', `Starting import for file: ${file.name}`, { size: file.size, type: file.type });
+    logger.info('MediaRegistry', `Starting import for real user file: ${file.name}`, { size: file.size, type: file.type });
+
+    // Persist full file binary into IndexedDB for persistent reload
+    await mediaStorage.saveMediaBlob(id, file, file.name);
+
+    const objectUrl = URL.createObjectURL(file);
+    this.blobObjectUrls.set(id, objectUrl);
 
     const probeResult = await this.mediaProcessor.probeMedia(file, file.name);
 
     const asset: MediaAsset = {
       id,
       name: file.name,
-      uri: URL.createObjectURL(file),
+      uri: objectUrl,
       type: probeResult.type,
       fileSize: file.size,
       duration: probeResult.duration,
@@ -53,7 +94,7 @@ export class MediaRegistry {
 
     this.assets.set(id, asset);
     this.notify();
-    logger.info('MediaRegistry', `Successfully imported asset "${asset.name}" (${asset.type})`, { id });
+    logger.info('MediaRegistry', `Successfully imported real user asset "${asset.name}" (${asset.type})`, { id });
     return asset;
   }
 
@@ -63,6 +104,16 @@ export class MediaRegistry {
   }
 
   public removeAsset(id: string): boolean {
+    const asset = this.assets.get(id);
+    if (asset) {
+      if (this.blobObjectUrls.has(id)) {
+        try {
+          URL.revokeObjectURL(this.blobObjectUrls.get(id)!);
+        } catch {}
+        this.blobObjectUrls.delete(id);
+      }
+      mediaStorage.deleteMediaBlob(id);
+    }
     const deleted = this.assets.delete(id);
     if (deleted) {
       this.notify();

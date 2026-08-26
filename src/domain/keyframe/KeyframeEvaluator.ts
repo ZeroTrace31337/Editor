@@ -3,8 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RationalTime, rationalTimeToSeconds, compareRationalTime } from '../../core/time/RationalTime';
+import { RationalTime, rationalTimeToSeconds, compareRationalTime, createRationalTime } from '../../core/time/RationalTime';
 import { Keyframe, KeyframeTrack, KeyframeInterpolation } from './Keyframe';
+import { TimelineClip } from '../timeline/Clip';
+
+export interface ClipKeyframePoint {
+  readonly id: string;
+  readonly propertyPath: string;
+  readonly propertyName: string;
+  readonly time: RationalTime;
+  readonly value: any;
+  readonly interpolation: KeyframeInterpolation;
+}
 
 /**
  * High-performance Keyframe Interpolation & Curve Sampling Engine
@@ -80,18 +90,25 @@ export class KeyframeEvaluator {
         return vA + (vB - vA) * t;
 
       case 'easeIn':
-        // Quadratic ease in
-        return vA + (vB - vA) * (t * t);
+        // Smooth cubic ease in
+        return vA + (vB - vA) * (t * t * t);
 
       case 'easeOut':
-        // Quadratic ease out
-        return vA + (vB - vA) * (t * (2 - t));
+        // Smooth cubic ease out
+        const invT = 1 - t;
+        return vA + (vB - vA) * (1 - invT * invT * invT);
 
       case 'easeInOut':
-        // Smooth S-curve (cubic hermite smoothstep)
-        const smoothT = t * t * (3 - 2 * t);
+        // Smooth S-curve (cubic Hermite smoothstep)
+        const smoothT = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         return vA + (vB - vA) * smoothT;
 
+      case 'smooth':
+        // Quintic smoothstep (Ken Perlin's smootherstep)
+        const perlinT = t * t * t * (t * (t * 6 - 15) + 10);
+        return vA + (vB - vA) * perlinT;
+
+      case 'custom':
       case 'bezier':
       default:
         // Cubic bezier interpolation with control points
@@ -116,8 +133,6 @@ export class KeyframeEvaluator {
     inX: number,
     inY: number
   ): number {
-    // Standard cubic bezier formula: B(t) = (1-t)^3 * P0 + 3(1-t)^2 * t * P1 + 3(1-t) * t^2 * P2 + t^3 * P3
-    // Here P0 = (0,0), P1 = (0.33 + outX, outY), P2 = (0.66 + inX, 1.0 + inY), P3 = (1,1)
     const p1y = Math.max(-1, Math.min(2, 0.0 + outY));
     const p2y = Math.max(-1, Math.min(2, 1.0 + inY));
 
@@ -133,18 +148,25 @@ export class KeyframeEvaluator {
   }
 
   /**
-   * Check if a property has a keyframe at the exact given timestamp (within small threshold)
+   * Check if a property has a keyframe at the exact given timestamp (within threshold)
    */
-  public static hasKeyframeAt(track: KeyframeTrack<any> | undefined, time: RationalTime, thresholdSec = 0.03): Keyframe<any> | undefined {
+  public static hasKeyframeAt(
+    track: KeyframeTrack<any> | undefined,
+    time: RationalTime,
+    thresholdSec = 0.04
+  ): Keyframe<any> | undefined {
     if (!track || !track.keyframes) return undefined;
     const targetSec = rationalTimeToSeconds(time);
     return track.keyframes.find((kf) => Math.abs(rationalTimeToSeconds(kf.time) - targetSec) <= thresholdSec);
   }
 
   /**
-   * Find previous and next keyframe times around current time
+   * Find previous and next keyframe times around current time for a single track
    */
-  public static getNeighborKeyframes(track: KeyframeTrack<any> | undefined, time: RationalTime): { prev?: Keyframe<any>; next?: Keyframe<any> } {
+  public static getNeighborKeyframes(
+    track: KeyframeTrack<any> | undefined,
+    time: RationalTime
+  ): { prev?: Keyframe<any>; next?: Keyframe<any> } {
     if (!track || !track.keyframes || track.keyframes.length === 0) return {};
 
     const currentSec = rationalTimeToSeconds(time);
@@ -153,10 +175,60 @@ export class KeyframeEvaluator {
 
     for (const kf of track.keyframes) {
       const kfSec = rationalTimeToSeconds(kf.time);
-      if (kfSec < currentSec - 0.001) {
+      if (kfSec < currentSec - 0.005) {
         prev = kf;
-      } else if (kfSec > currentSec + 0.001 && !next) {
+      } else if (kfSec > currentSec + 0.005 && !next) {
         next = kf;
+      }
+    }
+
+    return { prev, next };
+  }
+
+  /**
+   * Retrieves all keyframes across all tracks on a clip, sorted chronologically.
+   */
+  public static getAllKeyframesForClip(clip: TimelineClip | undefined | null): ClipKeyframePoint[] {
+    if (!clip || !clip.keyframeTracks) return [];
+    const points: ClipKeyframePoint[] = [];
+
+    for (const [propertyPath, track] of Object.entries(clip.keyframeTracks)) {
+      if (!track || !track.keyframes) continue;
+      for (const kf of track.keyframes) {
+        points.push({
+          id: kf.id,
+          propertyPath,
+          propertyName: track.propertyName,
+          time: kf.time,
+          value: kf.value,
+          interpolation: kf.interpolation,
+        });
+      }
+    }
+
+    return points.sort((a, b) => compareRationalTime(a.time, b.time));
+  }
+
+  /**
+   * Find previous and next keyframe across ALL tracks on a clip.
+   */
+  public static getNeighborKeyframesAcrossClip(
+    clip: TimelineClip | undefined | null,
+    time: RationalTime
+  ): { prev?: ClipKeyframePoint; next?: ClipKeyframePoint } {
+    const all = this.getAllKeyframesForClip(clip);
+    if (all.length === 0) return {};
+
+    const currentSec = rationalTimeToSeconds(time);
+    let prev: ClipKeyframePoint | undefined;
+    let next: ClipKeyframePoint | undefined;
+
+    for (const pt of all) {
+      const ptSec = rationalTimeToSeconds(pt.time);
+      if (ptSec < currentSec - 0.005) {
+        prev = pt;
+      } else if (ptSec > currentSec + 0.005 && !next) {
+        next = pt;
       }
     }
 

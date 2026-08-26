@@ -5,7 +5,16 @@
 
 import { RationalTime, rationalTimeToSeconds, secondsToRationalTime, compareRationalTime, createRationalTime } from '../../core/time/RationalTime';
 
-export type KeyframeInterpolation = 'linear' | 'bezier' | 'step' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold';
+export type KeyframeInterpolation =
+  | 'linear'
+  | 'easeIn'
+  | 'easeOut'
+  | 'easeInOut'
+  | 'smooth'
+  | 'bezier'
+  | 'step'
+  | 'hold'
+  | 'custom';
 
 export interface Keyframe<T = number> {
   readonly id: string;
@@ -27,7 +36,7 @@ export function createKeyframe<T>(
   id: string,
   time: RationalTime,
   value: T,
-  interpolation: KeyframeInterpolation = 'bezier'
+  interpolation: KeyframeInterpolation = 'smooth'
 ): Keyframe<T> {
   return {
     id,
@@ -36,6 +45,26 @@ export function createKeyframe<T>(
     interpolation,
     inTangent: { x: -0.33, y: 0 },
     outTangent: { x: 0.33, y: 0 },
+  };
+}
+
+export function cloneKeyframe<T>(kf: Keyframe<T>, newId?: string, newTime?: RationalTime): Keyframe<T> {
+  return {
+    id: newId || `kf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    time: newTime || { ...kf.time },
+    value: typeof kf.value === 'object' && kf.value !== null ? JSON.parse(JSON.stringify(kf.value)) : kf.value,
+    interpolation: kf.interpolation,
+    inTangent: kf.inTangent ? { ...kf.inTangent } : undefined,
+    outTangent: kf.outTangent ? { ...kf.outTangent } : undefined,
+  };
+}
+
+export function cloneKeyframeTrack<T>(track: KeyframeTrack<T>): KeyframeTrack<T> {
+  return {
+    propertyPath: track.propertyPath,
+    propertyName: track.propertyName,
+    defaultValue: typeof track.defaultValue === 'object' && track.defaultValue !== null ? JSON.parse(JSON.stringify(track.defaultValue)) : track.defaultValue,
+    keyframes: track.keyframes.map((kf) => cloneKeyframe(kf)),
   };
 }
 
