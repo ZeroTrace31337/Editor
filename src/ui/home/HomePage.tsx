@@ -12,6 +12,7 @@ import { CanvasPresetsSection } from './CanvasPresetsSection';
 import { RecentProjectsSection } from './RecentProjectsSection';
 import { AIToolsSection } from './AIToolsSection';
 import { TemplatesSection } from './TemplatesSection';
+import { TemplatesPage } from '../templates/TemplatesPage';
 import { AssetsSection } from './AssetsSection';
 import { HomeFooter } from './HomeFooter';
 
@@ -328,6 +329,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             {/* 7. TRENDING TEMPLATES SECTION */}
             <TemplatesSection
               onUseTemplate={handleUseTemplate}
+              onOpenTemplatesTab={() => setActiveTab('templates')}
+              onOpenEditor={() => onOpenEditor()}
             />
 
             {/* 8. ASSETS & STOCK MEDIA SECTION */}
@@ -353,9 +356,11 @@ export const HomePage: React.FC<HomePageProps> = ({
 
         {/* Dedicated "Templates" Tab */}
         {activeTab === 'templates' && (
-          <TemplatesSection
-            onUseTemplate={handleUseTemplate}
-          />
+          <div className="-mx-4 sm:-mx-6 lg:-mx-8 -my-6 md:-my-8">
+            <TemplatesPage
+              onOpenEditor={() => onOpenEditor()}
+            />
+          </div>
         )}
 
         {/* Dedicated "AI Tools" Tab */}

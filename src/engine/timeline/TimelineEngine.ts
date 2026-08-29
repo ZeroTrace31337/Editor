@@ -232,6 +232,23 @@ export class TimelineEngine {
     clip.timelineRange = { start: clipStart, duration: leftDuration };
     clip.sourceRange = leftSourceRange;
 
+    // Filter left clip keyframes
+    if (clip.keyframeTracks) {
+      const leftKeyframeTracks: Record<string, any> = {};
+      for (const [prop, trackData] of Object.entries(clip.keyframeTracks)) {
+        const filtered = (trackData.keyframes || []).filter(
+          (k: any) => compareRationalTime(k.time, leftDuration) <= 0
+        );
+        if (filtered.length > 0) {
+          leftKeyframeTracks[prop] = {
+            ...trackData,
+            keyframes: filtered,
+          };
+        }
+      }
+      clip.keyframeTracks = leftKeyframeTracks;
+    }
+
     // Create new right side clip
     const rightClipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const rightClip: TimelineClip = {
@@ -241,6 +258,27 @@ export class TimelineEngine {
       timelineRange: { start: splitTimelineTime, duration: rightDuration },
       sourceRange: rightSourceRange,
     };
+
+    // Filter & offset right clip keyframes
+    if (rightClip.keyframeTracks) {
+      const rightKeyframeTracks: Record<string, any> = {};
+      for (const [prop, trackData] of Object.entries(rightClip.keyframeTracks)) {
+        const filteredAndOffset = (trackData.keyframes || [])
+          .filter((k: any) => compareRationalTime(k.time, leftDuration) > 0)
+          .map((k: any) => ({
+            ...k,
+            id: `kf_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            time: subtractRationalTime(k.time, leftDuration),
+          }));
+        if (filteredAndOffset.length > 0) {
+          rightKeyframeTracks[prop] = {
+            ...trackData,
+            keyframes: filteredAndOffset,
+          };
+        }
+      }
+      rightClip.keyframeTracks = rightKeyframeTracks;
+    }
 
     this.addClip(track.id, rightClip);
     return { left: clip, right: rightClip };

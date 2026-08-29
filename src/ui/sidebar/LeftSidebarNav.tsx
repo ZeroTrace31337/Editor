@@ -50,6 +50,8 @@ import { createBaseClip } from '../../domain/timeline/Clip';
 import { createRationalTime, secondsToRationalTime, rationalTimeToSeconds } from '../../core/time/RationalTime';
 import { AudioSynthesisEngine, SoundItem, SfxCategory } from '../../engine/audio/AudioSynthesisEngine';
 import { SpeechEngine } from '../../engine/audio/SpeechEngine';
+import { AIToolModal } from '../home/AIToolModal';
+import { AI_TOOLS_LIST, AIToolItem } from '../home/homeData';
 
 export type TopToolSection =
   | 'media'
@@ -244,6 +246,31 @@ export const LeftSidebarNav: React.FC = () => {
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(1.0);
   const [isSpeakingTts, setIsSpeakingTts] = useState(false);
+
+  // AI Tool Modal State
+  const [selectedAIToolModal, setSelectedAIToolModal] = useState<AIToolItem | null>(null);
+
+  const handleApplyAIResult = (resultInfo: any) => {
+    if (resultInfo.colorGrade && selectedClip) {
+      selectedClip.colorGrade = { ...selectedClip.colorGrade, ...resultInfo.colorGrade };
+      projectService.setProject({ ...project });
+    } else if (resultInfo.assetUrl || resultInfo.title) {
+      const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing';
+      const dur = secondsToRationalTime(5);
+      const newAsset = {
+        id: `ai_asset_${Date.now()}`,
+        name: resultInfo.title,
+        type: isAud ? 'audio' : 'video',
+        duration: dur,
+        fileSize: 1024 * 1024 * 5,
+        thumbnailUrl: resultInfo.assetUrl || '',
+      };
+      if (project.mediaPool) {
+        project.mediaPool.push(newAsset as any);
+      }
+      handleAddAssetToTimeline(newAsset);
+    }
+  };
 
   const audioSynth = AudioSynthesisEngine.getInstance();
   const speechEngine = SpeechEngine.getInstance();
@@ -840,8 +867,45 @@ export const LeftSidebarNav: React.FC = () => {
                 </div>
               )}
 
-              {/* Empty State */}
-              {filteredAssets.length === 0 ? (
+              {/* AI Media Category Shelf */}
+              {activeCategory === 'AI media' ? (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
+                    <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>10 Neural AI Video Models</span>
+                    </span>
+                    <span className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                      Gemini 2.5 Active
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {AI_TOOLS_LIST.map((tool) => (
+                      <button
+                        key={tool.id}
+                        onClick={() => setSelectedAIToolModal(tool)}
+                        className="p-2 rounded-xl bg-[#121522] border border-zinc-800/80 hover:border-cyan-500/60 transition text-left flex flex-col justify-between group cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                            {tool.badge}
+                          </span>
+                          <Wand2 className="w-3.5 h-3.5 text-zinc-500 group-hover:text-cyan-400 transition" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold text-zinc-200 group-hover:text-white truncate">
+                            {tool.name}
+                          </p>
+                          <p className="text-[9px] text-zinc-400 line-clamp-1 mt-0.5">
+                            {tool.description}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : filteredAssets.length === 0 ? (
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   className={`flex-1 min-h-[220px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all ${
@@ -1563,6 +1627,16 @@ export const LeftSidebarNav: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Tool Launcher Modal */}
+      {selectedAIToolModal && (
+        <AIToolModal
+          isOpen={!!selectedAIToolModal}
+          onClose={() => setSelectedAIToolModal(null)}
+          tool={selectedAIToolModal}
+          onApplyToTimeline={handleApplyAIResult}
+        />
       )}
 
       {/* Hidden file input */}

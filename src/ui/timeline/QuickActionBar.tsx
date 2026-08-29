@@ -26,11 +26,14 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { ProxyManagerModal } from '../proxy/ProxyManagerModal';
+import { CropModal } from '../transform/CropModal';
 import { SplitClipCommand } from '../../engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from '../../engine/command/implementations/DeleteClipCommand';
 import { AddMaskCommand } from '../../engine/command/implementations/MaskCommands';
+import { FreezeFrameCommand } from '../../engine/command/implementations/FreezeFrameCommand';
 import { createDefaultMask } from '../../domain/mask/ClipMask';
-import { secondsToRationalTime } from '../../core/time/RationalTime';
+import { createDefaultStabilizationSettings } from '../../engine/stabilization/StabilizationTypes';
+import { secondsToRationalTime, rationalTimeToSeconds } from '../../core/time/RationalTime';
 
 export const QuickActionBar: React.FC = () => {
   const {
@@ -38,6 +41,7 @@ export const QuickActionBar: React.FC = () => {
     selectedClipId,
     timelineEngine,
     commandManager,
+    mediaRegistry,
     currentTime,
     undo,
     redo,
@@ -49,6 +53,7 @@ export const QuickActionBar: React.FC = () => {
   } = useEditor();
 
   const [isProxyModalOpen, setIsProxyModalOpen] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [proxyEnabled, setProxyEnabled] = useState(true);
 
   const handleSplit = () => {
@@ -75,6 +80,22 @@ export const QuickActionBar: React.FC = () => {
     }
   };
 
+  const handleFreezeFrame = () => {
+    const targetClip = selectedClip || timelineEngine.getClipsAtTime(currentTime)[0]?.clip;
+    if (!targetClip) return;
+    try {
+      const cmd = new FreezeFrameCommand(
+        timelineEngine,
+        mediaRegistry,
+        project,
+        targetClip.id,
+        currentTime,
+        3.0
+      );
+      commandManager.execute(cmd);
+    } catch {}
+  };
+
   const handleRotate = () => {
     if (selectedClip) {
       const curRot = selectedClip.transform?.rotation || 0;
@@ -89,6 +110,27 @@ export const QuickActionBar: React.FC = () => {
       };
       projectService.setProject({ ...project });
     }
+  };
+
+  const handleAddMarker = () => {
+    const markerTimeSec = rationalTimeToSeconds(currentTime);
+    const newMarker = {
+      id: `marker_${Date.now()}`,
+      time: currentTime,
+      label: `Marker @ ${markerTimeSec.toFixed(1)}s`,
+      color: '#38bdf8',
+    };
+    const currentMarkers = (project as any).markers || [];
+    (project as any).markers = [...currentMarkers, newMarker];
+    projectService.setProject({ ...project });
+  };
+
+  const handleStabilize = () => {
+    if (!selectedClip) return;
+    selectedClip.stabilization = selectedClip.stabilization?.enabled
+      ? undefined
+      : createDefaultStabilizationSettings('recommended');
+    projectService.setProject({ ...project });
   };
 
   const handleChromaKey = () => {
@@ -181,7 +223,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Delete */}
         <button
           onClick={handleDelete}
-          className="p-1 rounded hover:text-red-400 hover:bg-zinc-800 transition"
+          disabled={!selectedClipId}
+          className="p-1 rounded hover:text-red-400 hover:bg-zinc-800 transition disabled:opacity-30"
           title="Delete Clip (Delete / Backspace)"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -189,17 +232,19 @@ export const QuickActionBar: React.FC = () => {
 
         {/* Freeze Frame */}
         <button
-          onClick={() => {}}
-          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition"
-          title="Freeze Frame"
+          onClick={handleFreezeFrame}
+          disabled={!selectedClip && timelineEngine.getClipsAtTime(currentTime).length === 0}
+          className="p-1 rounded hover:text-cyan-300 hover:bg-zinc-800 transition disabled:opacity-30"
+          title="Freeze Frame at Playhead (3.0s)"
         >
-          <Snowflake className="w-3.5 h-3.5" />
+          <Snowflake className="w-3.5 h-3.5 text-cyan-400" />
         </button>
 
         {/* Crop */}
         <button
-          onClick={() => setWorkspaceMode('adjust')}
-          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition"
+          onClick={() => setIsCropModalOpen(true)}
+          disabled={!selectedClip}
+          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
           title="Crop & Resize"
         >
           <Crop className="w-3.5 h-3.5" />
@@ -208,7 +253,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Rotate */}
         <button
           onClick={handleRotate}
-          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition"
+          disabled={!selectedClip}
+          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
           title="Rotate 90°"
         >
           <RotateCw className="w-3.5 h-3.5" />
@@ -217,26 +263,27 @@ export const QuickActionBar: React.FC = () => {
         {/* Speed */}
         <button
           onClick={handleCycleSpeed}
-          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition"
+          disabled={!selectedClip}
+          className="p-1 rounded hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
           title="Speed & Duration"
         >
-          <Zap className="w-3.5 h-3.5" />
+          <Zap className="w-3.5 h-3.5 text-amber-400" />
         </button>
 
         {/* Marker */}
         <button
-          onClick={() => {}}
+          onClick={handleAddMarker}
           className="p-1 rounded hover:text-white hover:bg-zinc-800 transition"
-          title="Add Marker (M)"
+          title="Add Marker at Playhead"
         >
-          <Bookmark className="w-3.5 h-3.5" />
+          <Bookmark className="w-3.5 h-3.5 text-sky-400" />
         </button>
 
         {/* Voice Mic Record */}
         <button
-          onClick={() => {}}
+          onClick={() => setWorkspaceMode('audio')}
           className="p-1 rounded hover:text-cyan-400 hover:bg-zinc-800 transition ml-0.5"
-          title="Record Voiceover"
+          title="Audio Controls & Voiceover"
         >
           <Mic className="w-3.5 h-3.5" />
         </button>
@@ -259,8 +306,13 @@ export const QuickActionBar: React.FC = () => {
 
         {/* Stabilize */}
         <button
-          onClick={() => {}}
-          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1"
+          onClick={handleStabilize}
+          disabled={!selectedClip}
+          className={`px-2 py-0.5 rounded text-[10px] font-medium transition flex items-center gap-1 disabled:opacity-30 ${
+            selectedClip?.stabilization?.enabled
+              ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
+              : 'text-zinc-300 hover:text-white hover:bg-purple-900/40'
+          }`}
         >
           <Activity className="w-2.5 h-2.5 text-cyan-400" />
           <span>Stabilize</span>
@@ -278,7 +330,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Chroma Key */}
         <button
           onClick={handleChromaKey}
-          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1"
+          disabled={!selectedClip}
+          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1 disabled:opacity-30"
         >
           <Wand2 className="w-2.5 h-2.5 text-emerald-400" />
           <span>Chroma Key</span>
@@ -287,7 +340,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Mask */}
         <button
           onClick={handleAddMask}
-          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1"
+          disabled={!selectedClip}
+          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1 disabled:opacity-30"
         >
           <Shield className="w-2.5 h-2.5 text-amber-400" />
           <span>Mask</span>
@@ -296,7 +350,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Speed */}
         <button
           onClick={handleCycleSpeed}
-          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1"
+          disabled={!selectedClip}
+          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1 disabled:opacity-30"
         >
           <Zap className="w-2.5 h-2.5 text-yellow-400" />
           <span>Speed</span>
@@ -305,7 +360,8 @@ export const QuickActionBar: React.FC = () => {
         {/* Transition */}
         <button
           onClick={handleAddTransition}
-          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1"
+          disabled={!selectedClip}
+          className="px-2 py-0.5 rounded text-[10px] font-medium text-zinc-300 hover:text-white hover:bg-purple-900/40 transition flex items-center gap-1 disabled:opacity-30"
         >
           <Layers className="w-2.5 h-2.5 text-purple-400" />
           <span>Transition</span>
@@ -313,7 +369,7 @@ export const QuickActionBar: React.FC = () => {
 
         {/* More ... */}
         <button
-          onClick={() => {}}
+          onClick={() => setWorkspaceMode('edit')}
           className="p-0.5 rounded text-zinc-400 hover:text-white hover:bg-purple-900/40 transition"
         >
           <MoreHorizontal className="w-3 h-3" />
@@ -321,6 +377,7 @@ export const QuickActionBar: React.FC = () => {
       </div>
 
       <ProxyManagerModal isOpen={isProxyModalOpen} onClose={() => setIsProxyModalOpen(false)} />
+      <CropModal isOpen={isCropModalOpen} onClose={() => setIsCropModalOpen(false)} />
     </div>
   );
 };
