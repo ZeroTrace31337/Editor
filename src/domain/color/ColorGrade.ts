@@ -43,9 +43,11 @@ export interface HslColorGrade {
 }
 
 export interface ColorGrade {
+  colorGradeEnabled?: boolean; // Master bypass toggle
   exposure: number;     // -5.0 to +5.0 EV
   contrast: number;     // 0.0 to 2.0 (1.0 = default)
   brightness: number;   // -1.0 to +1.0 (0.0 = default)
+  brilliance?: number;  // -100 to +100 (0 = neutral, dynamic midtone/shadows lift)
   saturation: number;   // 0.0 to 2.0 (1.0 = default)
   vibrance: number;     // -100 to +100 (0 = neutral)
   temperature: number;  // -100 to +100 (0 = neutral)
@@ -101,9 +103,11 @@ export function createDefaultHslColorGrade(): HslColorGrade {
 
 export function createDefaultColorGrade(): ColorGrade {
   return {
+    colorGradeEnabled: true,
     exposure: 0,
     contrast: 1.0,
     brightness: 0,
+    brilliance: 0,
     saturation: 1.0,
     vibrance: 0,
     temperature: 0,

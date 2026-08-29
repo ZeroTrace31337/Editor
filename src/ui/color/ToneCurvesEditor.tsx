@@ -196,12 +196,19 @@ export const ToneCurvesEditor: React.FC<ToneCurvesEditorProps> = ({ clip }) => {
       </div>
 
       {/* SVG Curve Graph Canvas */}
-      <div className="relative w-full aspect-[1.2/1] bg-zinc-950 border border-zinc-800 rounded overflow-hidden flex items-center justify-center">
-        {/* Diagonal Reference Line */}
+      <div className="relative w-full aspect-[1.2/1] bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden flex flex-col items-center justify-center p-1">
+        {/* Background Tonal Zones */}
+        <div className="absolute inset-0 flex pointer-events-none opacity-20">
+          <div className="w-1/4 h-full bg-zinc-800/40 border-r border-zinc-700/30" />
+          <div className="w-2/4 h-full bg-zinc-700/20 border-r border-zinc-700/30" />
+          <div className="w-1/4 h-full bg-zinc-600/30" />
+        </div>
+
+        {/* Diagonal Reference Line & SVG Curves */}
         <svg
           ref={svgRef}
           viewBox="0 0 240 200"
-          className="w-full h-full cursor-crosshair"
+          className="w-full h-full cursor-crosshair relative z-10"
           onClick={handleSvgClick}
         >
           {/* Grid lines */}
@@ -214,6 +221,13 @@ export const ToneCurvesEditor: React.FC<ToneCurvesEditorProps> = ({ clip }) => {
 
           {/* Diagonal baseline */}
           <line x1="0" y1="200" x2="240" y2="0" stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
+
+          {/* Fill Area Under Curve */}
+          <path
+            d={`${buildPath()} L 240 200 L 0 200 Z`}
+            fill={channelColors[activeChannel].fill}
+            className="pointer-events-none"
+          />
 
           {/* Spline Path */}
           <path
@@ -231,25 +245,66 @@ export const ToneCurvesEditor: React.FC<ToneCurvesEditorProps> = ({ clip }) => {
             const isSelected = selectedPointIndex === idx;
 
             return (
-              <circle
-                key={idx}
-                cx={cx}
-                cy={cy}
-                r={isSelected ? 6 : 4.5}
-                fill={isSelected ? '#f59e0b' : channelColors[activeChannel].stroke}
-                stroke="#18181b"
-                strokeWidth="1.5"
-                className="cursor-pointer hover:scale-125 transition-transform"
-                onMouseDown={(e) => handlePointDrag(idx, e)}
-              />
+              <g key={idx}>
+                {/* Glow ring if selected */}
+                {isSelected && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={9}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth="1.5"
+                    strokeDasharray="2 2"
+                  />
+                )}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isSelected ? 6 : 4.5}
+                  fill={isSelected ? '#f59e0b' : channelColors[activeChannel].stroke}
+                  stroke="#18181b"
+                  strokeWidth="1.5"
+                  className="cursor-pointer hover:scale-125 transition-transform"
+                  onMouseDown={(e) => handlePointDrag(idx, e)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    if (idx > 0 && idx < currentPoints.length - 1) {
+                      const updated = currentPoints.filter((_, i) => i !== idx);
+                      updateCurves(updated);
+                      setSelectedPointIndex(null);
+                    }
+                  }}
+                />
+              </g>
             );
           })}
         </svg>
+
+        {/* Tonal zone labels footer inside canvas */}
+        <div className="w-full flex justify-between px-2 pt-1 text-[9px] font-mono text-zinc-500 border-t border-zinc-900 z-10">
+          <span>Shadows (0-25%)</span>
+          <span>Midtones</span>
+          <span>Highlights (75-100%)</span>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-        <span>Click to add curve point</span>
-        <span>Drag point to sculpt curve</span>
+      {/* Info & Point Coordinate Readout */}
+      <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono bg-zinc-950/60 px-2.5 py-1.5 rounded border border-zinc-800/80">
+        {selectedPointIndex !== null ? (
+          <div className="flex items-center space-x-3">
+            <span className="text-amber-400 font-medium">Point #{selectedPointIndex + 1}:</span>
+            <span>
+              In: <strong className="text-zinc-200">{Math.round(currentPoints[selectedPointIndex].x * 255)}</strong>
+            </span>
+            <span>
+              Out: <strong className="text-zinc-200">{Math.round(currentPoints[selectedPointIndex].y * 255)}</strong>
+            </span>
+          </div>
+        ) : (
+          <span className="text-zinc-500">Click graph to add point • Double click to remove</span>
+        )}
+        <span className="text-zinc-500">{currentPoints.length} points</span>
       </div>
     </div>
   );

@@ -19,6 +19,10 @@ import {
   Sliders,
   CheckCircle2,
   Trash2,
+  Copy,
+  ClipboardPaste,
+  Download,
+  Power,
 } from 'lucide-react';
 import { TimelineClip } from '../../domain/timeline/Clip';
 import { useEditor } from '../context/EditorContext';
@@ -31,6 +35,7 @@ import {
 } from '../../domain/color/ColorGrade';
 import { UpdateColorGradeCommand } from '../../engine/command/implementations/UpdateColorGradeCommand';
 import { LutEngine } from '../../rendering/color/LutEngine';
+import { ColorEngine } from '../../rendering/color/ColorEngine';
 import { KeyframeControl } from './KeyframeControl';
 import { ToneCurvesEditor } from '../color/ToneCurvesEditor';
 import { ColorWheelsView } from '../color/ColorWheelsView';
@@ -184,7 +189,16 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
 };
 
 export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
-  const { timelineEngine, commandManager, isBeforeAfterActive, toggleBeforeAfter, selectedClip } = useEditor();
+  const {
+    timelineEngine,
+    commandManager,
+    isBeforeAfterActive,
+    toggleBeforeAfter,
+    selectedClip,
+    copiedColorGrade,
+    copyColorGrade,
+    pasteColorGrade,
+  } = useEditor();
   const clip = propClip || selectedClip;
 
   const [subTab, setSubTab] = useState<'basic' | 'light' | 'color' | 'detail' | 'hsl' | 'curves' | 'wheels' | 'lut'>('basic');
@@ -235,6 +249,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
       updated.exposure = def.exposure;
       updated.contrast = def.contrast;
       updated.brightness = def.brightness;
+      updated.brilliance = def.brilliance;
       updated.highlights = def.highlights;
       updated.shadows = def.shadows;
       updated.whites = def.whites;
@@ -255,6 +270,23 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
     }
     const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, updated);
     commandManager.execute(cmd);
+  };
+
+  const handleExportLut = () => {
+    try {
+      const cubeContent = ColorEngine.exportGradeToCube(grade, 33, `VeeCut_${clip.name || 'Grade'}`);
+      const blob = new Blob([cubeContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(clip.name || 'custom_grade').replace(/\.[^/.]+$/, '')}.cube`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export .cube LUT:', err);
+    }
   };
 
   const handleLutUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,26 +313,67 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
     e.target.value = '';
   };
 
+  const isMasterGradeEnabled = grade.colorGradeEnabled !== false;
+
   return (
     <div className="flex flex-col h-full bg-[#0d0f19] text-zinc-300 select-none overflow-hidden">
-      {/* 1. Header Toolbar with Before/After and Reset All */}
+      {/* 1. Header Toolbar with Master Grade Switch, Before/After, Copy/Paste, and Reset All */}
       <div className="px-3 py-2 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40">
         <div className="flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-purple-400" />
+          {/* Master Grade Power Toggle */}
+          <button
+            type="button"
+            onClick={() => updateGradeParam('colorGradeEnabled', !isMasterGradeEnabled)}
+            className={`p-1 rounded-md transition ${
+              isMasterGradeEnabled
+                ? 'text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300'
+                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+            }`}
+            title={isMasterGradeEnabled ? 'Disable Color Grade (Bypass)' : 'Enable Color Grade'}
+          >
+            <Power className="w-3.5 h-3.5" />
+          </button>
           <span className="text-xs font-bold text-white tracking-wide">Color & Adjustments</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          {/* Copy Grade */}
+          <button
+            type="button"
+            onClick={() => copyColorGrade(clip.id)}
+            className="flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 transition"
+            title="Copy current clip's color grade"
+          >
+            <Copy className="w-3 h-3" />
+            <span>Copy</span>
+          </button>
+
+          {/* Paste Grade */}
+          <button
+            type="button"
+            onClick={() => pasteColorGrade(clip.id)}
+            disabled={!copiedColorGrade}
+            className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium transition ${
+              copiedColorGrade
+                ? 'text-purple-300 hover:text-white bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/50'
+                : 'text-zinc-600 bg-zinc-900 cursor-not-allowed opacity-50'
+            }`}
+            title={copiedColorGrade ? 'Paste copied color grade to this clip' : 'No color grade copied'}
+          >
+            <ClipboardPaste className="w-3 h-3" />
+            <span>Paste</span>
+          </button>
+
           {/* Before/After Toggle */}
           <button
             type="button"
             onClick={toggleBeforeAfter}
-            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition ${
+            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition ${
               isBeforeAfterActive
                 ? 'bg-rose-600 text-white shadow-xs'
                 : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
             }`}
-            title="Toggle Before / After Bypass (Press \)"
+            title="Toggle Before / After Preview Bypass (Press \)"
           >
             {isBeforeAfterActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             <span>{isBeforeAfterActive ? 'Bypass' : 'B/A'}</span>
@@ -310,11 +383,11 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
           <button
             type="button"
             onClick={handleResetAll}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 transition"
+            className="flex items-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 transition"
             title="Reset All Adjustments & Color to Neutral"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Reset All</span>
+            <span>Reset</span>
           </button>
         </div>
       </div>
@@ -416,6 +489,18 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   propertyPath="colorGrade.brightness"
                   clip={clip}
                   onChange={(val) => updateGradeParam('brightness', val)}
+                />
+                <AdjustmentRow
+                  label="Brilliance"
+                  value={grade.brilliance ?? 0}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  defaultValue={0}
+                  formatDecimals={0}
+                  propertyPath="colorGrade.brilliance"
+                  clip={clip}
+                  onChange={(val) => updateGradeParam('brilliance', val)}
                 />
                 <AdjustmentRow
                   label="Contrast"
@@ -732,8 +817,19 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                 </span>
               </div>
 
-              {/* Import .cube file button */}
-              <div>
+              <div className="flex items-center gap-1.5">
+                {/* Export Current Grade as .cube LUT */}
+                <button
+                  type="button"
+                  onClick={handleExportLut}
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-[11px] font-semibold transition border border-zinc-700/60 shadow-xs"
+                  title="Export active color grade as standard 3D .cube LUT"
+                >
+                  <Download className="w-3 h-3 text-emerald-400" />
+                  <span>Export LUT</span>
+                </button>
+
+                {/* Import .cube file button */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -744,7 +840,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition shadow-xs"
+                  className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-600/80 hover:bg-emerald-600 text-white text-[11px] font-semibold transition shadow-xs"
                   title="Import .cube 3D LUT from computer"
                 >
                   <Upload className="w-3 h-3" />

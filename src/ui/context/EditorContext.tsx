@@ -26,6 +26,8 @@ import {
 import { KeyframeTrack, cloneKeyframeTrack } from '../../domain/keyframe/Keyframe';
 import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { PasteKeyframesCommand } from '../../engine/command/implementations/PasteKeyframesCommand';
+import { UpdateColorGradeCommand } from '../../engine/command/implementations/UpdateColorGradeCommand';
+import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
 import { addRationalTime, subtractRationalTime } from '../../core/time/RationalTime';
 
 export type WorkspaceMode = 'edit' | 'adjust' | 'effects' | 'color' | 'audio' | 'export' | 'deliver';
@@ -68,6 +70,9 @@ export interface EditorContextValue {
   uploadStates: UploadState[];
   isUploading: boolean;
 
+  // Color Grading Clipboard State
+  copiedColorGrade: ColorGrade | null;
+
   // Keyframe System State
   autoKeyframeEnabled: boolean;
   selectedKeyframeId: string | null;
@@ -83,6 +88,8 @@ export interface EditorContextValue {
   setActiveSnapGuideline: (time: RationalTime | null) => void;
   toggleBeforeAfter: () => void;
   setBeforeAfterActive: (active: boolean) => void;
+  copyColorGrade: (clipId?: string) => void;
+  pasteColorGrade: (targetClipId?: string) => void;
   setAutoKeyframeEnabled: (enabled: boolean) => void;
   setSelectedKeyframe: (propertyPath: string | null, keyframeId: string | null) => void;
   setKeyframeLaneOpen: (open: boolean) => void;
@@ -141,9 +148,27 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedKeyframePropertyPath, setSelectedKeyframePropertyPath] = useState<string | null>(null);
   const [isKeyframeLaneOpen, setKeyframeLaneOpen] = useState<boolean>(false);
   const [copiedKeyframes, setCopiedKeyframes] = useState<{ clipId: string; tracks: Record<string, KeyframeTrack<any>> } | null>(null);
+  const [copiedColorGrade, setCopiedColorGrade] = useState<ColorGrade | null>(null);
 
   const toggleBeforeAfter = () => {
     setBeforeAfterActive((prev) => !prev);
+  };
+
+  const copyColorGrade = (clipId?: string) => {
+    const targetId = clipId || selectedClipId;
+    if (!targetId) return;
+    const found = timelineEngine.findClip(targetId);
+    if (!found || !found.clip.colorGrade) return;
+    setCopiedColorGrade(JSON.parse(JSON.stringify(found.clip.colorGrade)));
+  };
+
+  const pasteColorGrade = (targetClipId?: string) => {
+    const targetId = targetClipId || selectedClipId;
+    if (!targetId || !copiedColorGrade) return;
+    const found = timelineEngine.findClip(targetId);
+    if (!found) return;
+    const cmd = new UpdateColorGradeCommand(timelineEngine, targetId, JSON.parse(JSON.stringify(copiedColorGrade)));
+    commandManager.execute(cmd);
   };
 
   const setSelectedKeyframe = (propertyPath: string | null, keyframeId: string | null) => {
@@ -547,6 +572,9 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isBeforeAfterActive,
     uploadStates,
     isUploading,
+    copiedColorGrade,
+    copyColorGrade,
+    pasteColorGrade,
     autoKeyframeEnabled,
     selectedKeyframeId,
     selectedKeyframePropertyPath,

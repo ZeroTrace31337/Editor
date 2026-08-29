@@ -88,6 +88,10 @@ export class LutEngine {
     this.luts.set(lut.id, lut);
   }
 
+  public deleteLut(id: string): boolean {
+    return this.luts.delete(id);
+  }
+
   public getLut(id: string): Lut3DData | undefined {
     return this.luts.get(id);
   }

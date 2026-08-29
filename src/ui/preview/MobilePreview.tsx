@@ -32,6 +32,7 @@ export const MobilePreview: React.FC = () => {
     currentTime,
     isPlaying,
     togglePlay,
+    isBeforeAfterActive,
   } = useEditor();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,7 +53,7 @@ export const MobilePreview: React.FC = () => {
     let animId: number;
 
     const render = () => {
-      compositor.renderSequence(ctx, timelineEngine.getSequence(), currentTime, 1080, 1920);
+      compositor.renderSequence(ctx, timelineEngine.getSequence(), currentTime, 1080, 1920, isBeforeAfterActive);
       if (isPlaying) {
         animId = requestAnimationFrame(render);
       }
@@ -63,7 +64,7 @@ export const MobilePreview: React.FC = () => {
     return () => {
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [currentTime, isPlaying, timelineEngine, compositor, project]);
+  }, [currentTime, isPlaying, timelineEngine, compositor, isBeforeAfterActive, project]);
 
   const transitions = [
     { name: 'None', icon: Ban },

@@ -86,6 +86,7 @@ export class ColorEngine {
       (g.exposure || 0) !== 0 ||
       (g.contrast ?? 1.0) !== 1.0 ||
       (g.brightness || 0) !== 0 ||
+      (g.brilliance || 0) !== 0 ||
       (g.saturation ?? 1.0) !== 1.0 ||
       (g.vibrance || 0) !== 0 ||
       (g.temperature || 0) !== 0 ||
@@ -148,10 +149,11 @@ export class ColorEngine {
     // 1. Precompute Tone Curves LUT (Master, R, G, B)
     const curveLuts = grade.curves ? ToneCurveEvaluator.generateCurveLut(grade.curves) : null;
 
-    // 2. Precompute 256-entry Tone Mapping Table for Exposure, Contrast, Brightness, Highlights, Shadows, Whites, Blacks, Fade
+    // 2. Precompute 256-entry Tone Mapping Table for Exposure, Contrast, Brightness, Brilliance, Highlights, Shadows, Whites, Blacks, Fade
     const expMult = Math.pow(2, grade.exposure || 0);
     const contrastVal = grade.contrast ?? 1.0;
     const brightnessOffset = grade.brightness || 0;
+    const brAmount = (grade.brilliance || 0) / 100;
     const hlAmount = (grade.highlights || 0) / 100;
     const shAmount = (grade.shadows || 0) / 100;
     const whAmount = (grade.whites || 0) / 100;
@@ -167,6 +169,12 @@ export class ColorEngine {
 
       // Brightness & Contrast
       v = ((v - 0.5) * contrastVal) + 0.5 + brightnessOffset;
+
+      // Brilliance (lifts midtones & deep shadows with smooth sinus roll-off)
+      if (brAmount !== 0) {
+        const brCurve = Math.sin(Math.max(0, Math.min(1, v)) * Math.PI);
+        v += brAmount * 0.22 * brCurve;
+      }
 
       // Highlights (protects shadows/midtones, affects upper range > 0.5)
       if (hlAmount !== 0 && v > 0.3) {
@@ -560,5 +568,219 @@ export class ColorEngine {
     const b = hue2rgb(p, q, normH - 1 / 3);
 
     return [r, g, b];
+  }
+
+  /**
+   * Evaluates a single normalized [0..1] RGB sample through the complete grading pipeline.
+   */
+  public static evaluateRgbSample(
+    r: number,
+    g: number,
+    b: number,
+    grade: ColorGrade,
+    curveLuts: ReturnType<typeof ToneCurveEvaluator.generateCurveLut> | null = null
+  ): [number, number, number] {
+    let normR = Math.max(0, Math.min(1, r));
+    let normG = Math.max(0, Math.min(1, g));
+    let normB = Math.max(0, Math.min(1, b));
+
+    // A. Curves
+    if (curveLuts) {
+      const rIdx = Math.round(normR * 255);
+      const gIdx = Math.round(normG * 255);
+      const bIdx = Math.round(normB * 255);
+
+      normR = curveLuts.rLut[rIdx] / 255;
+      normG = curveLuts.gLut[gIdx] / 255;
+      normB = curveLuts.bLut[bIdx] / 255;
+
+      const mIdxR = Math.round(normR * 255);
+      const mIdxG = Math.round(normG * 255);
+      const mIdxB = Math.round(normB * 255);
+
+      normR = curveLuts.masterLut[mIdxR] / 255;
+      normG = curveLuts.masterLut[mIdxG] / 255;
+      normB = curveLuts.masterLut[mIdxB] / 255;
+    }
+
+    // B. Basic Tone Mapping (Exposure, Contrast, Brightness, Brilliance, Highlights, Shadows, Whites, Blacks, Fade)
+    const expMult = Math.pow(2, grade.exposure || 0);
+    const contrastVal = grade.contrast ?? 1.0;
+    const brightnessOffset = grade.brightness || 0;
+    const brAmount = (grade.brilliance || 0) / 100;
+    const hlAmount = (grade.highlights || 0) / 100;
+    const shAmount = (grade.shadows || 0) / 100;
+    const whAmount = (grade.whites || 0) / 100;
+    const blAmount = (grade.blacks || 0) / 100;
+    const fadeAmount = Math.max(0, Math.min(1, (grade.fade || 0) / 100));
+
+    const applyTone = (v: number) => {
+      let val = v * expMult;
+      val = (val - 0.5) * contrastVal + 0.5 + brightnessOffset;
+
+      if (brAmount !== 0) {
+        const brCurve = Math.sin(Math.max(0, Math.min(1, val)) * Math.PI);
+        val += brAmount * 0.22 * brCurve;
+      }
+      if (hlAmount !== 0 && val > 0.3) {
+        const factor = Math.max(0, (val - 0.3) / 0.7);
+        val += hlAmount * 0.35 * (factor * factor);
+      }
+      if (shAmount !== 0 && val < 0.7) {
+        const factor = Math.max(0, (0.7 - val) / 0.7);
+        val += shAmount * 0.35 * (factor * factor);
+      }
+      if (whAmount !== 0 && val > 0.6) {
+        const factor = Math.max(0, (val - 0.6) / 0.4);
+        val += whAmount * 0.4 * (factor * factor);
+      }
+      if (blAmount !== 0 && val < 0.4) {
+        const factor = Math.max(0, (0.4 - val) / 0.4);
+        val += blAmount * 0.4 * (factor * factor);
+      }
+      if (fadeAmount > 0) {
+        val = val * (1 - fadeAmount * 0.4) + fadeAmount * 0.18;
+      }
+      return Math.max(0, Math.min(1, val));
+    };
+
+    normR = applyTone(normR);
+    normG = applyTone(normG);
+    normB = applyTone(normB);
+
+    // C. White Balance
+    const temp = (grade.temperature || 0) / 100;
+    const tint = (grade.tint || 0) / 100;
+    const tempR = 1.0 + (temp > 0 ? temp * 0.35 : temp * 0.2);
+    const tempG = 1.0 - tint * 0.25;
+    const tempB = 1.0 + (temp < 0 ? -temp * 0.35 : -temp * 0.2) + (tint > 0 ? tint * 0.15 : 0);
+
+    normR = Math.max(0, Math.min(1, normR * tempR));
+    normG = Math.max(0, Math.min(1, normG * tempG));
+    normB = Math.max(0, Math.min(1, normB * tempB));
+
+    // D. Color Wheels
+    const wheels = grade.wheels;
+    if (wheels && this.hasActiveColorWheels(wheels)) {
+      const luma = 0.2126 * normR + 0.7152 * normG + 0.0722 * normB;
+
+      if (wheels.lift) {
+        const wLift = Math.max(0, 1 - luma) * Math.max(0, 1 - luma);
+        normR += wheels.lift.r * wLift * 0.4 + wheels.lift.y * wLift * 0.3;
+        normG += wheels.lift.g * wLift * 0.4 + wheels.lift.y * wLift * 0.3;
+        normB += wheels.lift.b * wLift * 0.4 + wheels.lift.y * wLift * 0.3;
+      }
+      if (wheels.gain) {
+        const wGain = luma * luma;
+        normR += wheels.gain.r * wGain * 0.4 + wheels.gain.y * wGain * 0.3;
+        normG += wheels.gain.g * wGain * 0.4 + wheels.gain.y * wGain * 0.3;
+        normB += wheels.gain.b * wGain * 0.4 + wheels.gain.y * wGain * 0.3;
+      }
+      if (wheels.gamma) {
+        const wGamma = 4.0 * luma * (1.0 - luma);
+        normR += wheels.gamma.r * wGamma * 0.35 + wheels.gamma.y * wGamma * 0.25;
+        normG += wheels.gamma.g * wGamma * 0.35 + wheels.gamma.y * wGamma * 0.25;
+        normB += wheels.gamma.b * wGamma * 0.35 + wheels.gamma.y * wGamma * 0.25;
+      }
+      if (wheels.offset) {
+        normR += wheels.offset.r * 0.25 + wheels.offset.y * 0.2;
+        normG += wheels.offset.g * 0.25 + wheels.offset.y * 0.2;
+        normB += wheels.offset.b * 0.25 + wheels.offset.y * 0.2;
+      }
+
+      normR = Math.max(0, Math.min(1, normR));
+      normG = Math.max(0, Math.min(1, normG));
+      normB = Math.max(0, Math.min(1, normB));
+    }
+
+    // E. HSL & Vibrance
+    const sat = grade.saturation ?? 1.0;
+    const vibrance = (grade.vibrance || 0) / 100;
+    const hueShift = grade.hue || 0;
+    const hasHsl = this.hasActiveHsl(grade.hsl);
+
+    if (sat !== 1.0 || vibrance !== 0 || hueShift !== 0 || hasHsl) {
+      let [h, s, l] = this.rgbToHsl(normR, normG, normB);
+
+      if (hueShift !== 0) {
+        h = (h + hueShift + 360) % 360;
+      }
+
+      if (hasHsl && grade.hsl) {
+        const bandKeys: (keyof HslColorGrade)[] = [
+          'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta',
+        ];
+        for (const k of bandKeys) {
+          const band = grade.hsl[k];
+          if (!band) continue;
+          if (band.hue === 0 && band.saturation === 0 && band.luminance === 0) continue;
+
+          let diff = Math.abs(h - band.rangeCenter);
+          if (diff > 180) diff = 360 - diff;
+          const halfWidth = (band.rangeWidth || 45) / 2;
+          const softness = band.softness || 20;
+
+          if (diff < halfWidth + softness) {
+            const weight = diff <= halfWidth ? 1.0 : 1.0 - (diff - halfWidth) / softness;
+            h = (h + band.hue * weight + 360) % 360;
+            s = Math.max(0, Math.min(1, s + (band.saturation / 100) * weight));
+            l = Math.max(0, Math.min(1, l + (band.luminance / 100) * weight));
+          }
+        }
+      }
+
+      s *= sat;
+      if (vibrance !== 0) {
+        const isSkinTone = h >= 15 && h <= 50 ? 0.6 : 1.0;
+        const vibBoost = vibrance * (1.0 - s) * isSkinTone;
+        s = Math.max(0, Math.min(1, s + vibBoost));
+      }
+
+      s = Math.max(0, Math.min(1, s));
+      l = Math.max(0, Math.min(1, l));
+
+      [normR, normG, normB] = this.hslToRgb(h, s, l);
+    }
+
+    // F. Base LUT sampling if active
+    if (grade.lutId && grade.lutEnabled !== false) {
+      const baseLut = this.lutEngine.getLut(grade.lutId);
+      if (baseLut) {
+        [normR, normG, normB] = this.lutEngine.sampleLut3D(baseLut, normR, normG, normB, grade.lutIntensity ?? 1.0);
+      }
+    }
+
+    return [normR, normG, normB];
+  }
+
+  /**
+   * Exports the entire active ColorGrade as an industry-standard .cube 3D Look-Up Table file.
+   */
+  public static exportGradeToCube(grade: ColorGrade, size = 33, title = 'VeeCut Studio Grade'): string {
+    const curveLuts = grade.curves ? ToneCurveEvaluator.generateCurveLut(grade.curves) : null;
+    const lines: string[] = [];
+
+    lines.push(`# VeeCut Professional 3D Look-Up Table`);
+    lines.push(`# Generated at ${new Date().toISOString()}`);
+    lines.push(`TITLE "${title.replace(/"/g, '')}"`);
+    lines.push(`LUT_3D_SIZE ${size}`);
+    lines.push(`DOMAIN_MIN 0.0 0.0 0.0`);
+    lines.push(`DOMAIN_MAX 1.0 1.0 1.0`);
+    lines.push(``);
+
+    for (let b = 0; b < size; b++) {
+      for (let g = 0; g < size; g++) {
+        for (let r = 0; r < size; r++) {
+          const inR = r / (size - 1);
+          const inG = g / (size - 1);
+          const inB = b / (size - 1);
+
+          const [outR, outG, outB] = this.evaluateRgbSample(inR, inG, inB, grade, curveLuts);
+          lines.push(`${outR.toFixed(6)} ${outG.toFixed(6)} ${outB.toFixed(6)}`);
+        }
+      }
+    }
+
+    return lines.join('\n');
   }
 }

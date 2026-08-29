@@ -3,13 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Palette, RotateCcw, Sliders, Film, Sparkles, Activity, Shield } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import {
+  Palette,
+  RotateCcw,
+  Sliders,
+  Film,
+  Sparkles,
+  Activity,
+  Shield,
+  Eye,
+  EyeOff,
+  Power,
+  Copy,
+  ClipboardPaste,
+  Download,
+  Upload,
+} from 'lucide-react';
 import { TimelineClip } from '../../domain/timeline/Clip';
 import { useEditor } from '../context/EditorContext';
 import { ColorGrade, createDefaultColorGrade, ColorWheelValue } from '../../domain/color/ColorGrade';
 import { UpdateColorGradeCommand } from '../../engine/command/implementations/UpdateColorGradeCommand';
 import { LutEngine } from '../../rendering/color/LutEngine';
+import { ColorEngine } from '../../rendering/color/ColorEngine';
 import { KeyframeControl } from './KeyframeControl';
 import { ToneCurvesEditor } from '../color/ToneCurvesEditor';
 import { ColorWheelsView } from '../color/ColorWheelsView';
@@ -21,10 +37,20 @@ interface ColorPanelProps {
 }
 
 export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
-  const { timelineEngine, commandManager, selectedClip } = useEditor();
+  const {
+    timelineEngine,
+    commandManager,
+    selectedClip,
+    isBeforeAfterActive,
+    toggleBeforeAfter,
+    copiedColorGrade,
+    copyColorGrade,
+    pasteColorGrade,
+  } = useEditor();
   const clip = propClip || selectedClip;
 
   const [activeSubTab, setActiveSubTab] = useState<'basic' | 'curves' | 'wheels' | 'lut' | 'hsl' | 'masks'>('wheels');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!clip) {
     return (
@@ -53,76 +79,181 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
     commandManager.execute(cmd);
   };
 
+  const handleExportLut = () => {
+    try {
+      const cubeContent = ColorEngine.exportGradeToCube(grade, 33, `VeeCut_${clip.name || 'Grade'}`);
+      const blob = new Blob([cubeContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(clip.name || 'custom_grade').replace(/\.[^/.]+$/, '')}.cube`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export .cube LUT:', err);
+    }
+  };
+
+  const handleLutUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        try {
+          const lutId = `custom_lut_${Date.now()}`;
+          const cleanName = file.name.replace(/\.cube$/i, '');
+          const parsedLut = lutEngine.parseCubeString(text, lutId, cleanName);
+          lutEngine.registerLut(parsedLut);
+          updateGrade({ lutId, lutEnabled: true });
+        } catch (err) {
+          console.error('Failed to parse .cube LUT file:', err);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const isMasterGradeEnabled = grade.colorGradeEnabled !== false;
+
   return (
-    <div className="space-y-3.5 select-none">
-      {/* Top Navigation Subtabs */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[11px] overflow-x-auto">
+    <div className="space-y-3 select-none">
+      {/* Top Header: Power toggle, Copy/Paste, B/A, and Reset */}
+      <div className="flex items-center justify-between bg-zinc-900/90 border border-zinc-800 p-2 rounded-lg">
+        <div className="flex items-center space-x-2">
+          {/* Master Grade Power Toggle */}
           <button
             type="button"
-            onClick={() => setActiveSubTab('basic')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'basic'
-                ? 'bg-zinc-800 text-white shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
+            onClick={() => updateGrade({ colorGradeEnabled: !isMasterGradeEnabled })}
+            className={`p-1 rounded-md transition ${
+              isMasterGradeEnabled
+                ? 'text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300'
+                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
             }`}
+            title={isMasterGradeEnabled ? 'Disable Color Grade (Bypass)' : 'Enable Color Grade'}
           >
-            Basic
+            <Power className="w-3.5 h-3.5" />
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('curves')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'curves'
-                ? 'bg-zinc-800 text-cyan-400 shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Curves
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('wheels')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'wheels'
-                ? 'bg-zinc-800 text-purple-400 font-bold shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Color Wheels
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('lut')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'lut'
-                ? 'bg-zinc-800 text-emerald-400 shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            LUT
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('hsl')}
-            className={`px-2 py-1 font-medium rounded transition whitespace-nowrap ${
-              activeSubTab === 'hsl'
-                ? 'bg-zinc-800 text-pink-400 shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            HSL
-          </button>
+          <span className="text-xs font-semibold text-zinc-200">Color Grade</span>
         </div>
 
+        <div className="flex items-center space-x-1.5">
+          {/* Copy Grade */}
+          <button
+            type="button"
+            onClick={() => copyColorGrade(clip.id)}
+            className="flex items-center space-x-1 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:text-white bg-zinc-800 rounded hover:bg-zinc-700 transition"
+            title="Copy current clip's color grade"
+          >
+            <Copy className="w-3 h-3" />
+            <span>Copy</span>
+          </button>
+
+          {/* Paste Grade */}
+          <button
+            type="button"
+            onClick={() => pasteColorGrade(clip.id)}
+            disabled={!copiedColorGrade}
+            className={`flex items-center space-x-1 px-2 py-1 text-[10px] font-medium transition rounded ${
+              copiedColorGrade
+                ? 'text-purple-300 hover:text-white bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/50'
+                : 'text-zinc-600 bg-zinc-800/40 cursor-not-allowed opacity-50'
+            }`}
+            title={copiedColorGrade ? 'Paste copied color grade to this clip' : 'No color grade copied'}
+          >
+            <ClipboardPaste className="w-3 h-3" />
+            <span>Paste</span>
+          </button>
+
+          {/* Before/After Toggle */}
+          <button
+            type="button"
+            onClick={toggleBeforeAfter}
+            className={`flex items-center space-x-1 px-2 py-1 text-[10px] font-medium transition rounded ${
+              isBeforeAfterActive
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
+            }`}
+            title="Toggle Before / After Preview Bypass (Press \)"
+          >
+            {isBeforeAfterActive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            <span>{isBeforeAfterActive ? 'Bypass' : 'B/A'}</span>
+          </button>
+
+          {/* Reset */}
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center space-x-1 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded transition"
+            title="Reset All Color Grading to Default"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Top Navigation Subtabs */}
+      <div className="flex items-center space-x-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[11px] overflow-x-auto">
         <button
           type="button"
-          onClick={handleReset}
-          className="flex items-center space-x-1 px-2 py-1 text-[11px] font-medium text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 rounded transition"
-          title="Reset All Color Grading to Default"
+          onClick={() => setActiveSubTab('basic')}
+          className={`flex-1 py-1 font-medium rounded transition text-center ${
+            activeSubTab === 'basic'
+              ? 'bg-zinc-800 text-white shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
         >
-          <RotateCcw className="w-3 h-3" />
-          <span>Reset</span>
+          Basic
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('wheels')}
+          className={`flex-1 py-1 font-medium rounded transition text-center ${
+            activeSubTab === 'wheels'
+              ? 'bg-zinc-800 text-purple-400 font-bold shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Wheels
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('curves')}
+          className={`flex-1 py-1 font-medium rounded transition text-center ${
+            activeSubTab === 'curves'
+              ? 'bg-zinc-800 text-cyan-400 shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Curves
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('hsl')}
+          className={`flex-1 py-1 font-medium rounded transition text-center ${
+            activeSubTab === 'hsl'
+              ? 'bg-zinc-800 text-pink-400 shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          HSL
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('lut')}
+          className={`flex-1 py-1 font-medium rounded transition text-center ${
+            activeSubTab === 'lut'
+              ? 'bg-zinc-800 text-emerald-400 shadow-xs'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          LUT
         </button>
       </div>
 
@@ -156,6 +287,58 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
             />
           </div>
 
+          {/* Brilliance */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Brilliance</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-zinc-300 font-mono">
+                  {(grade.brilliance || 0) > 0 ? `+${(grade.brilliance || 0).toFixed(0)}` : (grade.brilliance || 0).toFixed(0)}
+                </span>
+                <KeyframeControl
+                  clip={clip}
+                  propertyPath="colorGrade.brilliance"
+                  propertyName="Brilliance"
+                  currentValue={grade.brilliance || 0}
+                />
+              </div>
+            </div>
+            <input
+              type="range"
+              min="-100"
+              max="100"
+              step="1"
+              value={grade.brilliance || 0}
+              onChange={(e) => updateGrade({ brilliance: parseFloat(e.target.value) })}
+              className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+            />
+          </div>
+
+          {/* Brightness */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Brightness</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-zinc-300 font-mono">{(grade.brightness || 0).toFixed(2)}</span>
+                <KeyframeControl
+                  clip={clip}
+                  propertyPath="colorGrade.brightness"
+                  propertyName="Brightness"
+                  currentValue={grade.brightness || 0}
+                />
+              </div>
+            </div>
+            <input
+              type="range"
+              min="-1"
+              max="1"
+              step="0.02"
+              value={grade.brightness || 0}
+              onChange={(e) => updateGrade({ brightness: parseFloat(e.target.value) })}
+              className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            />
+          </div>
+
           {/* Contrast */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px]">
@@ -179,6 +362,74 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
               onChange={(e) => updateGrade({ contrast: parseFloat(e.target.value) })}
               className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
             />
+          </div>
+
+          {/* Highlights & Shadows */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Highlights</span>
+                <span className="text-zinc-300 font-mono">{(grade.highlights || 0).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                step="1"
+                value={grade.highlights || 0}
+                onChange={(e) => updateGrade({ highlights: parseFloat(e.target.value) })}
+                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Shadows</span>
+                <span className="text-zinc-300 font-mono">{(grade.shadows || 0).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                step="1"
+                value={grade.shadows || 0}
+                onChange={(e) => updateGrade({ shadows: parseFloat(e.target.value) })}
+                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Whites & Blacks */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Whites</span>
+                <span className="text-zinc-300 font-mono">{(grade.whites || 0).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                step="1"
+                value={grade.whites || 0}
+                onChange={(e) => updateGrade({ whites: parseFloat(e.target.value) })}
+                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Blacks</span>
+                <span className="text-zinc-300 font-mono">{(grade.blacks || 0).toFixed(0)}</span>
+              </div>
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                step="1"
+                value={grade.blacks || 0}
+                onChange={(e) => updateGrade({ blacks: parseFloat(e.target.value) })}
+                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
           </div>
 
           {/* Saturation */}
@@ -304,14 +555,47 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
       {/* 5. 3D LUT Browser */}
       {activeSubTab === 'lut' && (
         <div className="space-y-3.5 bg-zinc-900/90 border border-zinc-800 rounded-lg p-3.5">
-          <div className="flex items-center space-x-2">
-            <Film className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
-              3D Look Up Tables (.cube)
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Film className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-semibold text-zinc-200 uppercase tracking-wider">
+                3D Look Up Tables (.cube)
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-1.5">
+              {/* Export Grade as .cube */}
+              <button
+                type="button"
+                onClick={handleExportLut}
+                className="flex items-center space-x-1 px-2 py-1 text-[10px] font-semibold text-zinc-200 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/60 rounded transition shadow-xs"
+                title="Export active color grade as standard 3D .cube LUT"
+              >
+                <Download className="w-3 h-3 text-emerald-400" />
+                <span>Export LUT</span>
+              </button>
+
+              {/* Import .cube file */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".cube"
+                onChange={handleLutUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-1 px-2 py-1 text-[10px] font-semibold text-white bg-emerald-600/90 hover:bg-emerald-600 rounded transition shadow-xs"
+                title="Import .cube 3D LUT from computer"
+              >
+                <Upload className="w-3 h-3" />
+                <span>Import</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
             <button
               type="button"
               onClick={() => updateGrade({ lutId: undefined })}
@@ -331,7 +615,7 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
                 <button
                   key={lut.id}
                   type="button"
-                  onClick={() => updateGrade({ lutId: lut.id })}
+                  onClick={() => updateGrade({ lutId: lut.id, lutEnabled: true })}
                   className={`p-2.5 rounded-lg border text-left text-xs transition ${
                     isSelected
                       ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300'
@@ -339,7 +623,7 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({ clip: propClip }) => {
                   }`}
                 >
                   <div className="font-semibold flex items-center justify-between">
-                    <span>{lut.name}</span>
+                    <span>{lut.title || lut.name}</span>
                     <span className="text-[10px] font-mono opacity-60">{lut.size}×{lut.size}×{lut.size}</span>
                   </div>
                   <div className="text-[10px] text-zinc-500">{(lut as any).description || `${lut.size}×${lut.size}×${lut.size} 3D Color Cube`}</div>

@@ -18,7 +18,7 @@ import { Track } from '../../domain/timeline/Track';
 import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { RenderInstructionTree, RenderInstruction, ClipRenderInstruction } from './RenderInstruction';
 import { Transform2D } from '../../core/math/Transform2D';
-import { ColorGrade } from '../../domain/color/ColorGrade';
+import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
 import { SpeedEngine } from '../../engine/speed/SpeedEngine';
 
 export class RenderGraphCompiler {
@@ -119,27 +119,36 @@ export class RenderGraphCompiler {
       );
 
       // Evaluate animated Color Grade
-      const evaluatedColorGrade: ColorGrade = {
-        ...clip.colorGrade,
-        exposure: this.evaluateProp(clip, 'colorGrade.exposure', clip.colorGrade?.exposure ?? 0, elapsedOnTimeline),
-        contrast: this.evaluateProp(clip, 'colorGrade.contrast', clip.colorGrade?.contrast ?? 1.0, elapsedOnTimeline),
-        brightness: this.evaluateProp(clip, 'colorGrade.brightness', clip.colorGrade?.brightness ?? 0, elapsedOnTimeline),
-        saturation: this.evaluateProp(clip, 'colorGrade.saturation', clip.colorGrade?.saturation ?? 1.0, elapsedOnTimeline),
-        vibrance: this.evaluateProp(clip, 'colorGrade.vibrance', clip.colorGrade?.vibrance ?? 0, elapsedOnTimeline),
-        temperature: this.evaluateProp(clip, 'colorGrade.temperature', clip.colorGrade?.temperature ?? 0, elapsedOnTimeline),
-        tint: this.evaluateProp(clip, 'colorGrade.tint', clip.colorGrade?.tint ?? 0, elapsedOnTimeline),
-        hue: this.evaluateProp(clip, 'colorGrade.hue', clip.colorGrade?.hue ?? 0, elapsedOnTimeline),
-        highlights: this.evaluateProp(clip, 'colorGrade.highlights', clip.colorGrade?.highlights ?? 0, elapsedOnTimeline),
-        shadows: this.evaluateProp(clip, 'colorGrade.shadows', clip.colorGrade?.shadows ?? 0, elapsedOnTimeline),
-        whites: this.evaluateProp(clip, 'colorGrade.whites', clip.colorGrade?.whites ?? 0, elapsedOnTimeline),
-        blacks: this.evaluateProp(clip, 'colorGrade.blacks', clip.colorGrade?.blacks ?? 0, elapsedOnTimeline),
-        sharpen: this.evaluateProp(clip, 'colorGrade.sharpen', clip.colorGrade?.sharpen ?? 0, elapsedOnTimeline),
-        clarity: this.evaluateProp(clip, 'colorGrade.clarity', clip.colorGrade?.clarity ?? 0, elapsedOnTimeline),
-        noiseReduction: this.evaluateProp(clip, 'colorGrade.noiseReduction', clip.colorGrade?.noiseReduction ?? 0, elapsedOnTimeline),
-        fade: this.evaluateProp(clip, 'colorGrade.fade', clip.colorGrade?.fade ?? 0, elapsedOnTimeline),
-        vignette: this.evaluateProp(clip, 'colorGrade.vignette', clip.colorGrade?.vignette ?? 0, elapsedOnTimeline),
-        grain: this.evaluateProp(clip, 'colorGrade.grain', clip.colorGrade?.grain ?? 0, elapsedOnTimeline),
-      };
+      let evaluatedColorGrade: ColorGrade;
+      if (clip.colorGrade?.colorGradeEnabled === false) {
+        evaluatedColorGrade = {
+          ...createDefaultColorGrade(),
+          colorGradeEnabled: false,
+        };
+      } else {
+        evaluatedColorGrade = {
+          ...clip.colorGrade,
+          exposure: this.evaluateProp(clip, 'colorGrade.exposure', clip.colorGrade?.exposure ?? 0, elapsedOnTimeline),
+          contrast: this.evaluateProp(clip, 'colorGrade.contrast', clip.colorGrade?.contrast ?? 1.0, elapsedOnTimeline),
+          brightness: this.evaluateProp(clip, 'colorGrade.brightness', clip.colorGrade?.brightness ?? 0, elapsedOnTimeline),
+          brilliance: this.evaluateProp(clip, 'colorGrade.brilliance', clip.colorGrade?.brilliance ?? 0, elapsedOnTimeline),
+          saturation: this.evaluateProp(clip, 'colorGrade.saturation', clip.colorGrade?.saturation ?? 1.0, elapsedOnTimeline),
+          vibrance: this.evaluateProp(clip, 'colorGrade.vibrance', clip.colorGrade?.vibrance ?? 0, elapsedOnTimeline),
+          temperature: this.evaluateProp(clip, 'colorGrade.temperature', clip.colorGrade?.temperature ?? 0, elapsedOnTimeline),
+          tint: this.evaluateProp(clip, 'colorGrade.tint', clip.colorGrade?.tint ?? 0, elapsedOnTimeline),
+          hue: this.evaluateProp(clip, 'colorGrade.hue', clip.colorGrade?.hue ?? 0, elapsedOnTimeline),
+          highlights: this.evaluateProp(clip, 'colorGrade.highlights', clip.colorGrade?.highlights ?? 0, elapsedOnTimeline),
+          shadows: this.evaluateProp(clip, 'colorGrade.shadows', clip.colorGrade?.shadows ?? 0, elapsedOnTimeline),
+          whites: this.evaluateProp(clip, 'colorGrade.whites', clip.colorGrade?.whites ?? 0, elapsedOnTimeline),
+          blacks: this.evaluateProp(clip, 'colorGrade.blacks', clip.colorGrade?.blacks ?? 0, elapsedOnTimeline),
+          sharpen: this.evaluateProp(clip, 'colorGrade.sharpen', clip.colorGrade?.sharpen ?? 0, elapsedOnTimeline),
+          clarity: this.evaluateProp(clip, 'colorGrade.clarity', clip.colorGrade?.clarity ?? 0, elapsedOnTimeline),
+          noiseReduction: this.evaluateProp(clip, 'colorGrade.noiseReduction', clip.colorGrade?.noiseReduction ?? 0, elapsedOnTimeline),
+          fade: this.evaluateProp(clip, 'colorGrade.fade', clip.colorGrade?.fade ?? 0, elapsedOnTimeline),
+          vignette: this.evaluateProp(clip, 'colorGrade.vignette', clip.colorGrade?.vignette ?? 0, elapsedOnTimeline),
+          grain: this.evaluateProp(clip, 'colorGrade.grain', clip.colorGrade?.grain ?? 0, elapsedOnTimeline),
+        };
+      }
 
       // Evaluate animated Effects Stack
       const evaluatedEffects = (clip.effects || []).map((fx, idx) => {

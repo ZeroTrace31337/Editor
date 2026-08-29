@@ -96,7 +96,7 @@ export const HslColorBandsView: React.FC<HslColorBandsViewProps> = ({ clip }) =>
           })}
         </div>
 
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1.5">
           <button
             type="button"
             onClick={handleResetBand}
@@ -104,7 +104,16 @@ export const HslColorBandsView: React.FC<HslColorBandsViewProps> = ({ clip }) =>
             title={`Reset ${bandMeta[activeBand].label} adjustments`}
           >
             <RotateCcw className="w-3 h-3" />
-            <span>Reset</span>
+            <span>Reset Band</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleResetAll}
+            className="flex items-center space-x-1 px-2 py-1 text-[11px] text-zinc-400 hover:text-white bg-zinc-800 rounded hover:bg-zinc-700 transition"
+            title="Reset All 8 HSL Color Bands"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset All</span>
           </button>
         </div>
       </div>

@@ -261,6 +261,7 @@ const SingleColorWheel: React.FC<SingleColorWheelProps> = ({
       <div
         ref={wheelRef}
         onMouseDown={handleMouseDown}
+        onDoubleClick={() => onChange({ r: 0, g: 0, b: 0 })}
         className="relative w-16 h-16 xl:w-20 xl:h-20 rounded-full border cursor-crosshair shadow-inner flex items-center justify-center overflow-hidden"
         style={{
           borderColor: ringColor,
@@ -284,15 +285,31 @@ const SingleColorWheel: React.FC<SingleColorWheelProps> = ({
         />
       </div>
 
-      {/* Numeric Readouts underneath */}
-      <div className="w-full text-[9px] font-mono text-zinc-400 flex flex-col items-center leading-tight">
-        <div className="flex justify-between w-full px-0.5">
-          <span>R {(value.r || 0).toFixed(2)}</span>
-          <span>G {(value.g || 0).toFixed(2)}</span>
+      {/* Luminance (Y) Offset Slider */}
+      <div className="w-full px-1 space-y-0.5">
+        <div className="flex justify-between items-center text-[9px] font-mono text-zinc-400">
+          <span>Y (Luma)</span>
+          <span className={value.y !== 0 ? 'text-amber-400 font-bold' : 'text-zinc-500'}>
+            {value.y > 0 ? `+${(value.y || 0).toFixed(2)}` : (value.y || 0).toFixed(2)}
+          </span>
         </div>
-        <div className="flex justify-between w-full px-0.5">
-          <span>B {(value.b || 0).toFixed(2)}</span>
-          <span>Y {(value.y || 0).toFixed(2)}</span>
+        <input
+          type="range"
+          min="-1"
+          max="1"
+          step="0.02"
+          value={value.y || 0}
+          onChange={(e) => onChange({ y: parseFloat(e.target.value) })}
+          className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-indigo-500"
+        />
+      </div>
+
+      {/* Numeric Readouts underneath */}
+      <div className="w-full text-[9px] font-mono text-zinc-400 flex flex-col items-center leading-tight pt-0.5">
+        <div className="flex justify-between w-full px-1">
+          <span>R: {(value.r || 0).toFixed(2)}</span>
+          <span>G: {(value.g || 0).toFixed(2)}</span>
+          <span>B: {(value.b || 0).toFixed(2)}</span>
         </div>
       </div>
     </div>
