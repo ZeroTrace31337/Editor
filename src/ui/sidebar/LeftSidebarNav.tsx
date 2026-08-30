@@ -44,6 +44,7 @@ import {
   Info,
   Loader2,
   Film,
+  Bot,
 } from 'lucide-react';
 import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
 import { createBaseClip } from '../../domain/timeline/Clip';
@@ -249,21 +250,104 @@ export const LeftSidebarNav: React.FC = () => {
 
   // AI Tool Modal State
   const [selectedAIToolModal, setSelectedAIToolModal] = useState<AIToolItem | null>(null);
+  const [sidebarAiPrompt, setSidebarAiPrompt] = useState('');
+  const [isSidebarAiRunning, setIsSidebarAiRunning] = useState(false);
 
-  const handleApplyAIResult = (resultInfo: any) => {
+  const handleApplyAIResult = async (resultInfo: any) => {
+    const sequence = timelineEngine.getSequence();
+
+    // 1. Color Grade
     if (resultInfo.colorGrade && selectedClip) {
       selectedClip.colorGrade = { ...selectedClip.colorGrade, ...resultInfo.colorGrade };
       projectService.setProject({ ...project });
-    } else if (resultInfo.assetUrl || resultInfo.title) {
-      const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing';
-      const dur = secondsToRationalTime(5);
+    }
+
+    // 2. Motion Tracking Keyframes
+    if (resultInfo.keyframes && resultInfo.keyframes.length > 0 && selectedClip) {
+      if (resultInfo.keyframes[0]) {
+        selectedClip.transform.position.x = resultInfo.keyframes[0].x || selectedClip.transform.position.x;
+        selectedClip.transform.position.y = resultInfo.keyframes[0].y || selectedClip.transform.position.y;
+        selectedClip.transform.scale.x = resultInfo.keyframes[0].scale || selectedClip.transform.scale.x;
+        selectedClip.transform.scale.y = resultInfo.keyframes[0].scale || selectedClip.transform.scale.y;
+      }
+      projectService.setProject({ ...project });
+    }
+
+    // 3. Captions (Auto Subtitles)
+    if (resultInfo.captions && Array.isArray(resultInfo.captions) && resultInfo.captions.length > 0) {
+      let targetTrack = sequence.tracks.find((t) => t.id === 'track_v2' || t.kind === 'video');
+      if (!targetTrack) targetTrack = sequence.tracks[0];
+
+      for (const cue of resultInfo.captions) {
+        const startSec = (cue.startMs || 0) / 1000;
+        const durSec = Math.max(1, ((cue.endMs || 1500) - (cue.startMs || 0)) / 1000);
+        const subClipId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const textClip = createBaseClip(
+          subClipId,
+          'text',
+          cue.text,
+          targetTrack.id,
+          { start: secondsToRationalTime(startSec), duration: secondsToRationalTime(durSec) },
+          { start: createRationalTime(0), duration: secondsToRationalTime(durSec) }
+        );
+        (textClip as any).text = cue.text;
+        (textClip as any).fontSize = 44;
+        (textClip as any).textColor = '#facc15';
+        (textClip as any).fontFamily = 'Inter, sans-serif';
+        try {
+          const cmd = new AddClipCommand(timelineEngine, targetTrack.id, textClip as any);
+          await commandManager.execute(cmd);
+        } catch {}
+      }
+      projectService.setProject({ ...project });
+      return;
+    }
+
+    // 4. Assistant Actions Execution
+    if (resultInfo.assistantActions && Array.isArray(resultInfo.assistantActions)) {
+      for (const act of resultInfo.assistantActions) {
+        if (act.type === 'add_text' && act.payload) {
+          const textTrack = sequence.tracks.find((t) => t.id === 'track_v2' || t.kind === 'video') || sequence.tracks[0];
+          const durRational = secondsToRationalTime(act.payload.durationSec || 4);
+          const textClip = createBaseClip(
+            `text_ai_${Date.now()}`,
+            'text',
+            act.payload.text,
+            textTrack.id,
+            { start: currentTime, duration: durRational },
+            { start: createRationalTime(0), duration: durRational }
+          );
+          (textClip as any).text = act.payload.text;
+          (textClip as any).fontSize = act.payload.fontSize || 54;
+          (textClip as any).textColor = act.payload.textColor || '#22d3ee';
+          (textClip as any).fontFamily = 'Inter, sans-serif';
+          const cmd = new AddClipCommand(timelineEngine, textTrack.id, textClip as any);
+          await commandManager.execute(cmd);
+        } else if (act.type === 'apply_color_grade' && selectedClip && act.payload) {
+          selectedClip.colorGrade = { ...selectedClip.colorGrade, ...act.payload };
+        } else if (act.type === 'add_audio_sfx' && act.payload) {
+          const sound = SFX_DATABASE.find((s) => s.id === act.payload.sfxId) || SFX_DATABASE[0];
+          handleAddSoundToTimeline(sound);
+        }
+      }
+      projectService.setProject({ ...project });
+      return;
+    }
+
+    // 5. Media Asset (Video, Image, Audio)
+    if (resultInfo.assetUrl || resultInfo.videoUrl || resultInfo.audioData || resultInfo.imageUrl || resultInfo.title) {
+      const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing' || !!resultInfo.audioData;
+      const isImg = resultInfo.type === 'Asset Creation' || resultInfo.type === 'VFX & Rotoscoping' || resultInfo.type === 'Cleanup & Inpainting';
+      const durSec = resultInfo.durationSec || (isAud ? 8 : isImg ? 4 : 5);
+      const dur = secondsToRationalTime(durSec);
+
       const newAsset = {
         id: `ai_asset_${Date.now()}`,
-        name: resultInfo.title,
-        type: isAud ? 'audio' : 'video',
+        name: resultInfo.title || 'AI Generated Asset',
+        type: isAud ? 'audio' : isImg ? 'image' : 'video',
         duration: dur,
         fileSize: 1024 * 1024 * 5,
-        thumbnailUrl: resultInfo.assetUrl || '',
+        thumbnailUrl: resultInfo.imageUrl || resultInfo.assetUrl || resultInfo.videoUrl || '',
       };
       if (project.mediaPool) {
         project.mediaPool.push(newAsset as any);
@@ -1561,36 +1645,109 @@ export const LeftSidebarNav: React.FC = () => {
       )}
 
       {activeTool === 'ai_style' && (
-        <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[#0d0f17]">
-          <span className="font-bold text-zinc-200 text-xs">AI Visual Style Generators</span>
-          <div className="space-y-2">
-            {['Cyberpunk Neon', 'Cinematic Film Look', 'Anime Aesthetic', 'Vintage 70s', 'Dramatic Noir'].map((ai) => (
-              <div
-                key={ai}
-                onClick={() => {
-                  if (selectedClip) {
-                    if (ai === 'Cyberpunk Neon') {
-                      selectedClip.colorGrade.saturation = 1.6;
-                      selectedClip.colorGrade.tint = 30;
-                      selectedClip.colorGrade.temp = -20;
-                    } else if (ai === 'Cinematic Film Look') {
-                      selectedClip.colorGrade.contrast = 1.3;
-                      selectedClip.colorGrade.vignette = 0.35;
+        <div className="flex-1 p-3 overflow-y-auto space-y-4 bg-[#0d0f17]">
+          {/* AI Copilot Quick Box */}
+          <div className="p-3 rounded-xl bg-gradient-to-tr from-[#111422] to-[#1a1f33] border border-cyan-500/30 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5 text-cyan-400" />
+                <span>AI Timeline Copilot</span>
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                Gemini 3.7
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={sidebarAiPrompt}
+                onChange={(e) => setSidebarAiPrompt(e.target.value)}
+                placeholder="e.g. Add title 'EPIC VLOG', split clip, apply golden hour"
+                className="flex-1 bg-black/50 border border-zinc-800 focus:border-cyan-400 rounded-lg px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && sidebarAiPrompt.trim()) {
+                    setIsSidebarAiRunning(true);
+                    try {
+                      const res = await fetch('/api/ai/assistant-command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          message: sidebarAiPrompt,
+                          currentTimeSeconds: rationalTimeToSeconds(currentTime),
+                          selectedClipInfo: selectedClip ? { id: selectedClip.id, name: selectedClip.name } : null,
+                        }),
+                      });
+                      const data = await res.json();
+                      await handleApplyAIResult({ assistantActions: data.actions });
+                      setSidebarAiPrompt('');
+                    } catch (err) {
+                      console.error('AI assistant error:', err);
+                    } finally {
+                      setIsSidebarAiRunning(false);
                     }
-                    projectService.setProject({ ...project });
                   }
                 }}
-                className="p-2.5 rounded-xl bg-[#111422] border border-zinc-800 hover:border-cyan-500 cursor-pointer flex items-center justify-between transition"
+              />
+              <button
+                onClick={async () => {
+                  if (!sidebarAiPrompt.trim()) return;
+                  setIsSidebarAiRunning(true);
+                  try {
+                    const res = await fetch('/api/ai/assistant-command', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        message: sidebarAiPrompt,
+                        currentTimeSeconds: rationalTimeToSeconds(currentTime),
+                        selectedClipInfo: selectedClip ? { id: selectedClip.id, name: selectedClip.name } : null,
+                      }),
+                    });
+                    const data = await res.json();
+                    await handleApplyAIResult({ assistantActions: data.actions });
+                    setSidebarAiPrompt('');
+                  } catch (err) {
+                    console.error('AI assistant error:', err);
+                  } finally {
+                    setIsSidebarAiRunning(false);
+                  }
+                }}
+                disabled={isSidebarAiRunning}
+                className="px-3 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-black font-bold text-xs disabled:opacity-50 cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <Wand2 className="w-4 h-4 text-cyan-400" />
-                  <span className="font-medium text-zinc-200">{ai}</span>
+                {isSidebarAiRunning ? '...' : 'Run'}
+              </button>
+            </div>
+          </div>
+
+          {/* 10 AI Tools Suite Launchers */}
+          <div className="space-y-2">
+            <span className="font-bold text-zinc-200 text-xs block">AI Tools Suite (10 Real Tools)</span>
+            <div className="grid grid-cols-1 gap-1.5">
+              {AI_TOOLS_LIST.map((aiTool) => (
+                <div
+                  key={aiTool.id}
+                  onClick={() => setSelectedAIToolModal(aiTool)}
+                  className="p-2.5 rounded-xl bg-[#111422] border border-zinc-800 hover:border-cyan-500 cursor-pointer flex items-center justify-between transition group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${aiTool.accentGradient} flex items-center justify-center text-white shadow-sm`}>
+                      <Wand2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="font-semibold text-zinc-200 block text-xs group-hover:text-cyan-400 transition">
+                        {aiTool.name}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 block line-clamp-1">
+                        {aiTool.description}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-zinc-800 group-hover:bg-cyan-500/20 text-zinc-300 group-hover:text-cyan-400 font-bold border border-zinc-700 group-hover:border-cyan-500/30 transition shrink-0 ml-2">
+                    Open
+                  </span>
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/30">
-                  Apply
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}

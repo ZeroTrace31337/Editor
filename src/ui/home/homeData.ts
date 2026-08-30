@@ -438,6 +438,16 @@ export const AI_TOOLS_LIST: AIToolItem[] = [
     features: ['De-Reverb', 'De-Esser', 'Dynamic Loudness Match'],
   },
   {
+    id: 'ai_assistant',
+    name: 'AI Video & Timeline Assistant',
+    category: 'Intelligent Copilot',
+    description: 'Conversational AI copilot that executes real video cuts, transitions, audio mixing, and color grading on your timeline.',
+    badge: 'Copilot',
+    iconName: 'Bot',
+    accentGradient: 'from-amber-400 to-rose-500',
+    features: ['Natural Language Editing', 'Automated Clip Trimming', 'One-Click Color Match'],
+  },
+  {
     id: 'ai_upscale',
     name: 'AI 4K/8K Upscaler',
     category: 'Post Processing',
