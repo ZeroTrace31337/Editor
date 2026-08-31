@@ -68,7 +68,7 @@ export const MobileExportModal: React.FC<MobileExportModalProps> = ({ onClose })
         setIsComplete(true);
 
         // Generate virtual video blob for download
-        const blob = new Blob(['CineFlow Master Video Export'], { type: 'video/mp4' });
+        const blob = new Blob(['VeeCut Master Video Export'], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         setDownloadUrl(url);
       }
@@ -78,7 +78,7 @@ export const MobileExportModal: React.FC<MobileExportModalProps> = ({ onClose })
   const handleDownload = () => {
     const a = document.createElement('a');
     a.href = downloadUrl || '#';
-    a.download = `${project.metadata.name || 'CineFlow_Edit'}_${selectedRes}.mp4`;
+    a.download = `${project.metadata.name || 'VeeCut_Edit'}_${selectedRes}.mp4`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

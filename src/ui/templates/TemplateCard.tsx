@@ -16,6 +16,12 @@ import {
   Star,
   Eye,
   Wand2,
+  Youtube,
+  Instagram,
+  Smartphone,
+  Download,
+  Share2,
+  Film,
 } from 'lucide-react';
 import { Template } from '../../domain/template/Template';
 import { TemplateService } from '../../domain/template/templateService';
@@ -24,6 +30,7 @@ interface TemplateCardProps {
   template: Template;
   onPreview: (template: Template) => void;
   onUseTemplate: (template: Template) => void;
+  onExportJson?: (template: Template) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (templateId: string) => void;
 }
@@ -32,6 +39,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   template,
   onPreview,
   onUseTemplate,
+  onExportJson,
   isFavorite = false,
   onToggleFavorite,
 }) => {
@@ -49,6 +57,41 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
     }
   };
 
+  const getPlatformBadge = () => {
+    switch (template.primaryPlatform) {
+      case 'youtube_shorts':
+      case 'youtube':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            <Youtube className="w-3 h-3 text-rose-400" />
+            Shorts
+          </span>
+        );
+      case 'tiktok':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+            <Smartphone className="w-3 h-3 text-sky-400" />
+            TikTok
+          </span>
+        );
+      case 'instagram_reels':
+      case 'instagram':
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-pink-500/20 text-pink-300 border border-pink-500/30">
+            <Instagram className="w-3 h-3 text-pink-400" />
+            Reels
+          </span>
+        );
+      default:
+        return (
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <Film className="w-3 h-3 text-indigo-400" />
+            Universal
+          </span>
+        );
+    }
+  };
+
   return (
     <div
       id={`template_card_${template.id}`}
@@ -57,7 +100,10 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Visual Thumbnail & Preview Area */}
-      <div className="relative w-full aspect-[16/10] bg-black/40 overflow-hidden cursor-pointer" onClick={() => onPreview(template)}>
+      <div
+        className="relative w-full aspect-[16/10] bg-black/40 overflow-hidden cursor-pointer"
+        onClick={() => onPreview(template)}
+      >
         <img
           src={template.thumbnail}
           alt={template.name}
@@ -88,25 +134,41 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
             {template.isAIPowered && (
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-500/90 backdrop-blur-md text-white shadow-md">
                 <Cpu className="w-3 h-3" />
-                AI Powered
+                AI
               </span>
             )}
           </div>
 
-          {/* Favorite Toggle Button */}
-          <button
-            type="button"
-            id={`btn_fav_${template.id}`}
-            onClick={handleFavoriteClick}
-            className={`pointer-events-auto p-2 rounded-full backdrop-blur-md transition-all duration-200 shadow-md ${
-              fav
-                ? 'bg-rose-500 text-white'
-                : 'bg-black/60 text-white/70 hover:text-white hover:bg-black/80 hover:scale-110'
-            }`}
-            title={fav ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart className={`w-4 h-4 ${fav ? 'fill-current' : ''}`} />
-          </button>
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            {onExportJson && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExportJson(template);
+                }}
+                className="p-1.5 rounded-full backdrop-blur-md bg-black/60 text-white/70 hover:text-white hover:bg-black/80 hover:scale-110 transition-all"
+                title="Export Template JSON"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Favorite Toggle Button */}
+            <button
+              type="button"
+              id={`btn_fav_${template.id}`}
+              onClick={handleFavoriteClick}
+              className={`p-2 rounded-full backdrop-blur-md transition-all duration-200 shadow-md ${
+                fav
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-black/60 text-white/70 hover:text-white hover:bg-black/80 hover:scale-110'
+              }`}
+              title={fav ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Heart className={`w-4 h-4 ${fav ? 'fill-current' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Duration & Aspect Ratio Badges */}
@@ -156,6 +218,15 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           <p className="mt-1 text-xs text-slate-400 line-clamp-2 leading-relaxed">
             {template.description}
           </p>
+
+          <div className="flex items-center gap-2 mt-2">
+            {getPlatformBadge()}
+            {template.style && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-white/5 text-slate-300 border border-white/10">
+                {template.style}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Creator Info & Usage Count */}

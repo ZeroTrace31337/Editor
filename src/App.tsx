@@ -143,7 +143,7 @@ const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({ onReturnHome, onToggl
       />
 
       {/* 2. WORKSPACE VIEWS */}
-      {/* Unified Professional CineFlow Pro Desktop Layout */}
+      {/* Unified Professional VeeCut Pro Desktop Layout */}
       {workspaceMode === 'deliver' ? (
         <div className="flex-1 flex min-h-0">
           <DeliverWorkspaceView />

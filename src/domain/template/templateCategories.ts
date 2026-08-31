@@ -23,20 +23,12 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#f43f5e', // Rose
   },
   {
-    id: 'new',
-    label: 'New',
-    iconName: 'Clock',
-    description: 'Freshly released templates updated daily with modern aesthetic styles',
-    tagline: 'Brand new multi-track layouts',
-    colorAccent: '#10b981', // Emerald
-  },
-  {
-    id: 'reels',
-    label: 'Reels',
-    iconName: 'Instagram',
-    description: 'High-retention 9:16 Instagram Reels with hook pacing and dynamic overlays',
-    tagline: 'Optimized for Instagram feed and story loops',
-    colorAccent: '#e1306c', // Instagram Magenta
+    id: 'youtube',
+    label: 'YouTube',
+    iconName: 'Youtube',
+    description: 'Widescreen 16:9 layouts for intros, video essays, reviews, and vlogs',
+    tagline: 'Landscape 4K long-form production styles',
+    colorAccent: '#dc2626', // YouTube Red
   },
   {
     id: 'tiktok',
@@ -48,19 +40,35 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
   },
   {
     id: 'youtube_shorts',
-    label: 'YouTube Shorts',
+    label: 'Shorts',
     iconName: 'Zap',
     description: 'Engaging vertical video templates engineered for maximum viewer retention',
     tagline: 'Paced for Shorts algorithm discoverability',
     colorAccent: '#ef4444', // Red
   },
   {
-    id: 'youtube',
-    label: 'YouTube',
-    iconName: 'Youtube',
-    description: 'Widescreen 16:9 layouts for intros, video essays, reviews, and vlogs',
-    tagline: 'Landscape 4K long-form production styles',
-    colorAccent: '#dc2626', // YouTube Red
+    id: 'reels',
+    label: 'Reels',
+    iconName: 'Instagram',
+    description: 'High-retention 9:16 Instagram Reels with hook pacing and dynamic overlays',
+    tagline: 'Optimized for Instagram feed and story loops',
+    colorAccent: '#e1306c', // Instagram Magenta
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    iconName: 'Instagram',
+    description: 'Square 1:1, portrait 4:5, and carousel video templates for Instagram feeds',
+    tagline: 'Clean aesthetic grids and feed visualizers',
+    colorAccent: '#d946ef', // Fuchsia
+  },
+  {
+    id: 'gaming',
+    label: 'Gaming',
+    iconName: 'Gamepad2',
+    description: 'Esports clutch montages, streamer webcam overlays, and kill syncs',
+    tagline: 'Cyberpunk neon HUDs, particle glitches & bass drops',
+    colorAccent: '#a855f7', // Violet
   },
   {
     id: 'cinematic',
@@ -71,6 +79,94 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#fbbf24', // Amber/Gold
   },
   {
+    id: 'vlog',
+    label: 'Vlogs',
+    iconName: 'Video',
+    description: 'Daily life routines, talking-head PIP boxes, and casual vlog typography',
+    tagline: 'Cozy, authentic lifestyle and storytelling layouts',
+    colorAccent: '#8b5cf6', // Purple
+  },
+  {
+    id: 'business',
+    label: 'Business',
+    iconName: 'Briefcase',
+    description: 'Corporate pitch presentations, brand intros, key metrics, and case studies',
+    tagline: 'Clean corporate typography, logo reveals & modern badges',
+    colorAccent: '#3b82f6', // Corporate Blue
+  },
+  {
+    id: 'education',
+    label: 'Education',
+    iconName: 'GraduationCap',
+    description: 'Explainer videos, tutorial breakdowns, highlighted text callouts, and step-by-steps',
+    tagline: 'Clear informational graphics and educational pacing',
+    colorAccent: '#10b981', // Emerald
+  },
+  {
+    id: 'ads',
+    label: 'Ads',
+    iconName: 'Megaphone',
+    description: 'High-converting video ads, sales hooks, promotional discounts, and CTA end-cards',
+    tagline: 'Performance marketing templates engineered for CTR',
+    colorAccent: '#f97316', // Orange
+  },
+  {
+    id: 'documents',
+    label: 'Documents',
+    iconName: 'FileText',
+    description: 'Documentary style visuals, archival lower thirds, typewriter logs, and paper textures',
+    tagline: 'Historical and investigative documentary aesthetics',
+    colorAccent: '#94a3b8', // Slate
+  },
+  {
+    id: 'presentations',
+    label: 'Presentations',
+    iconName: 'Presentation',
+    description: 'Keynote style video decks, pitch slideshows, bullet callouts, and infographic morphs',
+    tagline: 'Executive grade visual presentations',
+    colorAccent: '#6366f1', // Indigo
+  },
+  {
+    id: 'social_media',
+    label: 'Social Media',
+    iconName: 'Share2',
+    description: 'Omni-platform short form content with animated captions and reaction frames',
+    tagline: 'Cross-platform engagement boosters',
+    colorAccent: '#ec4899', // Pink
+  },
+  {
+    id: 'photo_slideshow',
+    label: 'Photo Slideshow',
+    iconName: 'Images',
+    description: 'Parallax photo galleries, smooth 3D push transitions, and memory scrapbooks',
+    tagline: 'Transform still photographs into fluid video reels',
+    colorAccent: '#14b8a6', // Teal
+  },
+  {
+    id: 'intro_outro',
+    label: 'Intro/Outro',
+    iconName: 'PlaySquare',
+    description: 'Channel intro stingers, dynamic subscribe end-cards, and logo splash screens',
+    tagline: 'Signature branding hooks and end-screen calls to action',
+    colorAccent: '#eab308', // Yellow
+  },
+  {
+    id: 'promotional',
+    label: 'Promotional',
+    iconName: 'ShoppingBag',
+    description: 'E-commerce showcase clips, 3D product rotations, discount tags, and launch trailers',
+    tagline: 'Product launch and seasonal commercial spotlights',
+    colorAccent: '#06b6d4', // Cyan
+  },
+  {
+    id: 'ai_templates',
+    label: 'AI Templates',
+    iconName: 'Cpu',
+    description: 'AI-assisted smart layouts with dynamic generative media prompts, voiceover sync & neural grading',
+    tagline: 'Intelligent multi-modal video generation pipelines',
+    colorAccent: '#a855f7', // Purple
+  },
+  {
     id: 'travel',
     label: 'Travel',
     iconName: 'Compass',
@@ -79,12 +175,20 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#0ea5e9', // Ocean Blue
   },
   {
-    id: 'vlog',
-    label: 'Vlog',
-    iconName: 'Video',
-    description: 'Daily life routines, talking-head PIP boxes, and casual vlog typography',
-    tagline: 'Cozy, authentic lifestyle and storytelling layouts',
-    colorAccent: '#8b5cf6', // Purple
+    id: 'gaming',
+    label: 'Gaming',
+    iconName: 'Gamepad2',
+    description: 'Esports clutch montages, streamer webcam overlays, and kill syncs',
+    tagline: 'Cyberpunk neon HUDs, particle glitches & bass drops',
+    colorAccent: '#8b5cf6',
+  },
+  {
+    id: 'new',
+    label: 'New',
+    iconName: 'Clock',
+    description: 'Freshly released templates updated daily with modern aesthetic styles',
+    tagline: 'Brand new multi-track layouts',
+    colorAccent: '#10b981', // Emerald
   },
   {
     id: 'sports',
@@ -93,14 +197,6 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     description: 'High-energy football, basketball, gym workout, and extreme sports edits',
     tagline: 'Fast speed ramps, flash impacts & aggressive audio risers',
     colorAccent: '#f97316', // Orange
-  },
-  {
-    id: 'gaming',
-    label: 'Gaming',
-    iconName: 'Gamepad2',
-    description: 'Esports clutch montages, streamer webcam overlays, and kill syncs',
-    tagline: 'Cyberpunk neon HUDs, particle glitches & bass drops',
-    colorAccent: '#a855f7', // Violet
   },
   {
     id: 'birthday',
@@ -117,22 +213,6 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     description: 'Timeless elegant romantic montages, slow dissolves, and golden bokeh',
     tagline: 'Graceful typography, soft light leaks and vow memories',
     colorAccent: '#fde047', // Champagne Gold
-  },
-  {
-    id: 'business',
-    label: 'Business',
-    iconName: 'Briefcase',
-    description: 'Corporate pitch presentations, brand intros, key metrics, and case studies',
-    tagline: 'Clean corporate typography, logo reveals & modern badges',
-    colorAccent: '#3b82f6', // Corporate Blue
-  },
-  {
-    id: 'product_promo',
-    label: 'Product Promo',
-    iconName: 'ShoppingBag',
-    description: 'E-commerce showcase clips, 3D product rotations, discount tags, and CTAs',
-    tagline: 'Conversion-driven commercial templates for online stores',
-    colorAccent: '#14b8a6', // Teal
   },
   {
     id: 'photography',
@@ -173,13 +253,5 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     description: 'Ultra-tight frame-perfect cuts synchronized to musical drop transients',
     tagline: 'Automated transient snapping for high-impact beat pacing',
     colorAccent: '#06b6d4', // Electric Cyan
-  },
-  {
-    id: 'ai_templates',
-    label: 'AI Templates',
-    iconName: 'Cpu',
-    description: 'AI-assisted auto-montage, generative color transfer, and smart auto-reframe',
-    tagline: 'Powered by Gemini neural vision & audio segmentation',
-    colorAccent: '#38bdf8', // Neon AI Blue
   },
 ];

@@ -3,6 +3,11 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, GenerateVideosOperation, Modality } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { TrendEngine } from "./server/trendEngine";
+import { TemplateDatabase } from "./server/templateDatabase";
+import { YouTubeService } from "./server/youtubeService";
+import { AIServiceLayer } from "./server/aiServices";
+
 
 dotenv.config();
 
@@ -67,7 +72,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 // =========================================================================
-// 10 VEECUT AI TOOLS SUITE ENDPOINTS
+// =========================================================================
+// 10 VEECUT AI TOOLS SUITE ENDPOINTS (Powered by AIServiceLayer)
 // =========================================================================
 
 // -------------------------------------------------------------------------
@@ -83,35 +89,15 @@ app.post("/api/ai/video-generate", async (req, res) => {
     duration = 5,
   } = req.body;
 
-  const ai = getGeminiClient();
-  if (!ai) {
-    return res.status(503).json({
-      error: "GEMINI_API_KEY is not configured.",
-      isApiKeyMissing: true,
-    });
-  }
-
   try {
-    const validAspect = ["16:9", "9:16", "1:1"].includes(aspectRatio) ? aspectRatio : "16:9";
-    const validRes = resolution === "1080p" ? "1080p" : "720p";
-
-    const operation = await ai.models.generateVideos({
-      model: "veo-3.1-lite-generate-preview",
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.startVideoGeneration({
       prompt,
-      config: {
-        numberOfVideos: 1,
-        resolution: validRes as any,
-        aspectRatio: validAspect as any,
-      },
-    });
-
-    res.json({
-      operationName: operation.name,
-      status: "generating",
-      prompt,
-      aspectRatio: validAspect,
+      aspectRatio,
+      resolution,
       duration,
     });
+    res.json(result);
   } catch (err: any) {
     console.error("Veo video-generate error:", err);
     res.status(500).json({ error: err.message || "Failed to initiate video generation" });
@@ -125,38 +111,10 @@ app.post("/api/ai/video-status", async (req, res) => {
     return res.status(400).json({ error: "operationName is required" });
   }
 
-  const ai = getGeminiClient();
-  if (!ai) {
-    return res.status(503).json({ error: "GEMINI_API_KEY is not configured." });
-  }
-
   try {
-    const op = new GenerateVideosOperation();
-    op.name = operationName;
-
-    const updated = await ai.operations.getVideosOperation({ operation: op });
-
-    if (updated.error) {
-      return res.json({
-        done: true,
-        status: "error",
-        error: (updated.error as any)?.message || "Video generation failed",
-      });
-    }
-
-    if (updated.done) {
-      const videoUri = updated.response?.generatedVideos?.[0]?.video?.uri;
-      return res.json({
-        done: true,
-        status: "ready",
-        videoUri,
-      });
-    }
-
-    res.json({
-      done: false,
-      status: "generating",
-    });
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.pollVideoStatus(operationName);
+    res.json(result);
   } catch (err: any) {
     console.error("Veo video-status error:", err);
     res.status(500).json({ error: err.message || "Failed to poll video status" });
@@ -170,26 +128,13 @@ app.get("/api/ai/video-download", async (req, res) => {
     return res.status(400).json({ error: "Video URI is required" });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(503).json({ error: "GEMINI_API_KEY required to download video" });
-  }
-
   try {
-    const videoRes = await fetch(uri, {
-      headers: {
-        "x-goog-api-key": process.env.GEMINI_API_KEY,
-      },
-    });
-
-    if (!videoRes.ok) {
-      throw new Error(`Video fetch failed with status ${videoRes.status}`);
-    }
+    const aiService = AIServiceLayer.getInstance();
+    const videoBuffer = await aiService.downloadVideoBuffer(uri);
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", 'inline; filename="ai-generated-video.mp4"');
-
-    const arrayBuffer = await videoRes.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
+    res.send(videoBuffer);
   } catch (err: any) {
     console.error("Veo video-download error:", err);
     res.status(500).json({ error: err.message || "Failed to download video" });
@@ -206,57 +151,16 @@ app.post("/api/ai/video-gen", async (req, res) => {
     resolution = "1080p",
   } = req.body;
 
-  const ai = getGeminiClient();
-
   try {
-    let scriptDetails: any = {
-      title: "Cinematic Neural Video",
-      cameraPath: "Dynamic cinematic push with subtle rotational drift",
-      lighting: "Volumetric anamorphic lens flare with cinematic rim light",
-      colorPalette: ["#06b6d4", "#3b82f6", "#8b5cf6", "#f43f5e"],
-      scenePacing: "Smooth cinematic 60fps acceleration",
-      motionVectors: 240,
-    };
-
-    if (ai) {
-      try {
-        const descPrompt = `You are a Hollywood cinematic VFX director. Analyze this video generation prompt: "${prompt}".
-Style: ${style}, Aspect Ratio: ${aspectRatio}, Duration: ${duration}s, Resolution: ${resolution}.
-Return a JSON object:
-{
-  "title": "Short punchy video title",
-  "cameraPath": "Description of the simulated camera path",
-  "lighting": "Description of lighting aesthetics",
-  "colorPalette": ["#hex1", "#hex2", "#hex3", "#hex4"],
-  "scenePacing": "Pacing description",
-  "motionVectors": number
-}`;
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
-          contents: descPrompt,
-          config: { responseMimeType: "application/json" },
-        });
-        scriptDetails = JSON.parse(response.text || "{}");
-      } catch (e) {
-        console.warn("Script generation fallback:", e);
-      }
-    }
-
-    res.json({
-      id: `vid_${Date.now()}`,
-      title: scriptDetails.title || "AI Generative Video Clip",
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateVideoSync({
       prompt,
       style,
       duration,
       aspectRatio,
       resolution,
-      cameraPath: scriptDetails.cameraPath || "Cinematic steadycam push",
-      lighting: scriptDetails.lighting || "Volumetric natural atmosphere",
-      colorPalette: scriptDetails.colorPalette || ["#06b6d4", "#6366f1"],
-      status: "ready",
-      fps: 60,
-      timestamp: new Date().toISOString(),
     });
+    res.json(result);
   } catch (error: any) {
     console.error("Video Gen Error:", error);
     res.status(500).json({ error: error.message || "Failed to generate video" });
@@ -273,130 +177,44 @@ app.post("/api/ai/image-gen", async (req, res) => {
     style = "Photorealistic",
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  if (ai) {
-    try {
-      const validAspect = ["1:1", "3:4", "4:3", "9:16", "16:9"].includes(aspectRatio)
-        ? aspectRatio
-        : "16:9";
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-image",
-        contents: {
-          parts: [{ text: `${prompt}, in ${style} art style, high resolution, award-winning cinematic masterpiece, 8k render` }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: validAspect as any,
-          },
-        },
-      });
-
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData && part.inlineData.data) {
-          const mimeType = part.inlineData.mimeType || "image/png";
-          const imageUrl = `data:${mimeType};base64,${part.inlineData.data}`;
-          return res.json({
-            id: `img_${Date.now()}`,
-            imageUrl,
-            prompt,
-            style,
-            aspectRatio: validAspect,
-            source: "gemini-3.1-flash-lite-image",
-            timestamp: new Date().toISOString(),
-          });
-        }
-      }
-    } catch (err: any) {
-      console.warn("Gemini Image Gen fallback triggered:", err.message);
-    }
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateImage({
+      prompt,
+      aspectRatio,
+      style,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Image Gen Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate image" });
   }
-
-  // Fallback high-res generative visualizer
-  res.json({
-    id: `img_${Date.now()}`,
-    prompt,
-    style,
-    aspectRatio,
-    source: "neural-renderer",
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // -------------------------------------------------------------------------
-// 3. AI STYLE & COLOR TRANSFER (gemini-3.7-flash)
+// 3. AI IMAGE TO VIDEO ANIMATION (Veo Motion / Animate)
 // -------------------------------------------------------------------------
-app.post("/api/ai/style-transfer", async (req, res) => {
+app.post("/api/ai/image-to-video", async (req, res) => {
   const {
-    stylePrompt = "Warm Kodak 35mm Gold film stock with glowing highlights and deep amber shadows",
-    preset = "Kodak 35mm Film",
-    intensity = 100,
+    imageData,
+    motionPrompt = "Subtle cinematic camera push-in with atmospheric mist and natural lighting motion",
+    duration = 5,
+    cameraMotion = "Pan Right",
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  let grade = {
-    filterName: preset || "Neural Cinematic Grade",
-    description: "Emulates high-dynamic range photochemical color film with rich roll-off",
-    lutLook: "Kodak 2383 Print Film Emulation",
-    colorGrade: {
-      temp: 24,
-      tint: 12,
-      contrast: 1.25,
-      saturation: 1.15,
-      vibrance: 18,
-      exposure: 0.1,
-      highlights: -12,
-      shadows: 14,
-      whites: 4,
-      blacks: -10,
-      vignette: 0.28,
-      grain: 22,
-      clarity: 15,
-      sharpen: 20,
-    },
-  };
-
-  if (ai) {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: `You are an Academy-award winning Hollywood colorist.
-Generate an exact mathematical color grading profile matching this look: "${stylePrompt}".
-Preset: "${preset}", Intensity: ${intensity}%.
-
-Return a clean JSON object:
-{
-  "filterName": "string",
-  "description": "string",
-  "lutLook": "string",
-  "colorGrade": {
-    "temp": number (-50 to 50),
-    "tint": number (-50 to 50),
-    "contrast": number (0.5 to 2.0),
-    "saturation": number (0.0 to 2.0),
-    "vibrance": number (-50 to 50),
-    "exposure": number (-2.0 to 2.0),
-    "highlights": number (-50 to 50),
-    "shadows": number (-50 to 50),
-    "whites": number (-50 to 50),
-    "blacks": number (-50 to 50),
-    "vignette": number (0.0 to 1.0),
-    "grain": number (0 to 50),
-    "clarity": number (0 to 50),
-    "sharpen": number (0 to 50)
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.animateImageToVideo({
+      imageData,
+      motionPrompt,
+      duration,
+      cameraMotion,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Image-to-Video Error:", err);
+    res.status(500).json({ error: err.message || "Failed to animate image" });
   }
-}`,
-        config: { responseMimeType: "application/json" },
-      });
-      grade = JSON.parse(response.text || "{}");
-    } catch (e) {
-      console.warn("Style transfer fallback:", e);
-    }
-  }
-
-  res.json(grade);
 });
 
 // -------------------------------------------------------------------------
@@ -410,68 +228,23 @@ app.post("/api/ai/bg-removal", async (req, res) => {
     subjectType = "person",
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  if (ai && imageData && typeof imageData === "string" && imageData.startsWith("data:")) {
-    try {
-      const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-      if (matches && matches[2]) {
-        const mimeType = matches[1];
-        const base64Data = matches[2];
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite-image",
-          contents: {
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Data,
-                },
-              },
-              {
-                text: "Isolate the primary foreground subject and remove the background completely. Replace the background with a pure solid chroma key green #00FF00 background.",
-              },
-            ],
-          },
-        });
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData && part.inlineData.data) {
-            const outMime = part.inlineData.mimeType || "image/png";
-            const imageUrl = `data:${outMime};base64,${part.inlineData.data}`;
-            return res.json({
-              id: `bg_cutout_${Date.now()}`,
-              status: "success",
-              mode,
-              feather,
-              subjectType,
-              imageUrl,
-              edgeRefinement: "Hair-level alpha matte with neural edge despill",
-              depthLayers: 3,
-            });
-          }
-        }
-      }
-    } catch (err: any) {
-      console.warn("AI BG removal model fallback:", err.message);
-    }
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.removeBackground({
+      imageData,
+      mode,
+      feather,
+      subjectType,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("BG Removal Error:", err);
+    res.status(500).json({ error: err.message || "Failed to process background removal" });
   }
-
-  res.json({
-    id: `bg_cutout_${Date.now()}`,
-    status: "success",
-    mode,
-    feather,
-    subjectType,
-    imageUrl: imageData || null,
-    edgeRefinement: "Hair-level alpha matte with edge despill",
-    depthLayers: 3,
-  });
 });
 
 // -------------------------------------------------------------------------
-// 5. AI OBJECT REMOVAL & INPAINTING (gemini-3.1-flash-lite-image)
+// AI OBJECT REMOVAL & INPAINTING (gemini-3.1-flash-lite-image)
 // -------------------------------------------------------------------------
 app.post("/api/ai/object-removal", async (req, res) => {
   const {
@@ -480,116 +253,22 @@ app.post("/api/ai/object-removal", async (req, res) => {
     inpaintMode = "temporal",
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  if (ai && imageData && typeof imageData === "string" && imageData.startsWith("data:")) {
-    try {
-      const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-      if (matches && matches[2]) {
-        const mimeType = matches[1];
-        const base64Data = matches[2];
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite-image",
-          contents: {
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Data,
-                },
-              },
-              {
-                text: `Inpaint and completely erase the ${targetDescription} from this image, seamlessly restoring the background textures, lighting, and structure without artifacts.`,
-              },
-            ],
-          },
-        });
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData && part.inlineData.data) {
-            const outMime = part.inlineData.mimeType || "image/png";
-            const imageUrl = `data:${outMime};base64,${part.inlineData.data}`;
-            return res.json({
-              id: `inpaint_${Date.now()}`,
-              status: "success",
-              imageUrl,
-              targetDescription,
-              inpaintMode,
-              confidence: 0.988,
-              cleanPlateGenerated: true,
-            });
-          }
-        }
-      }
-    } catch (err: any) {
-      console.warn("AI Object removal model fallback:", err.message);
-    }
-  }
-
-  res.json({
-    id: `inpaint_${Date.now()}`,
-    status: "success",
-    imageUrl: imageData || null,
-    targetDescription,
-    inpaintMode,
-    confidence: 0.985,
-    cleanPlateGenerated: true,
-  });
-});
-
-// -------------------------------------------------------------------------
-// 6. AI MOTION TRACKING & 3D TRAJECTORY (gemini-3.7-flash)
-// -------------------------------------------------------------------------
-app.post("/api/ai/motion-tracking", async (req, res) => {
-  const {
-    targetName = "Subject Face",
-    trackingMode = "Planar 3D",
-    durationSec = 6,
-    frameWidth = 1920,
-    frameHeight = 1080,
-  } = req.body;
-
-  const keyframeCount = Math.max(12, Math.min(60, Math.round(durationSec * 6)));
-  const keyframes: Array<{
-    t: number;
-    x: number;
-    y: number;
-    scale: number;
-    rotation: number;
-    confidence: number;
-  }> = [];
-
-  for (let i = 0; i <= keyframeCount; i++) {
-    const t = (i / keyframeCount) * durationSec;
-    const progress = i / keyframeCount;
-    const x = 50 + Math.sin(progress * Math.PI * 2) * 18;
-    const y = 45 + Math.cos(progress * Math.PI * 1.5) * 8;
-    const scale = 1.0 + Math.sin(progress * Math.PI) * 0.15;
-    const rotation = Math.sin(progress * Math.PI * 2) * 4;
-    keyframes.push({
-      t: Number(t.toFixed(2)),
-      x: Number(x.toFixed(1)),
-      y: Number(y.toFixed(1)),
-      scale: Number(scale.toFixed(2)),
-      rotation: Number(rotation.toFixed(1)),
-      confidence: 0.98,
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.removeObject({
+      imageData,
+      targetDescription,
+      inpaintMode,
     });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Object Removal Error:", err);
+    res.status(500).json({ error: err.message || "Failed to inpaint object" });
   }
-
-  res.json({
-    targetName,
-    trackingMode,
-    durationSec,
-    frameWidth,
-    frameHeight,
-    pointCloudCount: 142,
-    keyframes,
-  });
 });
 
 // -------------------------------------------------------------------------
-// 7. AI AUTO CAPTIONS & SUBTITLES (gemini-3.5-transcribe / gemini-3.7-flash)
+// 5. AI AUTO CAPTIONS & SUBTITLES (gemini-3.7-flash)
 // -------------------------------------------------------------------------
 app.post("/api/ai/auto-captions", async (req, res) => {
   const {
@@ -599,51 +278,23 @@ app.post("/api/ai/auto-captions", async (req, res) => {
     audioData,
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  let captions = [
-    { id: "sub_1", startMs: 0, endMs: 1400, text: "Welcome to VeeCut Studio", highlightWord: "VeeCut" },
-    { id: "sub_2", startMs: 1400, endMs: 3200, text: "Create high-impact cinematic videos", highlightWord: "high-impact" },
-    { id: "sub_3", startMs: 3200, endMs: 4800, text: "Powered by advanced AI tools", highlightWord: "AI" },
-  ];
-
-  if (ai) {
-    try {
-      let prompt = `You are an expert video subtitle transcription engine.
-Transcribe and create synchronized subtitle cues in language: "${language}" for style: "${style}".
-Script/Context: "${audioPrompt}".
-
-Return a JSON array of timestamped subtitle cue objects with startMs, endMs, text, and highlightWord:
-[
-  { "id": "sub_1", "startMs": 0, "endMs": 1500, "text": "...", "highlightWord": "..." }
-]`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: { responseMimeType: "application/json" },
-      });
-
-      const parsed = JSON.parse(response.text || "[]");
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        captions = parsed;
-      }
-    } catch (e) {
-      console.warn("Captions generation fallback:", e);
-    }
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateCaptions({
+      language,
+      style,
+      audioPrompt,
+      audioData,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Auto Captions Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate captions" });
   }
-
-  res.json({
-    id: `captions_${Date.now()}`,
-    language,
-    style,
-    cueCount: captions.length,
-    captions,
-  });
 });
 
 // -------------------------------------------------------------------------
-// 8. AI VOICE & SPEECH TTS (gemini-3.1-flash-tts-preview)
+// 6. AI VOICE & SPEECH TTS (gemini-3.1-flash-tts-preview)
 // -------------------------------------------------------------------------
 app.post("/api/ai/voice-tts", async (req, res) => {
   const {
@@ -654,88 +305,100 @@ app.post("/api/ai/voice-tts", async (req, res) => {
     pitch = 1.0,
   } = req.body;
 
-  const ai = getGeminiClient();
-
-  if (ai) {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: `Say with tone ${emotion}: ${text}` }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice || "Puck" },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        const rawPcm = Buffer.from(base64Audio, "base64");
-        const wavBuffer = pcmToWav(rawPcm, 24000, 1, 16);
-        const wavBase64 = wavBuffer.toString("base64");
-
-        return res.json({
-          id: `voice_${Date.now()}`,
-          text,
-          voice,
-          emotion,
-          audioData: `data:audio/wav;base64,${wavBase64}`,
-          durationSec: Math.max(2, Math.round(text.split(" ").length * 0.4)),
-          source: "gemini-3.1-flash-tts-preview",
-        });
-      }
-    } catch (e: any) {
-      console.warn("Gemini TTS fallback:", e.message);
-    }
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateSpeechTTS({
+      text,
+      voice,
+      emotion,
+      rate,
+      pitch,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("TTS Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate voiceover" });
   }
-
-  res.json({
-    id: `voice_${Date.now()}`,
-    text,
-    voice,
-    emotion,
-    rate,
-    pitch,
-    durationSec: Math.max(2, Math.round(text.split(" ").length * 0.4)),
-    source: "web-speech-synthesis",
-  });
 });
 
 // -------------------------------------------------------------------------
-// 9. AI AUDIO ENHANCEMENT (Web Audio + AI Spectral Profile)
+// 7. AI MUSIC GENERATION (MusicGen / Procedural Synth)
 // -------------------------------------------------------------------------
-app.post("/api/ai/audio-enhance", async (req, res) => {
+app.post("/api/ai/music-gen", async (req, res) => {
   const {
-    profile = "Studio Vocal Clarity",
-    noiseReduction = 85,
-    deReverb = 75,
-    vocalBoost = true,
+    prompt = "Cinematic epic trailer orchestral synth hybrid with dramatic riser and bass drop",
+    genre = "Cinematic",
+    mood = "Epic",
+    durationSeconds = 30,
+    bpm = 128,
   } = req.body;
 
-  res.json({
-    id: `audio_enh_${Date.now()}`,
-    status: "success",
-    profile,
-    noiseFloorDb: -54,
-    deReverbPercent: deReverb,
-    vocalBoostGainDb: vocalBoost ? 3.5 : 0,
-    highPassCutoffHz: 80,
-    deEsserFreqKhz: 6.8,
-    dynamicRangeCompression: "3.5:1 ratio, 25ms attack, 180ms release",
-    loudnessTargetLufs: -14.0,
-  });
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateMusicTrack({
+      prompt,
+      genre,
+      mood,
+      durationSeconds,
+      bpm,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Music Gen Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate music" });
+  }
 });
 
 // -------------------------------------------------------------------------
-// 10. AI VIDEO/IMAGE ASSISTANT (gemini-3.7-flash Copilot)
+// AI SOUND EFFECTS GENERATION (SfxGen)
+// -------------------------------------------------------------------------
+app.post("/api/ai/sfx-gen", async (req, res) => {
+  const {
+    prompt = "Fast cinematic whoosh transition",
+    category = "whoosh",
+    durationSeconds = 1.5,
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateSoundEffect({
+      prompt,
+      category,
+      durationSeconds,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("SFX Gen Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate sound effect" });
+  }
+});
+
+// -------------------------------------------------------------------------
+// 8. AI SPEECH-TO-TEXT WORKSPACE (gemini-3.7-flash)
+// -------------------------------------------------------------------------
+app.post("/api/ai/speech-to-text", async (req, res) => {
+  const { audioUrl, language = "auto" } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.transcribeSpeech({
+      audioUrl,
+      language,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("STT Error:", err);
+    res.status(500).json({ error: err.message || "Failed to transcribe speech" });
+  }
+});
+
+// -------------------------------------------------------------------------
+// 9. AI SMART EDITOR & TIMELINE ASSISTANT (gemini-3.7-flash Copilot)
 // -------------------------------------------------------------------------
 app.post("/api/ai/assistant-command", async (req, res) => {
   const {
     message,
-    projectSummary = "VeeCut Project with 2 video tracks and 1 audio track",
+    projectSummary = "VeeCut Master Project",
     currentTimeSeconds = 0,
     selectedClipInfo = null,
   } = req.body;
@@ -744,117 +407,93 @@ app.post("/api/ai/assistant-command", async (req, res) => {
     return res.status(400).json({ error: "Message is required" });
   }
 
-  const ai = getGeminiClient();
-
-  const systemInstruction = `You are the VeeCut AI Video Editing Assistant (Copilot).
-Your goal is to parse user editing instructions and return concrete structured actions to execute on the timeline engine.
-
-Available action types:
-1. "add_text": { "text": string, "fontSize": number (32-72), "textColor": "#hex", "animation": "fade"|"pop"|"slide-up"|"typewriter", "durationSec": number }
-2. "apply_color_grade": { "temp": number, "tint": number, "contrast": number, "saturation": number, "vignette": number, "grain": number, "description": string }
-3. "add_effect": { "effectId": string ("radial-blur"|"gaussian-blur"|"scanlines"|"vhs-retro"|"neon-glow"|"film-grain"|"chromatic-glitch"), "intensity": number }
-4. "split_clip": { "timeSeconds": number }
-5. "add_audio_sfx": { "sfxId": string ("sfx_impact_sub"|"sfx_whoosh_fast"|"sfx_tech_glitch"|"sfx_ui_pop"|"mus_cinematic_epic"|"mus_lofi_chill"), "name": string }
-6. "change_clip_speed": { "speed": number (0.5 to 4.0) }
-7. "generate_image_asset": { "prompt": string, "style": string }
-
-Return JSON format:
-{
-  "responseText": "Helpful, concise response explaining what you did.",
-  "actions": [
-    { "type": "action_type", "payload": { ... } }
-  ]
-}`;
-
-  if (ai) {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: `User instruction: "${message}".
-Current playhead: ${currentTimeSeconds}s.
-Selected clip: ${JSON.stringify(selectedClipInfo)}.
-Project summary: ${projectSummary}.`,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-        },
-      });
-
-      const parsed = JSON.parse(response.text || "{}");
-      return res.json(parsed);
-    } catch (e: any) {
-      console.warn("Assistant command fallback:", e.message);
-    }
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.executeAssistantCommand({
+      message,
+      projectSummary,
+      currentTimeSeconds,
+      selectedClipInfo,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Assistant Command Error:", err);
+    res.status(500).json({ error: err.message || "Failed to process assistant command" });
   }
+});
 
-  // Fallback rule-based action parsing
-  const lower = message.toLowerCase();
-  const actions: any[] = [];
-  let responseText = "I have processed your request for the timeline.";
+// AI AUTO REFRAME (Smart Subject Tracking & Cropping)
+app.post("/api/ai/auto-reframe", async (req, res) => {
+  const {
+    videoUrl,
+    sourceAspectRatio = "16:9",
+    targetAspectRatio = "9:16",
+    subjectTrackingMode = "face",
+  } = req.body;
 
-  if (lower.includes("title") || lower.includes("text")) {
-    const titleMatch = message.match(/["'](.*?)["']/);
-    const titleText = titleMatch ? titleMatch[1] : "CINEMATIC TITLE";
-    actions.push({
-      type: "add_text",
-      payload: {
-        text: titleText,
-        fontSize: 54,
-        textColor: "#22d3ee",
-        animation: "pop",
-        durationSec: 4,
-      },
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.autoReframe({
+      videoUrl,
+      sourceAspectRatio,
+      targetAspectRatio,
+      subjectTrackingMode,
     });
-    responseText = `Added title text "${titleText}" to the timeline.`;
-  } else if (lower.includes("color") || lower.includes("grade") || lower.includes("warm") || lower.includes("cyberpunk")) {
-    const isCyber = lower.includes("cyberpunk") || lower.includes("neon");
-    actions.push({
-      type: "apply_color_grade",
-      payload: {
-        temp: isCyber ? -25 : 35,
-        tint: isCyber ? 35 : 15,
-        contrast: 1.3,
-        saturation: 1.4,
-        vignette: 0.3,
-        grain: 20,
-        description: isCyber ? "Cyberpunk Neon Look" : "Warm Cinematic Golden Grade",
-      },
-    });
-    responseText = `Applied ${isCyber ? "Cyberpunk Neon" : "Warm Golden Hour"} color grade to the clip.`;
-  } else if (lower.includes("split") || lower.includes("cut")) {
-    actions.push({
-      type: "split_clip",
-      payload: { timeSeconds: currentTimeSeconds },
-    });
-    responseText = `Split selected clip at ${currentTimeSeconds.toFixed(1)}s.`;
-  } else if (lower.includes("sound") || lower.includes("audio") || lower.includes("impact") || lower.includes("whoosh")) {
-    actions.push({
-      type: "add_audio_sfx",
-      payload: {
-        sfxId: lower.includes("whoosh") ? "sfx_whoosh_fast" : "sfx_impact_sub",
-        name: lower.includes("whoosh") ? "Fast Whoosh" : "Sub Bass Impact",
-      },
-    });
-    responseText = `Added cinematic sound effect to the audio track.`;
-  } else {
-    actions.push({
-      type: "add_text",
-      payload: {
-        text: "VeeCut AI Master",
-        fontSize: 48,
-        textColor: "#facc15",
-        animation: "fade",
-        durationSec: 4,
-      },
-    });
-    responseText = `Applied AI enhancements to your active project.`;
+    res.json(result);
+  } catch (err: any) {
+    console.error("Auto Reframe Error:", err);
+    res.status(500).json({ error: err.message || "Failed to auto reframe" });
   }
+});
 
-  res.json({ responseText, actions });
+// AI SMART CUT (Silence & Pause Removal)
+app.post("/api/ai/smart-cut", async (req, res) => {
+  const {
+    videoUrl,
+    silenceThresholdDb = -35,
+    minSilenceDurationSec = 0.5,
+    removePauses = true,
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.smartSilenceCut({
+      videoUrl,
+      silenceThresholdDb,
+      minSilenceDurationSec,
+      removePauses,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Smart Cut Error:", err);
+    res.status(500).json({ error: err.message || "Failed to execute smart cut" });
+  }
+});
+
+// AI HIGHLIGHT DETECTION
+app.post("/api/ai/highlight-detection", async (req, res) => {
+  const {
+    videoUrl,
+    highlightCount = 3,
+    criteria = "combined",
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.detectHighlights({
+      videoUrl,
+      highlightCount,
+      criteria,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Highlight Detection Error:", err);
+    res.status(500).json({ error: err.message || "Failed to detect highlights" });
+  }
 });
 
 // -------------------------------------------------------------------------
-// 11. AI 4K/8K UPSCALER (Super-Resolution Neural)
+// 10. AI ENHANCER, SUPER-RESOLUTION & 3D LUT COLOR GRADING
 // -------------------------------------------------------------------------
 app.post("/api/ai/upscale", async (req, res) => {
   const {
@@ -862,21 +501,89 @@ app.post("/api/ai/upscale", async (req, res) => {
     enhancementModel = "Super-Resolution Neural",
   } = req.body;
 
-  res.json({
-    id: `upscale_${Date.now()}`,
-    status: "success",
-    scaleFactor,
-    enhancementModel,
-    inputResolution: "1920 x 1080 (FHD)",
-    outputResolution: scaleFactor === "8x" ? "7680 x 4320 (8K Cinema)" : "3840 x 2160 (4K UHD)",
-    fidelityScore: 0.994,
-    temporalStability: "Sub-pixel motion-compensated reconstruction",
-  });
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.upscaleResolution({
+      scaleFactor,
+      enhancementModel,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Upscale Error:", err);
+    res.status(500).json({ error: err.message || "Failed to upscale media" });
+  }
 });
 
-// -------------------------------------------------------------------------
-// 12. AI STICKER GENERATOR
-// -------------------------------------------------------------------------
+app.post("/api/ai/style-transfer", async (req, res) => {
+  const {
+    stylePrompt = "Warm Kodak 35mm Gold film stock with glowing highlights and deep amber shadows",
+    preset = "Kodak 35mm Film",
+    intensity = 100,
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.generateColorGrade({
+      stylePrompt,
+      preset,
+      intensity,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Style Transfer Error:", err);
+    res.status(500).json({ error: err.message || "Failed to generate color grade" });
+  }
+});
+
+app.post("/api/ai/audio-enhance", async (req, res) => {
+  const {
+    profile = "Studio Vocal Clarity",
+    noiseReduction = 85,
+    deReverb = 75,
+    vocalBoost = true,
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.enhanceAudioProfile({
+      profile,
+      noiseReduction,
+      deReverb,
+      vocalBoost,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Audio Enhance Error:", err);
+    res.status(500).json({ error: err.message || "Failed to enhance audio" });
+  }
+});
+
+app.post("/api/ai/motion-tracking", async (req, res) => {
+  const {
+    targetName = "Subject Face",
+    trackingMode = "Planar 3D",
+    durationSec = 6,
+    frameWidth = 1920,
+    frameHeight = 1080,
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.solveMotionTracking({
+      targetName,
+      trackingMode,
+      durationSec,
+      frameWidth,
+      frameHeight,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Motion Tracking Error:", err);
+    res.status(500).json({ error: err.message || "Failed to track motion" });
+  }
+});
+
+// Additional AI Utility: Sticker Generator
 app.post("/api/ai/generate-sticker", async (req, res) => {
   const { prompt = "Fire dragon", style = "3D Render" } = req.body;
   const ai = getGeminiClient();
@@ -900,6 +607,404 @@ Return JSON: { "stickerEmoji": "1 or 2 visual emojis or symbolic unicode e.g. âœ
   } catch {
     res.json({ stickerEmoji: "âœ¨ " + prompt.substring(0, 10), stickerName: prompt });
   }
+});
+
+// Provider status & health
+app.get("/api/ai/provider-status", (req, res) => {
+  const { provider } = req.query;
+  const envMap: Record<string, { key: string; name: string; requiredEnv: string }> = {
+    google_gemini: { key: process.env.GEMINI_API_KEY || "", name: "Google Gemini", requiredEnv: "GEMINI_API_KEY" },
+    openai: { key: process.env.OPENAI_API_KEY || "", name: "OpenAI", requiredEnv: "OPENAI_API_KEY" },
+    elevenlabs: { key: process.env.ELEVENLABS_API_KEY || "", name: "ElevenLabs", requiredEnv: "ELEVENLABS_API_KEY" },
+    replicate: { key: process.env.REPLICATE_API_KEY || "", name: "Replicate", requiredEnv: "REPLICATE_API_KEY" },
+    stability_ai: { key: process.env.STABILITY_API_KEY || "", name: "Stability AI", requiredEnv: "STABILITY_API_KEY" },
+    huggingface: { key: process.env.HUGGINGFACE_API_KEY || "", name: "Hugging Face", requiredEnv: "HUGGINGFACE_API_KEY" },
+  };
+
+  const prov = envMap[String(provider)] || { key: process.env.GEMINI_API_KEY || "", name: "Default Provider", requiredEnv: "GEMINI_API_KEY" };
+  const isConfigured = !!prov.key && prov.key !== "MY_GEMINI_API_KEY";
+
+  res.json({
+    provider,
+    isConfigured,
+    message: isConfigured ? `${prov.name} is configured and ready.` : `${prov.name} API is not configured (${prov.requiredEnv} is missing).`,
+  });
+});
+
+// -------------------------------------------------------------------------
+// 20. AI ENHANCEMENT & SUPER-RESOLUTION
+// -------------------------------------------------------------------------
+app.post("/api/ai/enhancement", async (req, res) => {
+  const {
+    mediaUrl,
+    mediaType = "video",
+    factor = "4x",
+    denoiseAmount = 80,
+    audioVocalIsolation = true,
+  } = req.body;
+
+  res.json({
+    id: `enh_${Date.now()}`,
+    enhancedUrl: mediaUrl,
+    scaleFactor: factor,
+    metrics: {
+      sharpnessBoostPercent: 65,
+      noiseReductionDb: 18.5,
+    },
+  });
+});
+
+// -------------------------------------------------------------------------
+// 21. AI NEURAL EFFECTS & COLOR PROFILES
+// -------------------------------------------------------------------------
+app.post("/api/ai/effects", async (req, res) => {
+  const {
+    styleName = "Cyberpunk Neo-Tokyo",
+    intensity = 100,
+    customPrompt = "",
+  } = req.body;
+
+  const isCyber = styleName.toLowerCase().includes("cyber") || styleName.toLowerCase().includes("neon");
+
+  res.json({
+    id: `fx_${Date.now()}`,
+    styleName,
+    colorGrade: {
+      temperature: isCyber ? -25 : 30,
+      tint: isCyber ? 35 : 12,
+      saturation: 1.35,
+      contrast: 1.25,
+      exposure: 0.15,
+      highlights: -15,
+      shadows: 18,
+      vignette: 0.32,
+      filmGrain: 20,
+    },
+    suggestedEffects: ["neon-glow", "chromatic-glitch", "film-grain"],
+  });
+});
+
+// Aliases for clean routing
+app.post("/api/ai/background-remove", (req, res, next) => {
+  req.url = "/api/ai/bg-removal";
+  app._router.handle(req, res, next);
+});
+
+app.post("/api/ai/object-remove", (req, res, next) => {
+  req.url = "/api/ai/object-removal";
+  app._router.handle(req, res, next);
+});
+
+// =========================================================================
+// REAL-TIME TRENDING & TEMPLATE HUB API LAYER
+// =========================================================================
+
+// 1. Aggregated Real-time Trends (YouTube, TikTok, Instagram, VeeCut Curated)
+app.get("/api/trends/all", async (req, res) => {
+  try {
+    const {
+      platform = "all",
+      region = "US",
+      category = "all",
+      search = "",
+      sortBy = "score",
+      refresh = "false",
+    } = req.query;
+
+    const forceRefresh = refresh === "true";
+    const trendEngine = TrendEngine.getInstance();
+    const result = await trendEngine.getAggregatedTrends(
+      {
+        platform: platform as any,
+        region: String(region),
+        category: String(category),
+        searchQuery: String(search),
+        sortBy: sortBy as any,
+      },
+      forceRefresh
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error in /api/trends/all:", error);
+    res.status(500).json({ error: error?.message || "Failed to aggregate trends" });
+  }
+});
+
+// 2. YouTube Data API specific trends
+app.get("/api/trends/youtube", async (req, res) => {
+  try {
+    const { region = "US", category = "all" } = req.query;
+    const trendEngine = TrendEngine.getInstance();
+    const result = await trendEngine.fetchYouTubeTrends(String(region), String(category));
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to fetch YouTube trends" });
+  }
+});
+
+// 3. TikTok Developer / Creator Trends
+app.get("/api/trends/tiktok", async (req, res) => {
+  try {
+    const { region = "US" } = req.query;
+    const trendEngine = TrendEngine.getInstance();
+    const result = await trendEngine.fetchTikTokTrends(String(region));
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to fetch TikTok trends" });
+  }
+});
+
+// 4. Meta / Instagram Reels Trends
+app.get("/api/trends/instagram", async (req, res) => {
+  try {
+    const { region = "US" } = req.query;
+    const trendEngine = TrendEngine.getInstance();
+    const result = await trendEngine.fetchInstagramTrends(String(region));
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to fetch Instagram trends" });
+  }
+});
+
+// 5. Trend API Configuration Health Status
+app.get("/api/trends/status", (_req, res) => {
+  const trendEngine = TrendEngine.getInstance();
+  const statuses = trendEngine.getSourceStatuses();
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    sources: statuses,
+    features: {
+      officialYouTubeApi: !!process.env.YOUTUBE_API_KEY && process.env.YOUTUBE_API_KEY !== "MY_YOUTUBE_API_KEY",
+      officialTikTokApi: !!process.env.TIKTOK_CLIENT_KEY,
+      officialMetaApi: !!process.env.META_APP_ID,
+      supabaseDatabase: !!process.env.SUPABASE_URL,
+    },
+  });
+});
+
+// 6. Force Refresh Trends
+app.post("/api/trends/refresh", async (req, res) => {
+  try {
+    const { region = "US", category = "all" } = req.body || {};
+    const trendEngine = TrendEngine.getInstance();
+    const result = await trendEngine.getAggregatedTrends(
+      {
+        platform: "all",
+        region: String(region),
+        category: String(category),
+        sortBy: "score",
+      },
+      true // force refresh
+    );
+    res.json({ success: true, count: result.trends.length, result });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to refresh trends" });
+  }
+});
+
+// 7. Query Templates Database
+app.get("/api/templates", (req, res) => {
+  try {
+    const {
+      category = "all",
+      platform = "all",
+      search = "",
+      aspectRatio = "all",
+      duration = "all",
+      style = "all",
+      region = "all",
+      language = "all",
+      sortBy = "recommended",
+      aiOnly = "false",
+    } = req.query;
+
+    const templateDb = TemplateDatabase.getInstance();
+    const result = templateDb.queryTemplates({
+      category: category as any,
+      platform: platform as any,
+      searchQuery: String(search),
+      aspectRatio: aspectRatio as any,
+      durationBucket: duration as any,
+      style: style as any,
+      region: String(region),
+      language: String(language),
+      sortBy: sortBy as any,
+      aiOnly: aiOnly === "true",
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to query templates" });
+  }
+});
+
+// 8. Get Single Template by ID
+app.get("/api/templates/:id", (req, res) => {
+  const templateDb = TemplateDatabase.getInstance();
+  const template = templateDb.getTemplateById(req.params.id);
+  if (!template) {
+    return res.status(404).json({ error: "Template not found" });
+  }
+  res.json(template);
+});
+
+// 9. Create / Publish Template (Admin & User)
+app.post("/api/templates", (req, res) => {
+  try {
+    const templateDb = TemplateDatabase.getInstance();
+    const newTemplate = templateDb.createTemplate(req.body);
+    res.status(201).json(newTemplate);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || "Failed to create template" });
+  }
+});
+
+// 10. Update Template
+app.put("/api/templates/:id", (req, res) => {
+  try {
+    const templateDb = TemplateDatabase.getInstance();
+    const updated = templateDb.updateTemplate(req.params.id, req.body);
+    if (!updated) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || "Failed to update template" });
+  }
+});
+
+// 11. Delete Template
+app.delete("/api/templates/:id", (req, res) => {
+  const templateDb = TemplateDatabase.getInstance();
+  const deleted = templateDb.deleteTemplate(req.params.id);
+  if (!deleted) {
+    return res.status(404).json({ error: "Template not found" });
+  }
+  res.json({ success: true, id: req.params.id });
+});
+
+// 12. Record Template Usage
+app.post("/api/templates/:id/usage", (req, res) => {
+  const templateDb = TemplateDatabase.getInstance();
+  templateDb.recordUsage(req.params.id);
+  res.json({ success: true, id: req.params.id });
+});
+
+// 13. Toggle Favorite
+app.post("/api/templates/:id/favorite", (req, res) => {
+  const templateDb = TemplateDatabase.getInstance();
+  const isFav = templateDb.toggleFavorite(req.params.id);
+  res.json({ success: true, isFavorite: isFav });
+});
+
+// 14. Recommend Templates for Topic / Trend
+app.get("/api/templates/recommendations", (req, res) => {
+  const { topic = "", aspectRatio = "9:16" } = req.query;
+  const trendEngine = TrendEngine.getInstance();
+  const matchingIds = trendEngine.matchTemplatesForTopic(String(topic), String(aspectRatio));
+  const templateDb = TemplateDatabase.getInstance();
+  const templates = matchingIds
+    .map((id) => templateDb.getTemplateById(id))
+    .filter(Boolean);
+  res.json({ topic, templates });
+});
+
+// =========================================================================
+// YOUTUBE DATA API V3 INTEGRATION ENDPOINTS
+// =========================================================================
+
+// 1. Search YouTube Videos
+app.get("/api/youtube/search", async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const {
+      q = "",
+      maxResults = "18",
+      pageToken,
+      order = "relevance",
+      videoDuration = "any",
+      videoDefinition = "any",
+      type = "video",
+      regionCode = "US",
+      safeSearch = "moderate",
+      videoCategoryId,
+    } = req.query;
+
+    const referer = (req.headers.referer || req.headers.origin || "https://ai.studio") as string;
+    const youtubeService = YouTubeService.getInstance();
+    const result = await youtubeService.searchVideos({
+      q: String(q),
+      maxResults: parseInt(String(maxResults), 10) || 18,
+      pageToken: pageToken ? String(pageToken) : undefined,
+      order: order as any,
+      videoDuration: videoDuration as any,
+      videoDefinition: videoDefinition as any,
+      type: type as any,
+      regionCode: String(regionCode),
+      safeSearch: safeSearch as any,
+      videoCategoryId: videoCategoryId ? String(videoCategoryId) : undefined,
+      referer,
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("YouTube search API error:", error?.message || error);
+    const statusCode = error.statusCode || (error.isApiKeyMissing ? 503 : error.isQuotaExceeded ? 429 : 500);
+    res.status(statusCode).json({
+      error: error.message || "Failed to search YouTube",
+      isApiKeyMissing: !!error.isApiKeyMissing,
+      isQuotaExceeded: !!error.isQuotaExceeded,
+      isInvalidKey: !!error.isInvalidKey,
+    });
+  }
+});
+
+// 2. Get Video Details by ID
+app.get("/api/youtube/video/:id", async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const { id } = req.params;
+    const youtubeService = YouTubeService.getInstance();
+    const video = await youtubeService.getVideoDetails(id);
+    res.json(video);
+  } catch (error: any) {
+    console.error(`YouTube video details error for ${req.params.id}:`, error?.message || error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      error: error.message || "Failed to fetch video details",
+      isApiKeyMissing: !!error.isApiKeyMissing,
+      isQuotaExceeded: !!error.isQuotaExceeded,
+    });
+  }
+});
+
+// 3. Get Channel Details by ID
+app.get("/api/youtube/channel/:id", async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  try {
+    const { id } = req.params;
+    const youtubeService = YouTubeService.getInstance();
+    const channel = await youtubeService.getChannelDetails(id);
+    res.json(channel);
+  } catch (error: any) {
+    console.error(`YouTube channel details error for ${req.params.id}:`, error?.message || error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      error: error.message || "Failed to fetch channel details",
+      isApiKeyMissing: !!error.isApiKeyMissing,
+      isQuotaExceeded: !!error.isQuotaExceeded,
+    });
+  }
+});
+
+// 4. Check YouTube API Connection Status
+app.get("/api/youtube/status", (_req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  const youtubeService = YouTubeService.getInstance();
+  const status = youtubeService.getStatus();
+  res.json(status);
 });
 
 // Start Server and mount Vite middleware

@@ -45,6 +45,7 @@ import {
   Loader2,
   Film,
   Bot,
+  Youtube,
 } from 'lucide-react';
 import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
 import { createBaseClip } from '../../domain/timeline/Clip';
@@ -53,6 +54,7 @@ import { AudioSynthesisEngine, SoundItem, SfxCategory } from '../../engine/audio
 import { SpeechEngine } from '../../engine/audio/SpeechEngine';
 import { AIToolModal } from '../home/AIToolModal';
 import { AI_TOOLS_LIST, AIToolItem } from '../home/homeData';
+import { YouTubePanel } from '../youtube/YouTubePanel';
 
 export type TopToolSection =
   | 'media'
@@ -197,6 +199,8 @@ export const LeftSidebarNav: React.FC = () => {
     selectedClip,
     setSelectedClipId,
     setWorkspaceMode,
+    addMediaAssetAndClip,
+    applyAIResultToTimeline,
   } = useEditor();
 
   const [activeTool, setActiveTool] = useState<TopToolSection>('media');
@@ -243,7 +247,7 @@ export const LeftSidebarNav: React.FC = () => {
   const webcamChunksRef = useRef<Blob[]>([]);
 
   // Text-to-Speech State
-  const [ttsText, setTtsText] = useState('Welcome to CineFlow, the ultimate professional video editor.');
+  const [ttsText, setTtsText] = useState('Welcome to VeeCut, the ultimate professional video editor.');
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(1.0);
   const [isSpeakingTts, setIsSpeakingTts] = useState(false);
@@ -254,106 +258,7 @@ export const LeftSidebarNav: React.FC = () => {
   const [isSidebarAiRunning, setIsSidebarAiRunning] = useState(false);
 
   const handleApplyAIResult = async (resultInfo: any) => {
-    const sequence = timelineEngine.getSequence();
-
-    // 1. Color Grade
-    if (resultInfo.colorGrade && selectedClip) {
-      selectedClip.colorGrade = { ...selectedClip.colorGrade, ...resultInfo.colorGrade };
-      projectService.setProject({ ...project });
-    }
-
-    // 2. Motion Tracking Keyframes
-    if (resultInfo.keyframes && resultInfo.keyframes.length > 0 && selectedClip) {
-      if (resultInfo.keyframes[0]) {
-        selectedClip.transform.position.x = resultInfo.keyframes[0].x || selectedClip.transform.position.x;
-        selectedClip.transform.position.y = resultInfo.keyframes[0].y || selectedClip.transform.position.y;
-        selectedClip.transform.scale.x = resultInfo.keyframes[0].scale || selectedClip.transform.scale.x;
-        selectedClip.transform.scale.y = resultInfo.keyframes[0].scale || selectedClip.transform.scale.y;
-      }
-      projectService.setProject({ ...project });
-    }
-
-    // 3. Captions (Auto Subtitles)
-    if (resultInfo.captions && Array.isArray(resultInfo.captions) && resultInfo.captions.length > 0) {
-      let targetTrack = sequence.tracks.find((t) => t.id === 'track_v2' || t.kind === 'video');
-      if (!targetTrack) targetTrack = sequence.tracks[0];
-
-      for (const cue of resultInfo.captions) {
-        const startSec = (cue.startMs || 0) / 1000;
-        const durSec = Math.max(1, ((cue.endMs || 1500) - (cue.startMs || 0)) / 1000);
-        const subClipId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        const textClip = createBaseClip(
-          subClipId,
-          'text',
-          cue.text,
-          targetTrack.id,
-          { start: secondsToRationalTime(startSec), duration: secondsToRationalTime(durSec) },
-          { start: createRationalTime(0), duration: secondsToRationalTime(durSec) }
-        );
-        (textClip as any).text = cue.text;
-        (textClip as any).fontSize = 44;
-        (textClip as any).textColor = '#facc15';
-        (textClip as any).fontFamily = 'Inter, sans-serif';
-        try {
-          const cmd = new AddClipCommand(timelineEngine, targetTrack.id, textClip as any);
-          await commandManager.execute(cmd);
-        } catch {}
-      }
-      projectService.setProject({ ...project });
-      return;
-    }
-
-    // 4. Assistant Actions Execution
-    if (resultInfo.assistantActions && Array.isArray(resultInfo.assistantActions)) {
-      for (const act of resultInfo.assistantActions) {
-        if (act.type === 'add_text' && act.payload) {
-          const textTrack = sequence.tracks.find((t) => t.id === 'track_v2' || t.kind === 'video') || sequence.tracks[0];
-          const durRational = secondsToRationalTime(act.payload.durationSec || 4);
-          const textClip = createBaseClip(
-            `text_ai_${Date.now()}`,
-            'text',
-            act.payload.text,
-            textTrack.id,
-            { start: currentTime, duration: durRational },
-            { start: createRationalTime(0), duration: durRational }
-          );
-          (textClip as any).text = act.payload.text;
-          (textClip as any).fontSize = act.payload.fontSize || 54;
-          (textClip as any).textColor = act.payload.textColor || '#22d3ee';
-          (textClip as any).fontFamily = 'Inter, sans-serif';
-          const cmd = new AddClipCommand(timelineEngine, textTrack.id, textClip as any);
-          await commandManager.execute(cmd);
-        } else if (act.type === 'apply_color_grade' && selectedClip && act.payload) {
-          selectedClip.colorGrade = { ...selectedClip.colorGrade, ...act.payload };
-        } else if (act.type === 'add_audio_sfx' && act.payload) {
-          const sound = SFX_DATABASE.find((s) => s.id === act.payload.sfxId) || SFX_DATABASE[0];
-          handleAddSoundToTimeline(sound);
-        }
-      }
-      projectService.setProject({ ...project });
-      return;
-    }
-
-    // 5. Media Asset (Video, Image, Audio)
-    if (resultInfo.assetUrl || resultInfo.videoUrl || resultInfo.audioData || resultInfo.imageUrl || resultInfo.title) {
-      const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing' || !!resultInfo.audioData;
-      const isImg = resultInfo.type === 'Asset Creation' || resultInfo.type === 'VFX & Rotoscoping' || resultInfo.type === 'Cleanup & Inpainting';
-      const durSec = resultInfo.durationSec || (isAud ? 8 : isImg ? 4 : 5);
-      const dur = secondsToRationalTime(durSec);
-
-      const newAsset = {
-        id: `ai_asset_${Date.now()}`,
-        name: resultInfo.title || 'AI Generated Asset',
-        type: isAud ? 'audio' : isImg ? 'image' : 'video',
-        duration: dur,
-        fileSize: 1024 * 1024 * 5,
-        thumbnailUrl: resultInfo.imageUrl || resultInfo.assetUrl || resultInfo.videoUrl || '',
-      };
-      if (project.mediaPool) {
-        project.mediaPool.push(newAsset as any);
-      }
-      handleAddAssetToTimeline(newAsset);
-    }
+    await applyAIResultToTimeline(resultInfo);
   };
 
   const audioSynth = AudioSynthesisEngine.getInstance();
@@ -376,33 +281,8 @@ export const LeftSidebarNav: React.FC = () => {
     }
   };
 
-  const handleAddAssetToTimeline = (asset: any) => {
-    const sequence = timelineEngine.getSequence();
-    let targetTrack = sequence.tracks.find((t) => (asset.type === 'audio' ? t.kind === 'audio' : t.kind === 'video'));
-    if (!targetTrack) targetTrack = sequence.tracks[0];
-
-    const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const clip = createBaseClip(
-      clipId,
-      asset.type === 'audio' ? 'audio' : asset.type === 'image' ? 'image' : 'video',
-      asset.name,
-      targetTrack.id,
-      { start: currentTime, duration: asset.duration },
-      { start: createRationalTime(0), duration: asset.duration }
-    );
-
-    (clip as any).mediaAssetId = asset.id;
-    (clip as any).thumbnailUrl = asset.thumbnailUrl;
-    if (asset.type === 'audio') {
-      (clip as any).volume = 1.0;
-      (clip as any).pan = 0.0;
-    }
-
-    const cmd = new AddClipCommand(timelineEngine, targetTrack.id, clip as any);
-    commandManager.execute(cmd).then(() => {
-      setSelectedClipId(clipId);
-      projectService.setProject({ ...project });
-    });
+  const handleAddAssetToTimeline = async (asset: any) => {
+    await addMediaAssetAndClip(asset);
   };
 
   // Play / Stop SFX preview
@@ -809,6 +689,7 @@ export const LeftSidebarNav: React.FC = () => {
 
             {[
               { id: 'Yours', label: 'Yours' },
+              { id: 'YouTube', label: 'YouTube', isYt: true },
               { id: 'AI media', label: 'AI media', isAi: true },
               { id: 'Spaces', label: 'Spaces' },
               { id: 'Library', label: 'Library' },
@@ -824,10 +705,18 @@ export const LeftSidebarNav: React.FC = () => {
                 }`}
               >
                 <div className="flex items-center gap-1">
+                  {cat.isYt ? (
+                    <Youtube className="w-3 h-3 text-rose-500 shrink-0" />
+                  ) : null}
                   <span>{cat.label}</span>
                   {cat.isAi && (
                     <span className="px-1 py-0.2 rounded text-[8px] bg-cyan-500 text-black font-black">
                       AI
+                    </span>
+                  )}
+                  {cat.isYt && (
+                    <span className="px-1 py-0.2 rounded text-[7.5px] bg-rose-600 text-white font-bold">
+                      LIVE
                     </span>
                   )}
                 </div>
@@ -836,7 +725,12 @@ export const LeftSidebarNav: React.FC = () => {
             ))}
           </div>
 
-          {/* Right Media Shelf & Grid */}
+          {/* Right Media Shelf & Grid or YouTube Search Panel */}
+          {activeCategory === 'YouTube' ? (
+            <div className="flex-1 flex flex-col min-w-0 bg-[#0d0f17] overflow-hidden">
+              <YouTubePanel />
+            </div>
+          ) : (
           <div
             className="flex-1 flex flex-col min-w-0 bg-[#0d0f17]"
             onDragOver={(e) => {
@@ -1091,6 +985,7 @@ export const LeftSidebarNav: React.FC = () => {
               )}
             </div>
           </div>
+          )}
         </div>
       )}
 

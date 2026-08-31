@@ -61,7 +61,7 @@ export const AllProjectsModal: React.FC<AllProjectsModalProps> = ({
               <FolderOpen className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">All CineFlow Projects ({projects.length})</h2>
+              <h2 className="text-base font-bold text-white">All VeeCut Projects ({projects.length})</h2>
               <p className="text-xs text-zinc-400">Manage, organize, and open your studio timelines</p>
             </div>
           </div>

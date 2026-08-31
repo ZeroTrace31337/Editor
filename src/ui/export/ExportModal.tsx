@@ -11,8 +11,9 @@ import { Download, X, Film, CheckCircle2, AlertCircle, Loader2 } from 'lucide-re
 export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { project, exporter } = useEditor();
 
-  const [resolution, setResolution] = useState<'1080p' | '720p' | '4k'>('1080p');
+  const [resolution, setResolution] = useState<'720p' | '1080p' | '1440p' | '4k'>('1080p');
   const [fps, setFps] = useState<number>(30);
+  const [bitrateMode, setBitrateMode] = useState<'ultra' | 'high' | 'standard'>('high');
   const [filename, setFilename] = useState<string>(
     `${project.metadata.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_rendered`
   );
@@ -36,6 +37,12 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
     if (resolution === '720p') {
       width = 1280;
       height = 720;
+    } else if (resolution === '1080p') {
+      width = 1920;
+      height = 1080;
+    } else if (resolution === '1440p') {
+      width = 2560;
+      height = 1440;
     } else if (resolution === '4k') {
       width = 3840;
       height = 2160;
@@ -89,12 +96,15 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs select-none p-4">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-xl max-w-md w-full overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
         <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Film className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-sm font-semibold text-zinc-100">Export Timeline Composition</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-100">Export Timeline Composition</h3>
+              <p className="text-[10px] text-zinc-500">Master rendering with hardware acceleration</p>
+            </div>
           </div>
           {!isExporting && (
             <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
@@ -104,7 +114,7 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4 text-xs">
+        <div className="p-5 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
           {errorMsg && (
             <div className="p-3 rounded-lg bg-red-950/60 border border-red-800/80 flex items-center gap-2 text-red-300">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -135,10 +145,11 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
               {/* Resolution Options */}
               <div className="space-y-1.5">
                 <label className="text-zinc-400 font-medium">Resolution</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
                     { id: '720p', label: '720p HD' },
                     { id: '1080p', label: '1080p FHD' },
+                    { id: '1440p', label: '2K QHD' },
                     { id: '4k', label: '4K UHD' },
                   ].map((res) => (
                     <button
@@ -146,7 +157,7 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
                       onClick={() => setResolution(res.id as any)}
                       className={`py-2 rounded-lg border text-center transition-all ${
                         resolution === res.id
-                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-medium'
+                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
                           : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
                       }`}
                     >
@@ -159,22 +170,48 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
               {/* Frame Rate Options */}
               <div className="space-y-1.5">
                 <label className="text-zinc-400 font-medium">Frame Rate</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-5 gap-1.5">
                   {[
-                    { fps: 24, label: '24 FPS (Film)' },
-                    { fps: 30, label: '30 FPS (Standard)' },
-                    { fps: 60, label: '60 FPS (Smooth)' },
+                    { fps: 24, label: '24 (Cinema)' },
+                    { fps: 25, label: '25 (PAL)' },
+                    { fps: 30, label: '30 (Web)' },
+                    { fps: 50, label: '50 (High)' },
+                    { fps: 60, label: '60 (Smooth)' },
                   ].map((f) => (
                     <button
                       key={f.fps}
                       onClick={() => setFps(f.fps)}
-                      className={`py-2 rounded-lg border text-center transition-all ${
+                      className={`py-1.5 rounded-lg border text-center transition-all text-[11px] ${
                         fps === f.fps
-                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-medium'
+                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
                           : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
                       }`}
                     >
                       {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bitrate & Quality */}
+              <div className="space-y-1.5">
+                <label className="text-zinc-400 font-medium">Bitrate & Quality</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'standard', label: 'Standard (8 Mbps)' },
+                    { id: 'high', label: 'High (16 Mbps)' },
+                    { id: 'ultra', label: 'Ultra Cinema (32 Mbps)' },
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => setBitrateMode(b.id as any)}
+                      className={`py-1.5 rounded-lg border text-center transition-all text-[10px] ${
+                        bitrateMode === b.id
+                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
+                          : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {b.label}
                     </button>
                   ))}
                 </div>
@@ -201,6 +238,7 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
             </div>
           )}
         </div>
+
 
         {/* Footer */}
         <div className="px-5 py-3 bg-zinc-900/60 border-t border-zinc-800 flex items-center justify-end gap-2">

@@ -56,7 +56,7 @@ export const PreviewMonitor: React.FC = () => {
   const currentSec = rationalTimeToSeconds(currentTime);
   const totalTimecode = '00:00:15:25';
 
-  // Format CineFlow specific timecode format 00:00:14:06
+  // Format VeeCut specific timecode format 00:00:14:06
   const formatMonitorTimecode = (sec: number) => {
     const hours = Math.floor(sec / 3600);
     const mins = Math.floor((sec % 3600) / 60);

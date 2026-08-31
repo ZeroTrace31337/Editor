@@ -28,6 +28,7 @@ import { VHSRetroEffect } from './implementations/VHSRetroEffect';
 import { LetterboxCinematicEffect } from './implementations/LetterboxCinematicEffect';
 import { BodyOutlineGlowEffect } from './implementations/BodyOutlineGlowEffect';
 import { AISceneRelightEffect } from './implementations/AISceneRelightEffect';
+import { RetouchEffect } from './implementations/RetouchEffect';
 
 export class EffectRegistry {
   private static instance: EffectRegistry;
@@ -77,9 +78,10 @@ export class EffectRegistry {
     // Cinematic
     this.register(new LetterboxCinematicEffect());
 
-    // Body & AI
+    // Body & AI & Beauty Retouch
     this.register(new BodyOutlineGlowEffect());
     this.register(new AISceneRelightEffect());
+    this.register(new RetouchEffect());
 
     // Keying
     this.register(new ChromaKeyEffect());

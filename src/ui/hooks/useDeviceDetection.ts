@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 
 export type DeviceMode = 'auto' | 'desktop' | 'mobile';
 
-const STORAGE_KEY = 'cineflow_device_mode_override';
+const STORAGE_KEY = 'veecut_device_mode_override';
 
 export function useDeviceDetection() {
   const [deviceMode, setDeviceMode] = useState<DeviceMode>(() => {

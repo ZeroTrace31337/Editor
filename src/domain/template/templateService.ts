@@ -11,6 +11,7 @@ import {
   CreateTemplatePayload,
   UserMediaSlotAssignment,
   UserTextSlotAssignment,
+  TemplatePlatform,
 } from './Template';
 import { TEMPLATE_CATEGORIES } from './templateCategories';
 import { SEED_TEMPLATES } from './templateData';
@@ -26,6 +27,7 @@ import {
 import {
   secondsToRationalTime,
   createRationalTime,
+  rationalTimeToSeconds,
   COMMON_FRAME_RATES,
 } from '../../core/time/RationalTime';
 import { MediaAsset } from '../media/MediaAsset';
@@ -37,11 +39,14 @@ const CUSTOM_TEMPLATES_STORAGE_KEY = 'veecut_custom_templates';
 export class TemplateService {
   private static instance: TemplateService;
   private customTemplates: Template[] = [];
+  private serverTemplates: Template[] = [];
   private favorites: Set<string> = new Set();
+  private isSyncing = false;
 
   private constructor() {
     this.loadFavorites();
     this.loadCustomTemplates();
+    this.syncWithServer();
   }
 
   public static getInstance(): TemplateService {
@@ -95,12 +100,41 @@ export class TemplateService {
     }
   }
 
+  public async syncWithServer(): Promise<void> {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      const res = await fetch('/api/templates');
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.items)) {
+          this.serverTemplates = json.items;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not sync templates with server backend, using local dataset:', err);
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
   public getCategories(): TemplateCategoryInfo[] {
     return TEMPLATE_CATEGORIES;
   }
 
   public getAllTemplates(): Template[] {
-    return [...this.customTemplates, ...SEED_TEMPLATES];
+    // Merge server templates with local custom templates and seed templates
+    const map = new Map<string, Template>();
+    for (const seed of SEED_TEMPLATES) {
+      map.set(seed.id, seed);
+    }
+    for (const server of this.serverTemplates) {
+      map.set(server.id, server);
+    }
+    for (const custom of this.customTemplates) {
+      map.set(custom.id, custom);
+    }
+    return Array.from(map.values());
   }
 
   public getTemplateById(id: string): Template | undefined {
@@ -119,11 +153,23 @@ export class TemplateService {
       this.favorites.add(templateId);
     }
     this.saveFavorites();
+
+    // Async notify backend
+    fetch(`/api/templates/${templateId}/favorite`, { method: 'POST' }).catch(() => {});
+
     return !isFav;
   }
 
   public getFavoritesList(): string[] {
     return Array.from(this.favorites);
+  }
+
+  public recordTemplateUsage(templateId: string): void {
+    const tmpl = this.getTemplateById(templateId);
+    if (tmpl) {
+      tmpl.usageCount = (tmpl.usageCount || 0) + 1;
+    }
+    fetch(`/api/templates/${templateId}/usage`, { method: 'POST' }).catch(() => {});
   }
 
   public getTemplates(filter?: Partial<TemplateFilterOptions>): Template[] {
@@ -142,6 +188,15 @@ export class TemplateService {
       } else {
         list = list.filter((t) => t.category === filter.category);
       }
+    }
+
+    // Platform filter
+    if (filter.platform && filter.platform !== 'all') {
+      list = list.filter((t) => {
+        if (t.primaryPlatform === filter.platform) return true;
+        if (t.platforms && t.platforms.includes(filter.platform as any)) return true;
+        return false;
+      });
     }
 
     // Search query
@@ -187,6 +242,16 @@ export class TemplateService {
       list = list.filter((t) => t.style === filter.style);
     }
 
+    // Region filter
+    if (filter.region && filter.region !== 'all') {
+      list = list.filter((t) => !t.region || t.region === 'GLOBAL' || t.region === filter.region);
+    }
+
+    // Language filter
+    if (filter.language && filter.language !== 'all') {
+      list = list.filter((t) => !t.language || t.language === filter.language);
+    }
+
     // Favorites only
     if (filter.favoritesOnly) {
       list = list.filter((t) => this.favorites.has(t.id));
@@ -210,6 +275,9 @@ export class TemplateService {
       }
       if (sort === 'most_used') {
         return b.usageCount - a.usageCount;
+      }
+      if (sort === 'trending_score') {
+        return (b.isTrending ? 100 : 0) + (b.rating || 4.5) * 10 - ((a.isTrending ? 100 : 0) + (a.rating || 4.5) * 10);
       }
       return 0;
     });
@@ -242,7 +310,7 @@ export class TemplateService {
       .slice(0, limit);
   }
 
-  public saveCustomTemplate(payload: CreateTemplatePayload): Template {
+  public async saveCustomTemplate(payload: CreateTemplatePayload): Promise<Template> {
     const id = `tmpl_custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const minutes = Math.floor(payload.durationSeconds / 60).toString().padStart(2, '0');
     const seconds = Math.floor(payload.durationSeconds % 60).toString().padStart(2, '0');
@@ -251,8 +319,11 @@ export class TemplateService {
       id,
       name: payload.name,
       category: payload.category,
-      description: payload.description || 'Custom user created template.',
+      primaryPlatform: payload.primaryPlatform || 'general',
+      platforms: payload.platforms || ['general'],
+      description: payload.description || 'Custom template created in VeeCut Studio.',
       thumbnail: payload.thumbnail || createCinematicThumbnail('man_bokeh'),
+      previewVideoUrl: payload.previewVideoUrl,
       duration: `${minutes}:${seconds}`,
       durationSeconds: payload.durationSeconds,
       aspectRatio: payload.aspectRatio,
@@ -275,13 +346,154 @@ export class TemplateService {
       likesCount: 1,
       rating: 5.0,
       isNew: true,
+      isPublished: payload.isPublished !== undefined ? payload.isPublished : true,
       createdAt: new Date().toISOString(),
       style: payload.style,
+      region: payload.region || 'GLOBAL',
+      language: payload.language || 'en',
+      version: 1,
+      sourceType: 'community',
     };
 
     this.customTemplates.unshift(newTemplate);
     this.saveCustomTemplatesToStorage();
+
+    // Async sync with backend server
+    try {
+      await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Could not persist template to backend server:', err);
+    }
+
     return newTemplate;
+  }
+
+  public exportTemplateToJson(template: Template): string {
+    return JSON.stringify(template, null, 2);
+  }
+
+  public importTemplateFromJson(jsonString: string): Template | null {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (parsed && parsed.name && parsed.aspectRatio && Array.isArray(parsed.mediaSlots)) {
+        const imported: Template = {
+          ...parsed,
+          id: `tmpl_imported_${Date.now()}`,
+          isNew: true,
+          createdAt: new Date().toISOString(),
+        };
+        this.customTemplates.unshift(imported);
+        this.saveCustomTemplatesToStorage();
+        return imported;
+      }
+    } catch (err) {
+      console.error('Failed to parse imported template JSON:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Generates a template payload from an active VeeCut Project
+   */
+  public createTemplateFromProject(
+    project: Project,
+    meta: {
+      name: string;
+      category: string;
+      description?: string;
+      thumbnail?: string;
+    }
+  ): CreateTemplatePayload {
+    const seq = project.sequences[0];
+    const durationSeconds = seq ? rationalTimeToSeconds(seq.duration) : 15;
+
+    const mediaSlots = [];
+    const textSlots = [];
+    let audioTrack = undefined;
+
+    let slotIdx = 0;
+    let textIdx = 0;
+
+    for (const track of seq.tracks) {
+      if (track.kind === 'video') {
+        for (const clip of track.clips) {
+          if (clip.type === 'video' || clip.type === 'image') {
+            const startSec = rationalTimeToSeconds(clip.timelineRange.start);
+            const durSec = rationalTimeToSeconds(clip.timelineRange.duration);
+            mediaSlots.push({
+              id: `slot_${slotIdx + 1}`,
+              slotIndex: slotIdx,
+              name: clip.name || `Clip ${slotIdx + 1}`,
+              type: (clip.type as any) || 'video',
+              startTimeSeconds: startSec,
+              durationSeconds: durSec,
+              label: `Media Slot ${slotIdx + 1}`,
+              defaultUrl: clip.type === 'image' ? 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800' : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800',
+              thumbnailUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400',
+              cropBehavior: 'cover' as const,
+              colorGrade: clip.colorGrade,
+              transitionIn: clip.transitionIn,
+              transitionOut: clip.transitionOut,
+              effects: clip.effects,
+            });
+            slotIdx++;
+          } else if (clip.type === 'text') {
+            const textClip = clip as TextClip;
+            const startSec = rationalTimeToSeconds(clip.timelineRange.start);
+            const durSec = rationalTimeToSeconds(clip.timelineRange.duration);
+            textSlots.push({
+              id: `text_${textIdx + 1}`,
+              slotIndex: textIdx,
+              name: textClip.name || `Title ${textIdx + 1}`,
+              defaultText: textClip.text || 'YOUR TEXT HERE',
+              startTimeSeconds: startSec,
+              durationSeconds: durSec,
+              fontFamily: textClip.fontFamily || 'Montserrat',
+              fontSize: textClip.fontSize || 48,
+              fontWeight: textClip.fontWeight || '700',
+              color: textClip.textColor || '#ffffff',
+              alignment: textClip.alignment || 'center',
+            });
+            textIdx++;
+          }
+        }
+      } else if (track.kind === 'audio' && !audioTrack && track.clips.length > 0) {
+        const audioClip = track.clips[0] as AudioClip;
+        const durSec = rationalTimeToSeconds(audioClip.timelineRange.duration);
+        audioTrack = {
+          id: `mus_${Date.now()}`,
+          title: audioClip.name || 'Project Soundtrack',
+          artist: 'VeeCut Audio',
+          durationSeconds: durSec,
+          bpm: 128,
+          url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+        };
+      }
+    }
+
+    return {
+      name: meta.name,
+      category: meta.category as any,
+      description: meta.description || 'Template created from VeeCut project timeline.',
+      aspectRatio: project.settings.aspectRatio,
+      width: project.settings.canvasWidth,
+      height: project.settings.canvasHeight,
+      fps: project.settings.frameRate.numerator / project.settings.frameRate.denominator,
+      durationSeconds: Math.max(5, durationSeconds),
+      thumbnail: meta.thumbnail || createCinematicThumbnail('man_bokeh'),
+      style: 'Professional',
+      tags: ['Project Template', 'Custom Edit'],
+      mediaSlots,
+      textSlots,
+      audioTrack,
+      transitions: ['Smooth Cut'],
+      effects: [],
+      filters: [],
+    };
   }
 
   /**
@@ -299,6 +511,9 @@ export class TemplateService {
     const projectName = options?.projectName || `${template.name} Edit`;
     const project = createNewProject(projectName);
 
+    // Record usage metrics
+    this.recordTemplateUsage(template.id);
+
     // Set canvas settings from template
     project.settings.canvasWidth = template.width;
     project.settings.canvasHeight = template.height;
@@ -313,7 +528,7 @@ export class TemplateService {
     const assetsToRegister: MediaAsset[] = [];
     const seq = project.sequences[0];
 
-    // Define 4 Tracks: Video 1 (Main Media), Video 2 (Overlays / Titles), Audio 1 (Music), Audio 2 (SFX / VO)
+    // Define 4 Tracks: Video 1 (Main Media), Video 2 (Titles & Overlays), Audio 1 (Music), Audio 2 (Voice / SFX)
     const trackV1 = createTrack('track_v1', 'Media Base', 'video', true);
     const trackV2 = createTrack('track_v2', 'Titles & Overlays', 'video', false);
     const trackA1 = createTrack('track_a1', 'Soundtrack / Music', 'audio', false);

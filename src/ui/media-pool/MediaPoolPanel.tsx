@@ -22,7 +22,10 @@ import {
   AlertTriangle,
   AlertCircle,
   FolderOpen,
+  Youtube,
+  X,
 } from 'lucide-react';
+import { YouTubePanel } from '../youtube/YouTubePanel';
 
 export const MediaPoolPanel: React.FC = () => {
   const {
@@ -38,6 +41,7 @@ export const MediaPoolPanel: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | 'video' | 'audio' | 'image'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isYouTubeModalOpen, setIsYouTubeModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const assets = project.mediaPool || [];
@@ -128,13 +132,25 @@ export const MediaPoolPanel: React.FC = () => {
           onChange={(e) => handleFiles(e.target.files)}
         />
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 rounded-md hover:bg-cyan-900/80 hover:text-white transition-all shadow-xs"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          <span>Import</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsYouTubeModalOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-300 bg-rose-950/60 border border-rose-800/60 rounded-md hover:bg-rose-900/80 hover:text-white transition-all shadow-xs"
+            title="Search and import YouTube videos"
+          >
+            <Youtube className="w-3.5 h-3.5 text-rose-400" />
+            <span>YouTube</span>
+          </button>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 rounded-md hover:bg-cyan-900/80 hover:text-white transition-all shadow-xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}
@@ -325,6 +341,35 @@ export const MediaPoolPanel: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* YouTube Search Modal Popup */}
+      {isYouTubeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+          <div
+            className="relative w-full max-w-2xl h-[85vh] bg-[#11131c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#161926] border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <Youtube className="w-4 h-4 text-rose-500" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  YouTube Media Discovery
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsYouTubeModalOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <YouTubePanel />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -78,7 +78,7 @@ export const HomeTopNav: React.FC<HomeTopNavProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="text-base font-black tracking-tight text-white font-sans">
-                CineFlow
+                VeeCut
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
                 PRO
@@ -241,10 +241,10 @@ export const HomeTopNav: React.FC<HomeTopNavProps> = ({
             >
               <div className="px-3.5 py-2 border-b border-zinc-800">
                 <p className="font-semibold text-white">Studio User</p>
-                <p className="text-[10px] text-zinc-400 font-mono">user@cineflow.studio</p>
+                <p className="text-[10px] text-zinc-400 font-mono">user@veecut.studio</p>
                 <div className="mt-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold">
                   <Crown className="w-3 h-3 text-cyan-400" />
-                  <span>CineFlow Pro Active (Unlimited)</span>
+                  <span>VeeCut Pro Active (Unlimited)</span>
                 </div>
               </div>
               <div className="py-1">

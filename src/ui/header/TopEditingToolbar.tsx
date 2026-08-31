@@ -78,12 +78,12 @@ export const TopEditingToolbar: React.FC<TopEditingToolbarProps> = ({
     const clip = createBaseClip(
       clipId,
       'text',
-      'CineFlow Title',
+      'VeeCut Title',
       targetTrack.id,
       { start: currentTime, duration: dur },
       { start: createRationalTime(0), duration: dur }
     );
-    (clip as any).text = 'CineFlow Studio';
+    (clip as any).text = 'VeeCut Studio';
     (clip as any).fontSize = 54;
     (clip as any).textColor = '#ffffff';
 
@@ -99,7 +99,7 @@ export const TopEditingToolbar: React.FC<TopEditingToolbarProps> = ({
     if (!canvas) return;
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = `CineFlow_Snapshot_${Date.now()}.png`;
+    a.download = `VeeCut_Snapshot_${Date.now()}.png`;
     a.click();
   };
 

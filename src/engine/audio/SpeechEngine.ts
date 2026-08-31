@@ -80,7 +80,7 @@ export class SpeechEngine {
           'Notice the subtle color grading and dynamic lighting.',
           'Every frame is rendered in full 32-bit floating point color.',
           'Seamlessly edited with professional timeline precision.',
-          'Lumina CineFlow brings Hollywood-grade creativity to your fingertips.',
+          'Lumina VeeCut brings Hollywood-grade creativity to your fingertips.',
         ];
 
     const totalLines = defaultLines.length;

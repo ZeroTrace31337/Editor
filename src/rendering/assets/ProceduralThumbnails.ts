@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Procedural high-fidelity image generators for CineFlow sample media
+// Procedural high-fidelity image generators for VeeCut sample media
 export function createCinematicThumbnail(type: 'man_bokeh' | 'sunset' | 'city_night' | 'forest' | 'drone' | 'waveform' | 'logo', width = 640, height = 360): string {
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -241,7 +241,7 @@ export function createCinematicThumbnail(type: 'man_bokeh' | 'sunset' | 'city_ni
     }
 
   } else if (type === 'logo') {
-    // CineFlow vibrant logo
+    // VeeCut vibrant logo
     ctx.fillStyle = '#090b14';
     ctx.fillRect(0, 0, width, height);
 

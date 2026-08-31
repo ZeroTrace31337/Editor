@@ -107,7 +107,7 @@ export const MobilePreview: React.FC = () => {
             <div className="w-4 h-4 rounded bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 flex items-center justify-center">
               <Play className="w-2.5 h-2.5 text-white fill-white translate-x-0.2" />
             </div>
-            <span className="font-bold text-white text-[11px]">CineFlow</span>
+            <span className="font-bold text-white text-[11px]">VeeCut</span>
           </div>
 
           <div className="flex items-center gap-1">

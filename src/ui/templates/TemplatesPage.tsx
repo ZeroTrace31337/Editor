@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search,
   SlidersHorizontal,
@@ -37,19 +37,30 @@ import {
   Filter,
   X,
   Layers,
+  Upload,
+  Download,
+  ShieldCheck,
+  Globe,
+  Radio,
+  Share2,
 } from 'lucide-react';
 import {
   Template,
   TemplateCategoryId,
   TemplateFilterOptions,
   TemplateStyle,
+  TemplatePlatform,
 } from '../../domain/template/Template';
 import { TEMPLATE_CATEGORIES } from '../../domain/template/templateCategories';
 import { TemplateService } from '../../domain/template/templateService';
+import { TrendItem } from '../../domain/template/TrendTypes';
 import { TemplateCard } from './TemplateCard';
 import { TemplatePreviewModal } from './TemplatePreviewModal';
 import { UseTemplateModal } from './UseTemplateModal';
 import { CreateTemplateModal } from './CreateTemplateModal';
+import { LiveTrendsSection } from './LiveTrendsSection';
+import { ApiStatusModal } from './ApiStatusModal';
+import { TemplateImportExportModal } from './TemplateImportExportModal';
 
 interface TemplatesPageProps {
   onOpenEditor: () => void;
@@ -80,30 +91,52 @@ const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
   Cpu: <Cpu className="w-3.5 h-3.5" />,
 };
 
+type ViewMode = 'templates' | 'trends' | 'custom';
+
 export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) => {
   const templateService = TemplateService.getInstance();
+
+  // Top Nav View Mode
+  const [viewMode, setViewMode] = useState<ViewMode>('templates');
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<TemplateCategoryId | 'all'>('for_you');
+  const [platformFilter, setPlatformFilter] = useState<'all' | TemplatePlatform>('all');
+  const [regionFilter, setRegionFilter] = useState<string>('all');
   const [aspectRatio, setAspectRatio] = useState<'all' | '9:16' | '16:9' | '1:1' | '4:5'>('all');
   const [durationBucket, setDurationBucket] = useState<'all' | 'under_10' | '10_30' | '30_60' | '60_plus'>('all');
   const [styleFilter, setStyleFilter] = useState<'all' | TemplateStyle>('all');
-  const [sortBy, setSortBy] = useState<'recommended' | 'popular' | 'newest' | 'most_used'>('recommended');
+  const [sortBy, setSortBy] = useState<'recommended' | 'popular' | 'newest' | 'most_used' | 'trending_score'>('recommended');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [aiOnly, setAiOnly] = useState(false);
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [showLiveTrendsBanner, setShowLiveTrendsBanner] = useState(true);
 
   // Modals State
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [customizingTemplate, setCustomizingTemplate] = useState<Template | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isApiStatusOpen, setIsApiStatusOpen] = useState(false);
+  const [importExportModal, setImportExportModal] = useState<{
+    isOpen: boolean;
+    mode: 'import' | 'export';
+    template?: Template | null;
+  }>({
+    isOpen: false,
+    mode: 'import',
+    template: null,
+  });
 
   // Category Bar Scroll Ref
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
-  // Favorites trigger update
+  // Favorites & Sync Trigger
   const [favUpdateCount, setFavUpdateCount] = useState(0);
+
+  useEffect(() => {
+    templateService.syncWithServer();
+  }, []);
 
   const scrollCategoryBar = (direction: 'left' | 'right') => {
     if (categoryScrollRef.current) {
@@ -119,6 +152,8 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
     return templateService.getTemplates({
       searchQuery,
       category: activeCategory,
+      platform: platformFilter,
+      region: regionFilter,
       aspectRatio,
       durationBucket,
       style: styleFilter,
@@ -129,6 +164,8 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
   }, [
     searchQuery,
     activeCategory,
+    platformFilter,
+    regionFilter,
     aspectRatio,
     durationBucket,
     styleFilter,
@@ -150,6 +187,8 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
   const resetAllFilters = () => {
     setSearchQuery('');
     setActiveCategory('for_you');
+    setPlatformFilter('all');
+    setRegionFilter('all');
     setAspectRatio('all');
     setDurationBucket('all');
     setStyleFilter('all');
@@ -161,16 +200,24 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     activeCategory !== 'for_you' ||
+    platformFilter !== 'all' ||
+    regionFilter !== 'all' ||
     aspectRatio !== 'all' ||
     durationBucket !== 'all' ||
     styleFilter !== 'all' ||
     favoritesOnly ||
     aiOnly;
 
+  const handleSelectTrend = (trend: TrendItem) => {
+    if (trend.aspectRatio) {
+      setAspectRatio(trend.aspectRatio as any);
+    }
+  };
+
   return (
     <div id="templates_page_container" className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col">
       {/* 1. TOP HERO & HEADER BAR */}
-      <header className="sticky top-0 z-30 bg-[#07090e]/95 backdrop-blur-xl border-b border-white/10 px-4 sm:px-8 py-4">
+      <header className="sticky top-0 z-30 bg-[#07090e]/95 backdrop-blur-xl border-b border-white/10 px-4 sm:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Title & Badge */}
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -179,28 +226,58 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-extrabold text-white tracking-tight">Templates</h1>
+                <h1 className="text-xl font-extrabold text-white tracking-tight">VeeCut Template Hub</h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                  22 Categories
+                  Live Discovery
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Professional multi-track video templates. Customize media, text & timing instantly.
+                Multi-track video templates & real-time viral trends across YouTube, TikTok & Reels.
               </p>
             </div>
           </div>
 
-          {/* Search, Filter, Favorites & Create Buttons */}
+          {/* View Mode Switcher & Top Actions */}
           <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap sm:flex-nowrap">
+            {/* View Mode Pills */}
+            <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10">
+              <button
+                type="button"
+                id="btn_view_templates"
+                onClick={() => setViewMode('templates')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'templates'
+                    ? 'bg-sky-500 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Templates
+              </button>
+              <button
+                type="button"
+                id="btn_view_trends"
+                onClick={() => setViewMode('trends')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'trends'
+                    ? 'bg-rose-500 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5" />
+                Live Trends
+              </button>
+            </div>
+
             {/* Search Input Bar */}
-            <div className="relative flex-1 sm:w-64">
+            <div className="relative flex-1 sm:w-56">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 id="input_template_search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search templates, tags, styles..."
+                placeholder="Search templates, tags..."
                 className="w-full pl-9 pr-8 py-2 rounded-xl bg-white/5 hover:bg-white/10 focus:bg-black/80 border border-white/10 focus:border-sky-400 text-white text-xs outline-none transition-all placeholder:text-slate-500"
               />
               {searchQuery && (
@@ -250,27 +327,23 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
               )}
             </button>
 
-            {/* Sort Dropdown */}
-            <div className="relative">
-              <select
-                id="select_template_sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold outline-none cursor-pointer"
-              >
-                <option value="recommended">Recommended</option>
-                <option value="popular">Most Popular</option>
-                <option value="newest">Newest First</option>
-                <option value="most_used">Most Used</option>
-              </select>
-            </div>
+            {/* Import JSON Button */}
+            <button
+              type="button"
+              id="btn_import_template_json"
+              onClick={() => setImportExportModal({ isOpen: true, mode: 'import' })}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs transition-colors hidden sm:block"
+              title="Import Template JSON"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </button>
 
             {/* Create Template Button */}
             <button
               type="button"
-              id="btn_create_new_template"
+              id="btn_open_create_template"
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-md shadow-sky-500/20 transition-all hover:scale-105"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-lg shadow-sky-500/20 transition-all hover:scale-105 active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Create</span>
@@ -279,116 +352,116 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
         </div>
       </header>
 
-      {/* 2. FILTER & CRITERIA DRAWER (CONDITIONAL) */}
+      {/* 2. ADVANCED FILTER DRAWER (Collapsible) */}
       {showFilterDrawer && (
-        <div className="bg-[#0e111a] border-b border-white/10 px-4 sm:px-8 py-4 animate-in slide-in-from-top duration-200">
+        <div className="bg-[#0b0e17] border-b border-white/10 px-4 sm:px-8 py-5 animate-in slide-in-from-top-2 duration-200">
           <div className="max-w-7xl mx-auto space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Refine by Aspect Ratio, Duration & Style
-              </span>
-              <button
-                type="button"
-                onClick={resetAllFilters}
-                className="text-xs text-sky-400 hover:text-sky-300 font-semibold"
-              >
-                Reset All
-              </button>
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <Filter className="w-3.5 h-3.5 text-sky-400" />
+                <span>Refine Templates</span>
+              </div>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="text-xs text-sky-400 hover:text-sky-300 font-semibold"
+                >
+                  Reset all filters
+                </button>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-              {/* Aspect Ratio */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1.5">Aspect Ratio</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {(['all', '9:16', '16:9', '1:1', '4:5'] as const).map((ratio) => (
-                    <button
-                      key={ratio}
-                      type="button"
-                      onClick={() => setAspectRatio(ratio)}
-                      className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
-                        aspectRatio === ratio
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {ratio === 'all' ? 'All Ratios' : ratio}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Duration Bucket */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1.5">Duration</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: 'all', label: 'Any' },
-                    { id: 'under_10', label: '< 10s' },
-                    { id: '10_30', label: '10-30s' },
-                    { id: '30_60', label: '30-60s' },
-                    { id: '60_plus', label: '60s+' },
-                  ].map((dur) => (
-                    <button
-                      key={dur.id}
-                      type="button"
-                      onClick={() => setDurationBucket(dur.id as any)}
-                      className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
-                        durationBucket === dur.id
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {dur.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Visual Style */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1.5">Visual Style</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-xs">
+              {/* Platform Selector */}
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-medium">Platform Target</label>
                 <select
-                  value={styleFilter}
-                  onChange={(e) => setStyleFilter(e.target.value as any)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-white font-medium outline-none"
+                  value={platformFilter}
+                  onChange={(e) => setPlatformFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
                 >
-                  <option value="all">All Styles</option>
-                  <option value="Cinematic">Cinematic</option>
-                  <option value="Minimal">Minimal</option>
-                  <option value="Fast">Fast / Velocity</option>
-                  <option value="Emotional">Emotional</option>
-                  <option value="Professional">Professional</option>
-                  <option value="Energetic">Energetic</option>
-                  <option value="Aesthetic">Aesthetic</option>
-                  <option value="Humorous">Humorous</option>
+                  <option value="all" className="bg-slate-900">All Platforms</option>
+                  <option value="youtube_shorts" className="bg-slate-900">YouTube Shorts</option>
+                  <option value="tiktok" className="bg-slate-900">TikTok</option>
+                  <option value="instagram_reels" className="bg-slate-900">Instagram Reels</option>
+                  <option value="cinema" className="bg-slate-900">Cinematic 16:9</option>
                 </select>
               </div>
 
-              {/* AI Powered Toggle */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1.5">AI Models</label>
-                <button
-                  type="button"
-                  onClick={() => setAiOnly(!aiOnly)}
-                  className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg font-semibold border transition-all ${
-                    aiOnly
-                      ? 'bg-sky-500/20 border-sky-500/40 text-sky-400'
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                  }`}
+              {/* Aspect Ratio */}
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-medium">Aspect Ratio</label>
+                <select
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
                 >
-                  <Cpu className="w-3.5 h-3.5" />
-                  <span>AI Powered Only</span>
-                </button>
+                  <option value="all" className="bg-slate-900">All Formats</option>
+                  <option value="9:16" className="bg-slate-900">9:16 (Vertical Story/Reel)</option>
+                  <option value="16:9" className="bg-slate-900">16:9 (Landscape HD)</option>
+                  <option value="1:1" className="bg-slate-900">1:1 (Square Post)</option>
+                  <option value="4:5" className="bg-slate-900">4:5 (Portrait Feed)</option>
+                </select>
+              </div>
+
+              {/* Duration Bucket */}
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-medium">Pacing & Duration</label>
+                <select
+                  value={durationBucket}
+                  onChange={(e) => setDurationBucket(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
+                >
+                  <option value="all" className="bg-slate-900">Any Duration</option>
+                  <option value="under_10" className="bg-slate-900">Under 10s (Fast Hook)</option>
+                  <option value="10_30" className="bg-slate-900">10 - 30s (Short-form)</option>
+                  <option value="30_60" className="bg-slate-900">30 - 60s (Medium Story)</option>
+                  <option value="60_plus" className="bg-slate-900">60s+ (Long Form)</option>
+                </select>
+              </div>
+
+              {/* Visual Style */}
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-medium">Aesthetic Style</label>
+                <select
+                  value={styleFilter}
+                  onChange={(e) => setStyleFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
+                >
+                  <option value="all" className="bg-slate-900">All Styles</option>
+                  <option value="Fast-Paced" className="bg-slate-900">Fast-Paced & Energetic</option>
+                  <option value="Cinematic" className="bg-slate-900">Cinematic & Moody</option>
+                  <option value="Minimal" className="bg-slate-900">Clean & Minimalist</option>
+                  <option value="Cyberpunk" className="bg-slate-900">Cyberpunk / Neon</option>
+                  <option value="Vintage" className="bg-slate-900">Vintage & Retro</option>
+                  <option value="Bold" className="bg-slate-900">Bold & Dynamic</option>
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-medium">Sort Order</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
+                >
+                  <option value="recommended" className="bg-slate-900">Recommended for You</option>
+                  <option value="trending_score" className="bg-slate-900">Trend Velocity Score</option>
+                  <option value="popular" className="bg-slate-900">Highest Rated</option>
+                  <option value="most_used" className="bg-slate-900">Most Used</option>
+                  <option value="newest" className="bg-slate-900">Recently Published</option>
+                </select>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. HORIZONTAL 22 CATEGORY NAVIGATION BAR */}
-      <div className="sticky top-[73px] z-20 bg-[#07090e]/95 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 py-2.5">
-        <div className="max-w-7xl mx-auto flex items-center gap-2">
+      {/* 3. CATEGORIES SCROLLABLE BAR */}
+      <div className="border-b border-white/5 bg-[#090c14] px-4 sm:px-8 py-2.5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => scrollCategoryBar('left')}
@@ -441,6 +514,15 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
 
       {/* 4. MAIN CONTENT & GRID */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-8 space-y-6">
+        {/* Real-time Trend Radar Component */}
+        {(viewMode === 'trends' || (showLiveTrendsBanner && activeCategory === 'for_you' && !searchQuery)) && (
+          <LiveTrendsSection
+            onSelectTrend={handleSelectTrend}
+            onUseTemplate={(tmpl) => setCustomizingTemplate(tmpl)}
+            onOpenApiStatus={() => setIsApiStatusOpen(true)}
+          />
+        )}
+
         {/* Category Description Banner */}
         {activeCategoryInfo && !favoritesOnly && !searchQuery && (
           <div className="p-4 sm:p-6 rounded-3xl bg-gradient-to-r from-white/[0.04] to-transparent border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -489,6 +571,13 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
                 onToggleFavorite={() => setFavUpdateCount((c) => c + 1)}
                 onPreview={(tmpl) => setPreviewTemplate(tmpl)}
                 onUseTemplate={(tmpl) => setCustomizingTemplate(tmpl)}
+                onExportJson={(tmpl) =>
+                  setImportExportModal({
+                    isOpen: true,
+                    mode: 'export',
+                    template: tmpl,
+                  })
+                }
               />
             ))}
           </div>
@@ -542,6 +631,24 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
         onCreated={() => {
           setFavUpdateCount((c) => c + 1);
           setActiveCategory('new');
+        }}
+      />
+
+      {/* D. API Status Modal */}
+      <ApiStatusModal
+        isOpen={isApiStatusOpen}
+        onClose={() => setIsApiStatusOpen(false)}
+      />
+
+      {/* E. Template Import / Export JSON Modal */}
+      <TemplateImportExportModal
+        isOpen={importExportModal.isOpen}
+        mode={importExportModal.mode}
+        templateToExport={importExportModal.template}
+        onClose={() => setImportExportModal({ isOpen: false, mode: 'import', template: null })}
+        onImportSuccess={(newTmpl) => {
+          setFavUpdateCount((c) => c + 1);
+          setCustomizingTemplate(newTmpl);
         }}
       />
     </div>

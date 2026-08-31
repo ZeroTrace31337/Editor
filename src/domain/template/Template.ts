@@ -10,28 +10,45 @@ import { KeyframeTrack } from '../keyframe/Keyframe';
 import { AspectRatioPreset } from '../project/Project';
 
 export type TemplateCategoryId =
-  | 'for_you'
   | 'trending'
-  | 'new'
-  | 'reels'
+  | 'youtube'
   | 'tiktok'
   | 'youtube_shorts'
-  | 'youtube'
-  | 'cinematic'
-  | 'travel'
-  | 'vlog'
-  | 'sports'
+  | 'reels'
+  | 'instagram'
   | 'gaming'
+  | 'cinematic'
+  | 'vlog'
+  | 'business'
+  | 'education'
+  | 'ads'
+  | 'documents'
+  | 'presentations'
+  | 'social_media'
+  | 'photo_slideshow'
+  | 'intro_outro'
+  | 'promotional'
+  | 'ai_templates'
+  | 'for_you'
+  | 'new'
+  | 'travel'
+  | 'sports'
   | 'birthday'
   | 'wedding'
-  | 'business'
-  | 'product_promo'
   | 'photography'
   | 'lyrics_music'
   | 'memes'
   | 'minimal'
-  | 'beat_sync'
-  | 'ai_templates';
+  | 'beat_sync';
+
+export type TemplatePlatform =
+  | 'all'
+  | 'youtube'
+  | 'tiktok'
+  | 'instagram'
+  | 'reels'
+  | 'shorts'
+  | 'general';
 
 export interface TemplateCategoryInfo {
   id: TemplateCategoryId;
@@ -126,6 +143,8 @@ export interface Template {
   id: string;
   name: string;
   category: TemplateCategoryId;
+  primaryPlatform?: TemplatePlatform;
+  platforms?: TemplatePlatform[];
   description: string;
   thumbnail: string;
   previewVideoUrl?: string;
@@ -155,6 +174,11 @@ export interface Template {
   createdAt: string;
   style: TemplateStyle;
   colorPalette?: string[];
+  region?: string;
+  language?: string;
+  isPublished?: boolean;
+  version?: number;
+  sourceType?: 'veecut_official' | 'community' | 'trend_inspired';
 }
 
 export interface UserMediaSlotAssignment {
@@ -178,14 +202,17 @@ export interface UserTextSlotAssignment {
   letterSpacing?: number;
 }
 
-export type TemplateSortOption = 'recommended' | 'popular' | 'newest' | 'most_used';
+export type TemplateSortOption = 'recommended' | 'popular' | 'newest' | 'most_used' | 'trending_score';
 
 export interface TemplateFilterOptions {
   searchQuery: string;
   category: TemplateCategoryId | 'all';
-  aspectRatio: 'all' | '9:16' | '16:9' | '1:1' | '4:5';
+  platform?: TemplatePlatform;
+  aspectRatio: 'all' | '9:16' | '16:9' | '1:1' | '4:5' | '21:9';
   durationBucket: 'all' | 'under_10' | '10_30' | '30_60' | '60_plus';
   style: 'all' | TemplateStyle;
+  region?: string; // 'all' | 'US' | 'GLOBAL' | 'GB' | 'JP' | 'KR' | 'IN' | 'DE' | 'FR' | 'BR'
+  language?: string; // 'all' | 'en' | 'es' | 'ja' | 'ko' | 'de' | 'fr' | 'pt' | 'hi'
   favoritesOnly: boolean;
   aiOnly: boolean;
   sortBy: TemplateSortOption;
@@ -194,6 +221,8 @@ export interface TemplateFilterOptions {
 export interface CreateTemplatePayload {
   name: string;
   category: TemplateCategoryId;
+  platforms?: TemplatePlatform[];
+  primaryPlatform?: TemplatePlatform;
   description: string;
   aspectRatio: AspectRatioPreset;
   width: number;
@@ -201,6 +230,7 @@ export interface CreateTemplatePayload {
   fps: number;
   durationSeconds: number;
   thumbnail: string;
+  previewVideoUrl?: string;
   style: TemplateStyle;
   tags: string[];
   mediaSlots: TemplateMediaSlot[];
@@ -210,4 +240,7 @@ export interface CreateTemplatePayload {
   effects: string[];
   filters: string[];
   creatorName?: string;
+  region?: string;
+  language?: string;
+  isPublished?: boolean;
 }

@@ -71,19 +71,19 @@ export const EditorHeader: React.FC<{
 
   return (
     <header className="h-10.5 bg-[#0b0d13] border-b border-zinc-800/80 px-3 flex items-center justify-between select-none shrink-0 z-30">
-      {/* 1. Left: CineFlow Logo + Menu Dropdown + Auto saved status */}
+      {/* 1. Left: VeeCut Logo + Menu Dropdown + Auto saved status */}
       <div className="flex items-center gap-3">
-        {/* CineFlow Logo */}
+        {/* VeeCut Logo */}
         <div 
           onClick={onReturnHome}
           className="flex items-center gap-1.5 cursor-pointer group"
-          title="Return to CineFlow Home Dashboard"
+          title="Return to VeeCut Home Dashboard"
         >
           <div className="w-5.5 h-5.5 rounded-md bg-gradient-to-tr from-cyan-400 to-cyan-600 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
             <Play className="w-3 h-3 text-black fill-black translate-x-0.5" />
           </div>
           <span className="text-[13px] font-black tracking-tight text-white group-hover:text-cyan-400 transition-colors">
-            CineFlow
+            VeeCut
           </span>
         </div>
 

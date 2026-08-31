@@ -45,7 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-purple-400" />
             <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">
-              CineFlow Project Preferences & Engine Settings
+              VeeCut Project Preferences & Engine Settings
             </h2>
           </div>
           <button

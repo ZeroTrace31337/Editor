@@ -22,6 +22,7 @@ import { RecordStudioModal } from './RecordStudioModal';
 import { AllProjectsModal } from './AllProjectsModal';
 import { TutorialsModal } from './TutorialsModal';
 import { SettingsModal } from '../header/SettingsModal';
+import { useEditor } from '../context/EditorContext';
 
 import {
   INITIAL_RECENT_PROJECTS,
@@ -52,6 +53,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   hasActiveSession = true,
   currentProjectName = 'Iceland 4K Master',
 }) => {
+  const { applyAIResultToTimeline } = useEditor();
   const [activeTab, setActiveTab] = useState<string>('home');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [recentProjects, setRecentProjects] = useState<RecentProjectItem[]>(INITIAL_RECENT_PROJECTS);
@@ -206,9 +208,14 @@ export const HomePage: React.FC<HomePageProps> = ({
     });
   };
 
-  const handleApplyAIResult = (info: { title: string; type: string }) => {
+  const handleApplyAIResult = async (info: any) => {
+    try {
+      await applyAIResultToTimeline(info);
+    } catch (e) {
+      console.error('Error adding AI media to timeline:', e);
+    }
     onOpenEditor({
-      projectName: info.title,
+      projectName: info.title || 'AI Project',
     });
   };
 
@@ -383,7 +390,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* Dedicated "Tutorials" Tab */}
         {activeTab === 'tutorials' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-white">CineFlow Video Editing Academy</h2>
+            <h2 className="text-xl font-bold text-white">VeeCut Video Editing Academy</h2>
             <p className="text-sm text-zinc-400">Step-by-step masterclasses and keyboard shortcuts</p>
             <div className="p-6 rounded-2xl bg-[#11131c] border border-zinc-800">
               <button

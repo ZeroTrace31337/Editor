@@ -87,7 +87,7 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
               <BookOpen className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">CineFlow Knowledge & Help Center</h2>
+              <h2 className="text-base font-bold text-white">VeeCut Knowledge & Help Center</h2>
               <p className="text-xs text-zinc-400">Tutorials, shortcuts, and documentation</p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
               activeTab === 'about' ? 'bg-zinc-800 text-cyan-400 border border-cyan-500/30' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            About CineFlow
+            About VeeCut
           </button>
         </div>
 
@@ -180,12 +180,12 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
                   <Play className="w-5 h-5 fill-black translate-x-0.5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">CineFlow Pro Studio</h3>
+                  <h3 className="text-base font-black text-white">VeeCut Pro Studio</h3>
                   <span className="text-[11px] text-cyan-400 font-mono">v3.4.2 Desktop Edition</span>
                 </div>
               </div>
               <p>
-                CineFlow is a high-performance, non-linear video editing workstation engineered for creators, filmmakers, and digital artists. Combining the lightning-fast workflow of modern creator tools with professional color grading, multi-track audio mastering, and neural AI generators.
+                VeeCut is a high-performance, non-linear video editing workstation engineered for creators, filmmakers, and digital artists. Combining the lightning-fast workflow of modern creator tools with professional color grading, multi-track audio mastering, and neural AI generators.
               </p>
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="p-3 rounded-lg bg-zinc-950/80 border border-zinc-800">

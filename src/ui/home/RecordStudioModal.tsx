@@ -67,7 +67,7 @@ export const RecordStudioModal: React.FC<RecordStudioModalProps> = ({
               <Disc className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">CineFlow Record Studio</h2>
+              <h2 className="text-base font-bold text-white">VeeCut Record Studio</h2>
               <p className="text-xs text-zinc-400">Capture 4K 60fps screen, webcam & studio microphone</p>
             </div>
           </div>

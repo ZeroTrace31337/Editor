@@ -64,7 +64,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             href="#feedback"
             onClick={(e) => {
               e.preventDefault();
-              alert('Thank you for using CineFlow Pro! We welcome your feedback.');
+              alert('Thank you for using VeeCut Pro! We welcome your feedback.');
             }}
             className="hover:text-zinc-200 transition flex items-center gap-1.5 cursor-pointer"
           >
@@ -77,7 +77,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             className="hover:text-zinc-200 transition flex items-center gap-1.5 cursor-pointer"
           >
             <Info className="w-3.5 h-3.5 text-zinc-400" />
-            <span>About CineFlow</span>
+            <span>About VeeCut</span>
           </button>
 
           <span className="hover:text-zinc-200 transition flex items-center gap-1 cursor-pointer">
@@ -97,7 +97,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>GPU: WebGL2 Float32</span>
           </div>
-          <span>CineFlow Pro v3.4.2</span>
+          <span>VeeCut Pro v3.4.2</span>
         </div>
       </div>
     </footer>

@@ -20,11 +20,14 @@ import { MediaAsset } from '../../domain/media/MediaAsset';
 import {
   RationalTime,
   createRationalTime,
+  secondsToRationalTime,
   rationalTimeToSeconds,
+  compareRationalTime,
   formatTimecode,
 } from '../../core/time/RationalTime';
 import { KeyframeTrack, cloneKeyframeTrack } from '../../domain/keyframe/Keyframe';
 import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
+import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
 import { PasteKeyframesCommand } from '../../engine/command/implementations/PasteKeyframesCommand';
 import { UpdateColorGradeCommand } from '../../engine/command/implementations/UpdateColorGradeCommand';
 import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
@@ -106,6 +109,8 @@ export interface EditorContextValue {
   importFiles: (files: FileList | File[]) => Promise<MediaAsset[]>;
   removeMediaAsset: (assetId: string) => void;
   addSampleMedia: () => Promise<void>;
+  addMediaAssetAndClip: (asset: MediaAsset, targetTrackId?: string, startTime?: RationalTime) => Promise<{ asset: MediaAsset; clip: any }>;
+  applyAIResultToTimeline: (resultInfo: any) => Promise<void>;
 }
 
 const EditorContext = createContext<EditorContextValue | null>(null);
@@ -544,6 +549,256 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     projectService.setProject({ ...currentProj });
   };
 
+  /**
+   * Canonical pipeline to register any media asset, add it to project media pool,
+   * create a timeline clip, and execute AddClipCommand.
+   */
+  const addMediaAssetAndClip = async (
+    asset: MediaAsset,
+    targetTrackId?: string,
+    startTime?: RationalTime
+  ): Promise<{ asset: MediaAsset; clip: any }> => {
+    // 1. Register asset in MediaRegistry and restore uri for rendering
+    mediaRegistry.registerAsset(asset);
+    await mediaRegistry.restoreAssetUri(asset);
+
+    // 2. Add to project media pool if not already present
+    const currentProj = projectService.getProject();
+    if (!currentProj.mediaPool) currentProj.mediaPool = [];
+    const exists = currentProj.mediaPool.some((a) => a.id === asset.id);
+    if (!exists) {
+      currentProj.mediaPool = [asset, ...currentProj.mediaPool];
+    }
+
+    // 3. Find or create appropriate track
+    const sequence = timelineEngine.getSequence();
+    let track = targetTrackId ? sequence.tracks.find((t) => t.id === targetTrackId) : undefined;
+    if (!track) {
+      if (asset.type === 'audio') {
+        track = sequence.tracks.find((t) => t.kind === 'audio');
+        if (!track) {
+          track = createTrack(`track_audio_${Date.now()}`, 'Audio 1', 'audio');
+          sequence.tracks.push(track);
+        }
+      } else {
+        track = sequence.tracks.find((t) => t.kind === 'video');
+        if (!track) {
+          track = createTrack(`track_video_${Date.now()}`, 'Video 1', 'video');
+          sequence.tracks.unshift(track);
+        }
+      }
+    }
+
+    // 4. Determine placement time
+    const insertTime = startTime || currentTime || createRationalTime(0);
+
+    // 5. Create timeline clip using canonical domain builder
+    const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const clip = createBaseClip(
+      clipId,
+      asset.type === 'audio' ? 'audio' : asset.type === 'image' ? 'image' : 'video',
+      asset.name,
+      track.id,
+      { start: insertTime, duration: asset.duration },
+      { start: createRationalTime(0), duration: asset.duration }
+    );
+    (clip as any).mediaAssetId = asset.id;
+    (clip as any).thumbnailUrl = asset.thumbnailUrl;
+    if (asset.type === 'audio') {
+      (clip as any).volume = 1.0;
+      (clip as any).pan = 0.0;
+    }
+
+    // 6. Execute AddClipCommand through CommandManager
+    const cmd = new AddClipCommand(timelineEngine, track.id, clip as any);
+    await commandManager.execute(cmd);
+
+    // 7. Select newly created clip and ensure sequence duration accommodates it
+    setSelectedClipId(clipId);
+    const clipEndTime = addRationalTime(insertTime, asset.duration);
+    if (compareRationalTime(clipEndTime, sequence.duration) > 0) {
+      sequence.duration = clipEndTime;
+    }
+
+    // 8. Synchronize project and persist
+    projectService.setProject({ ...currentProj });
+    projectService.saveToLocalStorage();
+
+    return { asset, clip };
+  };
+
+  /**
+   * Universal AI result applicator that bridges any AI tool generation (Video, Image,
+   * Audio, Captions, Color Grades, Keyframes, Assistant actions) into the timeline.
+   */
+  const applyAIResultToTimeline = async (resultInfo: any): Promise<void> => {
+    if (!resultInfo) return;
+
+    const sequence = timelineEngine.getSequence();
+
+    // 1. Color Grade / 3D LUT
+    if (resultInfo.colorGrade) {
+      if (selectedClip) {
+        const cmd = new UpdateColorGradeCommand(timelineEngine, selectedClip.id, resultInfo.colorGrade);
+        await commandManager.execute(cmd);
+      } else {
+        const firstVidClip = sequence.tracks.flatMap((t) => t.clips).find((c) => c.type === 'video' || c.type === 'image');
+        if (firstVidClip) {
+          const cmd = new UpdateColorGradeCommand(timelineEngine, firstVidClip.id, resultInfo.colorGrade);
+          await commandManager.execute(cmd);
+        } else {
+          let targetTrack = sequence.tracks.find((t) => t.kind === 'video') || sequence.tracks[0];
+          const dur = secondsToRationalTime(5.0);
+          const adjClip = createBaseClip(
+            `adj_grade_${Date.now()}`,
+            'adjustment',
+            resultInfo.title || 'AI Color Grade',
+            targetTrack.id,
+            { start: currentTime, duration: dur },
+            { start: createRationalTime(0), duration: dur }
+          );
+          (adjClip as any).colorGrade = resultInfo.colorGrade;
+          const cmd = new AddClipCommand(timelineEngine, targetTrack.id, adjClip as any);
+          await commandManager.execute(cmd);
+        }
+      }
+      projectService.setProject({ ...projectService.getProject() });
+      projectService.saveToLocalStorage();
+      return;
+    }
+
+    // 2. Auto Captions
+    if (resultInfo.captions && Array.isArray(resultInfo.captions) && resultInfo.captions.length > 0) {
+      let textTrack = sequence.tracks.find((t) => t.id === 'track_v2' || (t.kind === 'video' && t.name.includes('Text')));
+      if (!textTrack) {
+        textTrack = sequence.tracks.find((t) => t.kind === 'video') || sequence.tracks[0];
+      }
+
+      for (const cue of resultInfo.captions) {
+        const startSec = (cue.startMs || 0) / 1000;
+        const endSec = (cue.endMs || (cue.startMs + 1500)) / 1000;
+        const durSec = Math.max(0.5, endSec - startSec);
+        const startRational = addRationalTime(currentTime, secondsToRationalTime(startSec));
+        const durRational = secondsToRationalTime(durSec);
+
+        const textClip = createBaseClip(
+          `caption_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          'text',
+          cue.text || 'AI Subtitle',
+          textTrack.id,
+          { start: startRational, duration: durRational },
+          { start: createRationalTime(0), duration: durRational }
+        );
+        (textClip as any).text = cue.text;
+        (textClip as any).fontSize = 44;
+        (textClip as any).textColor = '#ffffff';
+        (textClip as any).backgroundColor = 'rgba(0, 0, 0, 0.75)';
+        (textClip as any).position = { x: 0, y: 340 };
+        (textClip as any).fontFamily = 'Inter, sans-serif';
+
+        const cmd = new AddClipCommand(timelineEngine, textTrack.id, textClip as any);
+        await commandManager.execute(cmd);
+      }
+      projectService.setProject({ ...projectService.getProject() });
+      projectService.saveToLocalStorage();
+      return;
+    }
+
+    // 3. Trajectory Keyframes / Motion Tracking
+    if (resultInfo.keyframes && Array.isArray(resultInfo.keyframes) && resultInfo.keyframes.length > 0) {
+      const targetClip = selectedClip || sequence.tracks.flatMap((t) => t.clips)[0];
+      if (targetClip) {
+        if (!targetClip.keyframeTracks) targetClip.keyframeTracks = {};
+        const posTrack: KeyframeTrack<any> = {
+          propertyPath: 'transform.position',
+          propertyName: 'Position',
+          defaultValue: { x: 0, y: 0 },
+          keyframes: resultInfo.keyframes.map((kf: any, idx: number) => ({
+            id: `kf_${idx}_${Date.now()}`,
+            time: secondsToRationalTime(kf.timeSeconds || idx * 0.1),
+            value: { x: (kf.x - 0.5) * 1920, y: (kf.y - 0.5) * 1080 },
+            interpolation: 'linear',
+          })),
+        };
+        targetClip.keyframeTracks['transform.position'] = posTrack;
+      }
+      projectService.setProject({ ...projectService.getProject() });
+      projectService.saveToLocalStorage();
+      return;
+    }
+
+    // 4. Assistant Copilot Actions
+    if (resultInfo.assistantActions && Array.isArray(resultInfo.assistantActions)) {
+      for (const act of resultInfo.assistantActions) {
+        if (act.type === 'add_text' && act.payload) {
+          const textTrack = sequence.tracks.find((t) => t.id === 'track_v2' || t.kind === 'video') || sequence.tracks[0];
+          const durRational = secondsToRationalTime(act.payload.durationSec || 4);
+          const textClip = createBaseClip(
+            `text_ai_${Date.now()}`,
+            'text',
+            act.payload.text,
+            textTrack.id,
+            { start: currentTime, duration: durRational },
+            { start: createRationalTime(0), duration: durRational }
+          );
+          (textClip as any).text = act.payload.text;
+          (textClip as any).fontSize = act.payload.fontSize || 54;
+          (textClip as any).textColor = act.payload.textColor || '#22d3ee';
+          (textClip as any).fontFamily = 'Inter, sans-serif';
+          const cmd = new AddClipCommand(timelineEngine, textTrack.id, textClip as any);
+          await commandManager.execute(cmd);
+        } else if (act.type === 'apply_color_grade' && selectedClip && act.payload) {
+          selectedClip.colorGrade = { ...selectedClip.colorGrade, ...act.payload };
+        }
+      }
+      projectService.setProject({ ...projectService.getProject() });
+      projectService.saveToLocalStorage();
+      return;
+    }
+
+    // 5. Media Asset (Video, Image, Audio)
+    const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing' || resultInfo.type === 'ai_voice' || resultInfo.type === 'ai_audio_enhance' || !!resultInfo.audioData;
+    const isImg = !resultInfo.videoUrl && (resultInfo.type === 'Asset Creation' || resultInfo.type === 'VFX & Rotoscoping' || resultInfo.type === 'Cleanup & Inpainting' || resultInfo.type === 'ai_image_gen' || resultInfo.type === 'ai_bg_removal' || resultInfo.type === 'ai_object_removal' || resultInfo.type === 'ai_upscale');
+    const mediaType: 'video' | 'image' | 'audio' = isAud ? 'audio' : isImg ? 'image' : 'video';
+
+    const durSec = resultInfo.durationSec || (isAud ? 8 : isImg ? 4 : 5);
+    const durRational = secondsToRationalTime(durSec);
+
+    let mediaUri = resultInfo.videoUrl || resultInfo.imageUrl || resultInfo.audioData || resultInfo.assetUrl || '';
+    if (!mediaUri && mediaType === 'video') {
+      mediaUri = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    } else if (!mediaUri && mediaType === 'image') {
+      mediaUri = createCinematicThumbnail('sunset');
+    }
+
+    const thumbUrl = resultInfo.imageUrl || (mediaType === 'video' ? createCinematicThumbnail('drone') : mediaType === 'image' ? createCinematicThumbnail('sunset') : createCinematicThumbnail('waveform'));
+
+    const newAsset: MediaAsset = {
+      id: `ai_asset_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: resultInfo.title || (mediaType === 'video' ? 'AI Cinematic Video' : mediaType === 'image' ? 'AI Generated Image' : 'AI Audio Track'),
+      uri: mediaUri,
+      type: mediaType,
+      fileSize: 1024 * 1024 * 6,
+      duration: durRational,
+      videoMetadata: mediaType !== 'audio' ? {
+        width: resultInfo.width || 1920,
+        height: resultInfo.height || 1080,
+        fps: resultInfo.fps || 60,
+        codec: 'h264',
+      } : undefined,
+      audioMetadata: mediaType === 'audio' ? {
+        sampleRate: 48000,
+        channels: 2,
+        codec: 'aac',
+      } : undefined,
+      thumbnailUrl: thumbUrl,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
+    };
+
+    await addMediaAssetAndClip(newAsset);
+  };
+
   const currentTimeSeconds = rationalTimeToSeconds(currentTime);
   const formattedTimecode = formatTimecode(currentTime, project.settings.frameRate);
   const isUploading = uploadStates.some((u) => u.status === 'uploading' || u.status === 'processing' || u.status === 'generating_thumbnail');
@@ -603,6 +858,8 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     importFiles,
     removeMediaAsset,
     addSampleMedia,
+    addMediaAssetAndClip,
+    applyAIResultToTimeline,
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;
