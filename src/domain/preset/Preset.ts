@@ -9,15 +9,31 @@ import { Transform2D } from '../../core/math/Transform2D';
 import { ClipMask } from '../mask/ClipMask';
 
 export type PresetCategory =
+  | 'for_you'
+  | 'trending'
+  | 'new'
+  | 'veecut_originals'
   | 'cinematic'
-  | 'film'
+  | 'portrait'
+  | 'travel'
+  | 'vlog'
+  | 'sports'
+  | 'gaming'
   | 'vintage'
+  | 'black_white'
+  | 'social'
+  | 'landscape'
+  | 'film'
+  | 'urban'
+  | 'mood'
+  | 'lifestyle'
+  | 'night'
+  | 'minimal'
+  | 'stylized'
+  | 'duotone'
+  | 'creative'
   | 'warm'
   | 'cool'
-  | 'portrait'
-  | 'landscape'
-  | 'black_white'
-  | 'creative'
   | 'my_filters'
   | 'favorites'
   | 'custom';
@@ -30,6 +46,15 @@ export interface FilterStage {
   enabled: boolean;
   type: 'exposure' | 'color_wheels' | 'curves' | 'hsl' | 'lut' | 'effect' | 'mask';
   params?: Record<string, any>;
+}
+
+export interface ActiveFilterConfig {
+  presetId: string;
+  presetName: string;
+  intensity: number; // 0.0 to 1.0
+  category?: string;
+  appliedAt?: string;
+  presetData?: FilterPreset;
 }
 
 export interface FilterPreset {
@@ -47,6 +72,15 @@ export interface FilterPreset {
   transform?: Partial<Transform2D>;
   stages?: FilterStage[];
   thumbnailUrl?: string;
+  previewGradient?: string;
+  tags?: string[];
+  popularityScore?: number;
+  isTrending?: boolean;
+  isNew?: boolean;
+  isOriginal?: boolean;
+  rating?: number;
+  usageCount?: number;
+  lutId?: string;
   isCustom?: boolean;
   isFavorite?: boolean;
   createdAt: string;

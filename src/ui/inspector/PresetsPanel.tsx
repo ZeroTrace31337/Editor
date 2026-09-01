@@ -35,21 +35,14 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ clip }) => {
   const handleSaveCurrentLook = () => {
     if (!newPresetName.trim()) return;
 
-    const newPreset: FilterPreset = {
-      id: `custom_${Date.now()}`,
+    presetManager.saveCustomPreset({
       name: newPresetName.trim(),
       category: newPresetCat as any,
       description: 'Custom user crafted color & effects preset',
-      version: '1.0',
+      colorGrade: clip.colorGrade,
+      effects: clip.effects,
       scope: 'transform_color_effects',
-      intensity: 1.0,
-      colorGrade: JSON.parse(JSON.stringify(clip.colorGrade)),
-      effects: JSON.parse(JSON.stringify(clip.effects || [])),
-      isCustom: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    presetManager.saveCustomPreset(newPreset);
+    });
     setPresets(presetManager.getAllPresets());
     setShowSaveModal(false);
     setNewPresetName('');

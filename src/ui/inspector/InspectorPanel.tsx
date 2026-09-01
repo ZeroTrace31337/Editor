@@ -46,6 +46,7 @@ import { TextPanel } from './TextPanel';
 import { TrackingPanel } from './TrackingPanel';
 import { KeyframesPanel } from './KeyframesPanel';
 import { SpeedPanel } from './SpeedPanel';
+import { AudioPanel } from './AudioPanel';
 import { KeyframeControl } from './KeyframeControl';
 import { secondsToRationalTime, createRationalTime } from '../../core/time/RationalTime';
 
@@ -754,110 +755,7 @@ export const InspectorPanel: React.FC = () => {
         )}
 
         {/* TAB: AUDIO */}
-        {activeTab === 'audio' && (
-          <div className="p-3 bg-[#111320] rounded-xl border border-zinc-800 space-y-4">
-            <div className="font-bold text-zinc-200 text-xs">Audio Master Controls</div>
-
-            {/* Volume */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-zinc-400 text-[11px]">
-                <span>Volume</span>
-                <span className="font-mono text-cyan-400">
-                  {Math.round(((selectedClip as any)?.volume ?? 1.0) * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="2.0"
-                step="0.01"
-                value={(selectedClip as any)?.volume ?? 1.0}
-                onChange={(e) => handleAudioPropChange('volume', parseFloat(e.target.value))}
-                className="w-full accent-cyan-400"
-              />
-            </div>
-
-            {/* Stereo Pan */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-zinc-400 text-[11px]">
-                <span>Pan (Stereo Balance)</span>
-                <span className="font-mono text-zinc-300">
-                  {((selectedClip as any)?.pan ?? 0) === 0
-                    ? 'Center'
-                    : ((selectedClip as any)?.pan ?? 0) < 0
-                    ? `L ${Math.abs(Math.round(((selectedClip as any)?.pan ?? 0) * 100))}%`
-                    : `R ${Math.round(((selectedClip as any)?.pan ?? 0) * 100)}%`}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="-1.0"
-                max="1.0"
-                step="0.05"
-                value={(selectedClip as any)?.pan ?? 0}
-                onChange={(e) => handleAudioPropChange('pan', parseFloat(e.target.value))}
-                className="w-full accent-cyan-400"
-              />
-            </div>
-
-            {/* Fade In / Fade Out */}
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 space-y-1">
-                <span className="text-zinc-400">Fade In</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="10"
-                  defaultValue="0.0"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px]"
-                />
-              </div>
-              <div className="p-2 rounded bg-zinc-900 border border-zinc-800 space-y-1">
-                <span className="text-zinc-400">Fade Out</span>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="10"
-                  defaultValue="0.0"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-200 font-mono text-[11px]"
-                />
-              </div>
-            </div>
-
-            {/* Equalizer (Bass / Mid / Treble) */}
-            <div className="space-y-2 pt-2 border-t border-zinc-800">
-              <span className="text-zinc-300 font-semibold text-[11px]">3-Band Equalizer</span>
-              <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
-                  <span className="text-zinc-400">Bass</span>
-                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
-                </div>
-                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
-                  <span className="text-zinc-400">Mid</span>
-                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
-                </div>
-                <div className="p-1.5 rounded bg-zinc-900 border border-zinc-800 space-y-1">
-                  <span className="text-zinc-400">Treble</span>
-                  <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Noise Reduction & Voice Isolation */}
-            <div className="space-y-2 pt-2 border-t border-zinc-800">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300">AI Noise Reduction</span>
-                <input type="checkbox" defaultChecked className="rounded bg-zinc-800 text-cyan-500" />
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300">AI Vocal Isolation</span>
-                <input type="checkbox" className="rounded bg-zinc-800 text-cyan-500" />
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'audio' && <AudioPanel clip={selectedClip || undefined} />}
 
         {/* TAB: SPEED */}
         {activeTab === 'speed' && <SpeedPanel clip={selectedClip || undefined} />}

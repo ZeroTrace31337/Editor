@@ -16,6 +16,8 @@ import { VideoScopesPanel } from './ui/color/VideoScopesPanel';
 import { AudioMixerPanel } from './ui/audio/AudioMixerPanel';
 import { ExportModal } from './ui/export/ExportModal';
 import { DeliverWorkspaceView } from './ui/export/DeliverWorkspaceView';
+import { MulticamViewer } from './ui/preview/MulticamViewer';
+import { LocaleProvider } from './ui/i18n/LocaleContext';
 import { SplitClipCommand } from './engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from './engine/command/implementations/DeleteClipCommand';
 import { secondsToRationalTime, addRationalTime, subtractRationalTime } from './core/time/RationalTime';
@@ -148,6 +150,21 @@ const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({ onReturnHome, onToggl
         <div className="flex-1 flex min-h-0">
           <DeliverWorkspaceView />
         </div>
+      ) : workspaceMode === 'multicam' ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <div className="flex-1 h-full min-w-0 relative flex flex-col bg-black">
+              <MulticamViewer />
+            </div>
+            <div className="w-80 xl:w-[360px] shrink-0 h-full border-l border-zinc-850">
+              <InspectorPanel />
+            </div>
+          </div>
+          <QuickActionBar />
+          <div className="h-64 xl:h-72 shrink-0 w-full border-t border-zinc-850">
+            <TimelinePanel />
+          </div>
+        </div>
       ) : (
         <>
           {/* Main 3-Pane View (Left Media Pool + Center Video Viewer + Right Inspector) */}
@@ -246,9 +263,11 @@ const RootApp: React.FC = () => {
 
 export function App() {
   return (
-    <EditorProvider>
-      <RootApp />
-    </EditorProvider>
+    <LocaleProvider>
+      <EditorProvider>
+        <RootApp />
+      </EditorProvider>
+    </LocaleProvider>
   );
 }
 

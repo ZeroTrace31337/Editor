@@ -23,11 +23,21 @@ import {
   Bell,
   Settings,
   Home,
+  Globe,
+  Package,
+  ShieldAlert,
+  Search,
+  Grid,
 } from 'lucide-react';
 import { ProxyManagerModal } from '../proxy/ProxyManagerModal';
 import { PerformanceMonitorModal } from '../preview/PerformanceMonitorModal';
 import { SettingsModal } from './SettingsModal';
 import { ShortcutsModal } from './ShortcutsModal';
+import { CommandPalette } from '../command/CommandPalette';
+import { RelinkModal } from '../media-pool/RelinkModal';
+import { PluginsModal } from '../plugins/PluginsModal';
+import { useLocale } from '../i18n/LocaleContext';
+import { ShortcutManager } from '../../core/shortcuts/ShortcutManager';
 import { Smartphone } from 'lucide-react';
 
 export const EditorHeader: React.FC<{
@@ -38,20 +48,86 @@ export const EditorHeader: React.FC<{
   const {
     project,
     projectService,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
+    timelineEngine,
+    commandManager,
+    mediaRegistry,
+    playbackEngine,
+    currentTime,
+    selectedClipId,
+    selectedClip,
+    snappingEnabled,
+    timelineZoom,
+    seek,
+    seekSeconds,
+    togglePlay,
+    setSnappingEnabled,
+    setTimelineZoom,
+    setSelectedClipId,
+    setWorkspaceMode,
   } = useEditor();
 
+  const { locale, setLocale, supportedLocales, t } = useLocale();
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleInput, setTitleInput] = useState('0825');
+  const [titleInput, setTitleInput] = useState(project.metadata.name || '0825');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isRelinkModalOpen, setIsRelinkModalOpen] = useState(false);
+  const [isPluginsModalOpen, setIsPluginsModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isProxyModalOpen, setIsProxyModalOpen] = useState(false);
   const [isPerfModalOpen, setIsPerfModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const shortcutManager = ShortcutManager.getInstance();
+
+  const editorContextForCommands = {
+    project,
+    projectService,
+    timelineEngine,
+    commandManager,
+    mediaRegistry,
+    playbackEngine,
+    currentTime,
+    selectedClipId,
+    selectedClip,
+    snappingEnabled,
+    timelineZoom,
+    seek,
+    seekSeconds,
+    togglePlay,
+    setSnappingEnabled,
+    setTimelineZoom,
+    setSelectedClipId,
+    openModal: (modalId: string) => {
+      if (modalId === 'command_palette') setIsCommandPaletteOpen(true);
+      if (modalId === 'shortcuts') setIsShortcutsOpen(true);
+      if (modalId === 'settings') setIsSettingsModalOpen(true);
+      if (modalId === 'plugins') setIsPluginsModalOpen(true);
+      if (modalId === 'relink') setIsRelinkModalOpen(true);
+    },
+    setWorkspaceMode,
+  };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Global shortcut for Command Palette (Mod+K)
+      const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const isMod = isMac ? e.metaKey : e.ctrlKey;
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      shortcutManager.handleKeyDown(e, editorContextForCommands);
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [editorContextForCommands]);
 
   const handleTitleSubmit = () => {
     setIsEditingTitle(false);
@@ -72,7 +148,7 @@ export const EditorHeader: React.FC<{
   return (
     <header className="h-10.5 bg-[#0b0d13] border-b border-zinc-800/80 px-3 flex items-center justify-between select-none shrink-0 z-30">
       {/* 1. Left: VeeCut Logo + Menu Dropdown + Auto saved status */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {/* VeeCut Logo */}
         <div 
           onClick={onReturnHome}
@@ -83,7 +159,7 @@ export const EditorHeader: React.FC<{
             <Play className="w-3 h-3 text-black fill-black translate-x-0.5" />
           </div>
           <span className="text-[13px] font-black tracking-tight text-white group-hover:text-cyan-400 transition-colors">
-            VeeCut
+            {t('app.title', 'VeeCut')}
           </span>
         </div>
 
@@ -111,7 +187,7 @@ export const EditorHeader: React.FC<{
 
           {isMenuOpen && (
             <div
-              className="absolute left-0 top-full mt-1 w-48 bg-[#12141c] border border-zinc-700/80 rounded-lg shadow-2xl py-1 z-50 text-xs text-zinc-200"
+              className="absolute left-0 top-full mt-1 w-52 bg-[#12141c] border border-zinc-700/80 rounded-lg shadow-2xl py-1 z-50 text-xs text-zinc-200"
               onClick={() => setIsMenuOpen(false)}
             >
               <button
@@ -119,16 +195,40 @@ export const EditorHeader: React.FC<{
                 className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center justify-between"
               >
                 <span>Import Project...</span>
-                <span className="text-[10px] text-zinc-500 font-mono">Ctrl+O</span>
+                <span className="text-[10px] text-zinc-500 font-mono">Mod+O</span>
               </button>
               <button
                 onClick={() => projectService.exportProjectFile()}
                 className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center justify-between"
               >
                 <span>Save Project File</span>
-                <span className="text-[10px] text-zinc-500 font-mono">Ctrl+S</span>
+                <span className="text-[10px] text-zinc-500 font-mono">Mod+S</span>
               </button>
               <div className="my-1 border-t border-zinc-800" />
+              <button
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Search className="w-3 h-3 text-cyan-400" />
+                  <span>Command Palette</span>
+                </div>
+                <span className="text-[10px] text-zinc-500 font-mono">Mod+K</span>
+              </button>
+              <button
+                onClick={() => setIsRelinkModalOpen(true)}
+                className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+              >
+                <ShieldAlert className="w-3 h-3 text-amber-400" />
+                <span>Relink Offline Media</span>
+              </button>
+              <button
+                onClick={() => setIsPluginsModalOpen(true)}
+                className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+              >
+                <Package className="w-3 h-3 text-indigo-400" />
+                <span>Plugin Ecosystem</span>
+              </button>
               <button
                 onClick={() => setIsProxyModalOpen(true)}
                 className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300"
@@ -151,10 +251,20 @@ export const EditorHeader: React.FC<{
           )}
         </div>
 
+        {/* Quick Command Palette Button */}
+        <button
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900/90 hover:bg-zinc-800 text-zinc-400 hover:text-cyan-300 border border-zinc-800 text-[11px] transition"
+          title="Search actions (Mod+K)"
+        >
+          <Search className="w-3 h-3" />
+          <span className="hidden md:inline font-mono text-[10px]">⌘K</span>
+        </button>
+
         {/* Auto saved status */}
-        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pl-1">
+        <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-zinc-400 pl-1">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400" />
-          <span>Auto saved: 11:50:56</span>
+          <span>{t('header.saved', 'Auto-saved')}</span>
         </div>
       </div>
 
@@ -181,8 +291,40 @@ export const EditorHeader: React.FC<{
         )}
       </div>
 
-      {/* 3. Right: Shortcut, Join Pro, Share, Prominent Export, Window Controls */}
-      <div className="flex items-center gap-2">
+      {/* 3. Right: Language, Shortcut, Pro, Share, Prominent Export, Window Controls */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Language Switcher Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+            className="flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-medium transition"
+            title="Switch Language (i18n)"
+          >
+            <Globe className="w-3 h-3 text-cyan-400" />
+            <span className="uppercase text-[10px] font-mono">{locale}</span>
+          </button>
+
+          {isLangMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 w-36 bg-[#12141c] border border-zinc-700/80 rounded-lg shadow-2xl py-1 z-50 text-xs text-zinc-200"
+              onClick={() => setIsLangMenuOpen(false)}
+            >
+              {supportedLocales.map((loc) => (
+                <button
+                  key={loc.code}
+                  onClick={() => setLocale(loc.code)}
+                  className={`w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center justify-between ${
+                    locale === loc.code ? 'text-cyan-400 font-bold bg-cyan-500/10' : ''
+                  }`}
+                >
+                  <span>{loc.nativeName}</span>
+                  <span className="text-[10px] text-zinc-500 uppercase">{loc.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Toggle to Touch Mobile/Tablet Interface */}
         {onToggleMobileMode && (
           <button
@@ -195,31 +337,14 @@ export const EditorHeader: React.FC<{
           </button>
         )}
 
-        {/* Layout Mode Icon */}
-        <button
-          onClick={() => {}}
-          className="p-1.5 text-zinc-400 hover:text-white rounded hover:bg-zinc-850 transition"
-          title="Workspace Layout"
-        >
-          <Layout className="w-3.5 h-3.5" />
-        </button>
-
         {/* Shortcut Button */}
         <button
           onClick={() => setIsShortcutsOpen(true)}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-medium transition"
+          title="Keyboard Shortcuts Guide & Customizer"
         >
           <Keyboard className="w-3 h-3 text-zinc-400" />
-          <span>Shortcut</span>
-        </button>
-
-        {/* Join Pro Pill */}
-        <button
-          onClick={() => {}}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-semibold shadow-xs shadow-purple-600/30 transition active:scale-95"
-        >
-          <Diamond className="w-3 h-3 fill-white text-white" />
-          <span>Join Pro</span>
+          <span className="hidden sm:inline">Hotkeys</span>
         </button>
 
         {/* Share Button */}
@@ -227,7 +352,7 @@ export const EditorHeader: React.FC<{
           onClick={() => {
             navigator.clipboard?.writeText(window.location.href);
           }}
-          className="flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-medium transition"
+          className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-medium transition"
         >
           <Share2 className="w-3 h-3 text-zinc-400" />
           <span>Share</span>
@@ -239,18 +364,11 @@ export const EditorHeader: React.FC<{
           className="flex items-center gap-1.5 px-3.5 py-1 rounded-md bg-cyan-400 hover:bg-cyan-300 text-black font-bold text-[11px] shadow-sm shadow-cyan-400/40 transition active:scale-95"
         >
           <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>Export</span>
+          <span>{t('header.export', 'Export')}</span>
         </button>
 
         {/* Window Controls (Minimize, Maximize, Close) */}
         <div className="flex items-center gap-0.5 pl-1.5 text-zinc-400">
-          <button
-            onClick={() => {}}
-            className="p-1 hover:text-white hover:bg-zinc-800 rounded transition"
-            title="Minimize"
-          >
-            <Minus className="w-3 h-3" />
-          </button>
           <button
             onClick={() => {
               if (!document.fullscreenElement) {
@@ -260,16 +378,9 @@ export const EditorHeader: React.FC<{
               }
             }}
             className="p-1 hover:text-white hover:bg-zinc-800 rounded transition"
-            title="Maximize"
+            title="Toggle Fullscreen"
           >
             <Square className="w-2.5 h-2.5" />
-          </button>
-          <button
-            onClick={() => {}}
-            className="p-1 hover:text-red-400 hover:bg-zinc-800 rounded transition"
-            title="Close"
-          >
-            <X className="w-3 h-3" />
           </button>
         </div>
       </div>
@@ -288,7 +399,13 @@ export const EditorHeader: React.FC<{
       <PerformanceMonitorModal isOpen={isPerfModalOpen} onClose={() => setIsPerfModalOpen(false)} />
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
       <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        context={editorContextForCommands}
+      />
+      <RelinkModal isOpen={isRelinkModalOpen} onClose={() => setIsRelinkModalOpen(false)} />
+      <PluginsModal isOpen={isPluginsModalOpen} onClose={() => setIsPluginsModalOpen(false)} />
     </header>
   );
 };
-

@@ -13,6 +13,7 @@ import { ClipMask } from '../mask/ClipMask';
 import { ChromaKeySettings } from '../../rendering/chroma/ChromaKeyTypes';
 import { StabilizationSettings } from '../../engine/stabilization/StabilizationTypes';
 import { ClipSpeedSettings } from '../../engine/speed/SpeedTypes';
+import { ActiveFilterConfig } from '../preset/Preset';
 
 export type ClipType = 'video' | 'audio' | 'image' | 'text' | 'adjustment' | 'compound';
 
@@ -30,6 +31,9 @@ export interface BaseClip {
   blendMode?: GlobalCompositeOperation;
   transform: Transform2D;
   colorGrade: ColorGrade;
+  baseColorGrade?: ColorGrade; // Non-destructive base color adjustments before filter
+  baseEffects?: EffectInstance[]; // Non-destructive base effects before filter
+  activeFilter?: ActiveFilterConfig; // Active applied filter look and intensity
   effects: EffectInstance[];
   masks: ClipMask[];
   activeMaskId?: string;

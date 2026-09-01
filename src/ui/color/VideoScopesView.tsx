@@ -10,9 +10,11 @@ import { useEditor } from '../context/EditorContext';
 export type ScopeType = 'parade' | 'waveform' | 'vectorscope' | 'histogram';
 
 export const VideoScopesView: React.FC = () => {
-  const { currentTime } = useEditor();
+  const { project, timelineEngine, compositor, currentTime, isBeforeAfterActive } = useEditor();
   const [activeScope, setActiveScope] = useState<ScopeType>('parade');
+  const [showFalseColorGuide, setShowFalseColorGuide] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,63 +29,100 @@ export const VideoScopesView: React.FC = () => {
     ctx.fillStyle = '#09090b';
     ctx.fillRect(0, 0, width, height);
 
-    if (activeScope === 'parade') {
-      renderRGBParade(ctx, width, height);
-    } else if (activeScope === 'waveform') {
-      renderLumaWaveform(ctx, width, height);
-    } else if (activeScope === 'vectorscope') {
-      renderVectorscope(ctx, width, height);
-    } else if (activeScope === 'histogram') {
-      renderHistogram(ctx, width, height);
+    // Initialize offscreen sampling canvas
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement('canvas');
     }
-  }, [activeScope, currentTime]);
+    const sampleW = 240;
+    const sampleH = 135;
+    const offCanvas = offscreenCanvasRef.current;
+    offCanvas.width = sampleW;
+    offCanvas.height = sampleH;
+    const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
+    if (!offCtx) return;
 
-  const renderRGBParade = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    // Render the sequence to offscreen canvas to obtain true pixel data
+    const sequence = timelineEngine.getSequence();
+    compositor.renderSequence(
+      offCtx,
+      sequence,
+      currentTime,
+      sampleW,
+      sampleH,
+      isBeforeAfterActive
+    );
+
+    let imageData: ImageData;
+    try {
+      imageData = offCtx.getImageData(0, 0, sampleW, sampleH);
+    } catch {
+      // Fallback empty frame buffer
+      imageData = offCtx.createImageData(sampleW, sampleH);
+    }
+
+    if (activeScope === 'parade') {
+      renderRGBParade(ctx, width, height, imageData, sampleW, sampleH);
+    } else if (activeScope === 'waveform') {
+      renderLumaWaveform(ctx, width, height, imageData, sampleW, sampleH);
+    } else if (activeScope === 'vectorscope') {
+      renderVectorscope(ctx, width, height, imageData, sampleW, sampleH);
+    } else if (activeScope === 'histogram') {
+      renderHistogram(ctx, width, height, imageData, sampleW, sampleH);
+    }
+  }, [activeScope, currentTime, isBeforeAfterActive, timelineEngine, compositor, project]);
+
+  const renderRGBParade = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    imageData: ImageData,
+    sampleW: number,
+    sampleH: number
+  ) => {
     const colW = width / 3;
-    const padding = 8;
+    const padding = 6;
+    const pixels = imageData.data;
 
-    // Draw Grids (IRE 0, 50, 100)
-    ctx.strokeStyle = '#27272a';
+    // Draw Grids (IRE 0, 25, 50, 75, 100)
+    ctx.strokeStyle = '#1e1e24';
     ctx.lineWidth = 1;
-    [0.2, 0.5, 0.8].forEach((ratio) => {
+    [0.1, 0.325, 0.55, 0.775, 0.95].forEach((ratio) => {
       ctx.beginPath();
       ctx.moveTo(0, height * ratio);
       ctx.lineTo(width, height * ratio);
       ctx.stroke();
     });
 
-    const channels: { name: string; color: string; offset: number }[] = [
-      { name: 'RED', color: 'rgba(239, 68, 68, 0.85)', offset: 0 },
-      { name: 'GREEN', color: 'rgba(34, 197, 94, 0.85)', offset: colW },
-      { name: 'BLUE', color: 'rgba(59, 130, 246, 0.85)', offset: colW * 2 },
+    const channels: { name: string; color: string; offset: number; channelIdx: number }[] = [
+      { name: 'RED PARADE', color: 'rgba(239, 68, 68, 0.45)', offset: 0, channelIdx: 0 },
+      { name: 'GREEN PARADE', color: 'rgba(34, 197, 94, 0.45)', offset: colW, channelIdx: 1 },
+      { name: 'BLUE PARADE', color: 'rgba(59, 130, 246, 0.45)', offset: colW * 2, channelIdx: 2 },
     ];
 
-    channels.forEach(({ name, color, offset }, idx) => {
-      // Channel label
+    channels.forEach(({ name, color, offset, channelIdx }, idx) => {
+      // Channel label & IRE markings
       ctx.fillStyle = '#71717a';
-      ctx.font = '9px monospace';
-      ctx.fillText(name, offset + 10, 16);
+      ctx.font = '8px monospace';
+      ctx.fillText(name, offset + 8, 14);
 
-      // Procedural trace curve
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let x = padding; x < colW - padding; x += 2) {
-        const normX = x / (colW - padding * 2);
-        const luma =
-          0.3 +
-          Math.sin(normX * 6 + idx * 1.5) * 0.25 +
-          Math.cos(normX * 12 + idx) * 0.15 +
-          (Math.sin(normX * 20) * 0.05);
-        const y = height - Math.max(0.1, Math.min(0.9, luma)) * (height - 24);
-        if (x === padding) ctx.moveTo(offset + x, y);
-        else ctx.lineTo(offset + x, y);
+      // Plot real pixel data points across horizontal sample slice
+      ctx.fillStyle = color;
+      const usableW = colW - padding * 2;
+      const usableH = height - 28;
+
+      for (let y = 0; y < sampleH; y += 2) {
+        for (let x = 0; x < sampleW; x += 2) {
+          const pixelIdx = (y * sampleW + x) * 4;
+          const val = pixels[pixelIdx + channelIdx] / 255;
+          const plotX = offset + padding + (x / sampleW) * usableW;
+          const plotY = height - 10 - val * usableH;
+          ctx.fillRect(plotX, plotY, 1.2, 1.2);
+        }
       }
-      ctx.stroke();
 
-      // Channel divider line
+      // Vertical Channel divider
       if (idx < 2) {
-        ctx.strokeStyle = '#18181b';
+        ctx.strokeStyle = '#27272a';
         ctx.beginPath();
         ctx.moveTo(offset + colW, 0);
         ctx.lineTo(offset + colW, height);
@@ -92,43 +131,66 @@ export const VideoScopesView: React.FC = () => {
     });
   };
 
-  const renderLumaWaveform = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    // IRE Scale markers
-    ctx.strokeStyle = '#27272a';
+  const renderLumaWaveform = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    imageData: ImageData,
+    sampleW: number,
+    sampleH: number
+  ) => {
+    // IRE Scale markers (100, 75, 50, 25, 0)
+    ctx.strokeStyle = '#1e1e24';
     ctx.lineWidth = 1;
     ctx.fillStyle = '#52525b';
     ctx.font = '8px monospace';
 
     const ireMarks = [100, 75, 50, 25, 0];
+    const usableH = height - 30;
+    const paddingX = 32;
+    const usableW = width - paddingX - 10;
+
     ireMarks.forEach((ire) => {
-      const y = height - (ire / 100) * (height - 30) - 15;
+      const y = height - (ire / 100) * usableH - 15;
       ctx.beginPath();
-      ctx.moveTo(30, y);
+      ctx.moveTo(paddingX, y);
       ctx.lineTo(width, y);
       ctx.stroke();
       ctx.fillText(`${ire}`, 6, y + 3);
     });
 
-    // Waveform Luma trace (Phosphor green/cyan)
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.7)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let x = 32; x < width - 10; x += 2) {
-      const normX = (x - 32) / (width - 42);
-      const val = 0.45 + Math.sin(normX * 5) * 0.28 + Math.cos(normX * 14) * 0.12;
-      const y = height - Math.max(0.05, Math.min(0.95, val)) * (height - 30) - 15;
-      if (x === 32) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    // Real Rec.709 Luma Waveform calculation: Y = 0.2126R + 0.7152G + 0.0722B
+    const pixels = imageData.data;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.4)';
+
+    for (let y = 0; y < sampleH; y += 2) {
+      for (let x = 0; x < sampleW; x += 2) {
+        const idx = (y * sampleW + x) * 4;
+        const r = pixels[idx];
+        const g = pixels[idx + 1];
+        const b = pixels[idx + 2];
+        const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+        const plotX = paddingX + (x / sampleW) * usableW;
+        const plotY = height - 15 - luma * usableH;
+        ctx.fillRect(plotX, plotY, 1.2, 1.2);
+      }
     }
-    ctx.stroke();
   };
 
-  const renderVectorscope = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+  const renderVectorscope = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    imageData: ImageData,
+    sampleW: number,
+    sampleH: number
+  ) => {
     const cx = width / 2;
     const cy = height / 2;
     const radius = Math.min(cx, cy) - 20;
 
-    // Reticle circles
+    // Reticle circles (75% and 100% saturation)
     ctx.strokeStyle = '#27272a';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -177,35 +239,77 @@ export const VideoScopesView: React.FC = () => {
       ctx.fillText(name, tx + 6, ty + 3);
     });
 
-    // Cloud of chrominance trace data points
-    ctx.fillStyle = 'rgba(167, 139, 250, 0.4)';
-    for (let i = 0; i < 240; i++) {
-      const angle = (i * 1.5 + Math.sin(i * 0.3) * 0.5) % (Math.PI * 2);
-      const r = (Math.sin(i * 0.2) * 0.4 + 0.3) * radius * 0.6;
-      ctx.fillRect(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r, 1.5, 1.5);
+    // Real Chrominance (Cb, Cr) computation from actual frame pixels
+    const pixels = imageData.data;
+    ctx.fillStyle = 'rgba(167, 139, 250, 0.35)';
+
+    for (let y = 0; y < sampleH; y += 2) {
+      for (let x = 0; x < sampleW; x += 2) {
+        const idx = (y * sampleW + x) * 4;
+        const r = pixels[idx];
+        const g = pixels[idx + 1];
+        const b = pixels[idx + 2];
+
+        // Standard ITU-R BT.601 Cb / Cr conversion
+        const cb = -0.168736 * r - 0.331264 * g + 0.5 * b;
+        const cr = 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+        const plotX = cx + (cb / 128) * (radius * 0.75);
+        const plotY = cy - (cr / 128) * (radius * 0.75);
+
+        ctx.fillRect(plotX, plotY, 1.2, 1.2);
+      }
     }
   };
 
-  const renderHistogram = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+  const renderHistogram = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    imageData: ImageData,
+    sampleW: number,
+    sampleH: number
+  ) => {
     ctx.strokeStyle = '#27272a';
     ctx.lineWidth = 1;
     ctx.strokeRect(10, 10, width - 20, height - 20);
 
-    // Overlay Red, Green, Blue histograms
+    // Compute real 256-bin histogram counts
+    const histR = new Uint32Array(256);
+    const histG = new Uint32Array(256);
+    const histB = new Uint32Array(256);
+    const pixels = imageData.data;
+    let maxCount = 1;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      histR[r]++;
+      histG[g]++;
+      histB[b]++;
+      if (histR[r] > maxCount) maxCount = histR[r];
+      if (histG[g] > maxCount) maxCount = histG[g];
+      if (histB[b] > maxCount) maxCount = histB[b];
+    }
+
     const channels = [
-      { color: 'rgba(239, 68, 68, 0.5)', peak: 0.35, spread: 0.12 },
-      { color: 'rgba(34, 197, 94, 0.5)', peak: 0.5, spread: 0.18 },
-      { color: 'rgba(59, 130, 246, 0.5)', peak: 0.65, spread: 0.15 },
+      { hist: histR, color: 'rgba(239, 68, 68, 0.45)' },
+      { hist: histG, color: 'rgba(34, 197, 94, 0.45)' },
+      { hist: histB, color: 'rgba(59, 130, 246, 0.45)' },
     ];
 
-    channels.forEach(({ color, peak, spread }) => {
+    const plotW = width - 20;
+    const plotH = height - 20;
+
+    channels.forEach(({ hist, color }) => {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(10, height - 10);
-      for (let x = 10; x < width - 10; x += 3) {
-        const norm = (x - 10) / (width - 20);
-        const val = Math.exp(-Math.pow(norm - peak, 2) / (2 * Math.pow(spread, 2)));
-        const y = height - 10 - val * (height - 30);
+      for (let b = 0; b < 256; b++) {
+        const x = 10 + (b / 255) * plotW;
+        const normalized = Math.min(1.0, hist[b] / (maxCount * 0.7));
+        const y = height - 10 - normalized * (plotH - 10);
         ctx.lineTo(x, y);
       }
       ctx.lineTo(width - 10, height - 10);

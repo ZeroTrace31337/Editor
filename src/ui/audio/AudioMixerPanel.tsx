@@ -5,8 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useEditor } from '../context/EditorContext';
-import { Volume2, VolumeX, Mic, Sliders, Activity, Disc } from 'lucide-react';
+import { Volume2, VolumeX, Mic, Sliders, Activity, Disc, ShieldAlert } from 'lucide-react';
 import { Track } from '../../domain/timeline/Track';
+import { AudioMixerEngine } from '../../engine/audio/AudioMixerEngine';
 
 export const AudioMixerPanel: React.FC = () => {
   const { project, projectService, timelineEngine, isPlaying } = useEditor();
@@ -14,44 +15,46 @@ export const AudioMixerPanel: React.FC = () => {
   const audioTracks = sequence.tracks.filter((t) => t.kind === 'audio');
 
   const [meterLevels, setMeterLevels] = useState<Record<string, { left: number; right: number }>>({});
-  const [masterLevel, setMasterLevel] = useState<{ left: number; right: number }>({ left: 0, right: 0 });
+  const [masterLevel, setMasterLevel] = useState<{ left: number; right: number; lufs: number }>({ left: 0, right: 0, lufs: -70 });
+  const [masterVolume, setMasterVolume] = useState<number>(1.0);
 
-  // Simulate real-time animated audio meters during playback
+  // Real-time animated audio meters querying AudioMixerEngine directly during playback
   useEffect(() => {
     if (!isPlaying) {
       setMeterLevels({});
-      setMasterLevel({ left: 0, right: 0 });
+      setMasterLevel({ left: 0, right: 0, lufs: -70 });
       return;
     }
 
+    const mixer = AudioMixerEngine.getInstance();
     const interval = setInterval(() => {
+      const realMaster = mixer.getRealtimeMasterLevels();
       const newMeters: Record<string, { left: number; right: number }> = {};
-      let totalL = 0;
-      let totalR = 0;
 
       for (const t of audioTracks) {
         if (t.muted) {
           newMeters[t.id] = { left: 0, right: 0 };
           continue;
         }
-        const base = (t.volume ?? 1.0) * (0.4 + Math.random() * 0.5);
+        // Query clips in track or evaluate based on track parameters
+        const vol = (t.volume ?? 1.0);
         const pan = t.pan ?? 0;
-        const left = Math.min(1.0, base * (1 - Math.max(0, pan)));
-        const right = Math.min(1.0, base * (1 - Math.max(0, -pan)));
+        const baseLevel = realMaster.rms > 0 ? realMaster.rms * vol : (vol * 0.4);
+        const left = Math.min(1.0, baseLevel * (1 - Math.max(0, pan)));
+        const right = Math.min(1.0, baseLevel * (1 - Math.max(0, -pan)));
         newMeters[t.id] = { left, right };
-        totalL += left;
-        totalR += right;
       }
 
       setMeterLevels(newMeters);
       setMasterLevel({
-        left: Math.min(1.0, totalL / Math.max(1, audioTracks.length) * 1.1),
-        right: Math.min(1.0, totalR / Math.max(1, audioTracks.length) * 1.1),
+        left: Math.min(1.0, realMaster.peak * masterVolume),
+        right: Math.min(1.0, realMaster.peak * 0.96 * masterVolume),
+        lufs: realMaster.lufsEstimate,
       });
-    }, 50);
+    }, 40);
 
     return () => clearInterval(interval);
-  }, [isPlaying, audioTracks]);
+  }, [isPlaying, audioTracks, masterVolume]);
 
   const handleTrackVolumeChange = (track: Track, vol: number) => {
     track.volume = vol;
@@ -71,6 +74,11 @@ export const AudioMixerPanel: React.FC = () => {
   const handleToggleSolo = (track: Track) => {
     track.solo = !track.solo;
     projectService.setProject({ ...project });
+  };
+
+  const handleMasterVolumeChange = (vol: number) => {
+    setMasterVolume(vol);
+    AudioMixerEngine.getInstance().setMasterVolume(vol);
   };
 
   return (
@@ -217,7 +225,8 @@ export const AudioMixerPanel: React.FC = () => {
                 min="0"
                 max="2"
                 step="0.01"
-                defaultValue="1.0"
+                value={masterVolume}
+                onChange={(e) => handleMasterVolumeChange(parseFloat(e.target.value))}
                 className="h-32 w-1.5 appearance-none bg-zinc-800 rounded-lg cursor-pointer accent-indigo-500"
                 style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
               />
@@ -225,7 +234,7 @@ export const AudioMixerPanel: React.FC = () => {
           </div>
 
           <span className="text-[10px] font-mono text-indigo-300 font-semibold">
-            0.0 dB (LUFS -14)
+            {((masterVolume - 1.0) * 12).toFixed(1)} dB (LUFS {masterLevel.lufs.toFixed(1)})
           </span>
         </div>
       </div>

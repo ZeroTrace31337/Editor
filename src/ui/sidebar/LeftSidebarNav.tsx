@@ -48,6 +48,7 @@ import {
   Youtube,
 } from 'lucide-react';
 import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
+import { FiltersPanel } from '../filters/FiltersPanel';
 import { createBaseClip } from '../../domain/timeline/Clip';
 import { createRationalTime, secondsToRationalTime, rationalTimeToSeconds } from '../../core/time/RationalTime';
 import { AudioSynthesisEngine, SoundItem, SfxCategory } from '../../engine/audio/AudioSynthesisEngine';
@@ -1463,52 +1464,7 @@ export const LeftSidebarNav: React.FC = () => {
       )}
 
       {/* 9. FILTERS & LUTS TAB */}
-      {activeTool === 'filters' && (
-        <div className="flex-1 flex flex-col min-h-0 bg-[#0d0f17] p-3 space-y-3 overflow-y-auto">
-          {/* Smart AI Filter Match */}
-          <div className="p-3 rounded-xl bg-[#111422] border border-emerald-500/40 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-zinc-200 text-xs flex items-center gap-1.5 text-emerald-400">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Smart Color Match</span>
-              </span>
-              <button
-                onClick={handleAISmartFilter}
-                disabled={isGeneratingSmartFilter}
-                className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] flex items-center gap-1 transition"
-              >
-                {isGeneratingSmartFilter ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                <span>Auto Grade</span>
-              </button>
-            </div>
-          </div>
-
-          <span className="font-bold text-zinc-300 text-xs">Cinematic 3D LUT Color Looks</span>
-          <div className="grid grid-cols-2 gap-2">
-            {CINEMATIC_LUTS.map((lut) => (
-              <div
-                key={lut.id}
-                onClick={() => {
-                  if (selectedClip) {
-                    selectedClip.colorGrade.temp = lut.temp;
-                    selectedClip.colorGrade.tint = lut.tint;
-                    selectedClip.colorGrade.saturation = lut.sat;
-                    selectedClip.colorGrade.contrast = lut.contrast;
-                    projectService.setProject({ ...project });
-                  }
-                }}
-                className="p-2.5 rounded-xl bg-[#111422] border border-zinc-800 hover:border-emerald-500 cursor-pointer transition flex flex-col justify-between h-16 group"
-              >
-                <div className="flex items-center justify-between">
-                  <Filter className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <span className="text-[8px] font-mono text-zinc-500">LUT</span>
-                </div>
-                <span className="font-semibold text-zinc-200 text-[11px] truncate group-hover:text-white">{lut.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeTool === 'filters' && <FiltersPanel />}
 
       {/* 10. ADJUSTMENT & AI STYLE TABS */}
       {activeTool === 'adjustment' && (

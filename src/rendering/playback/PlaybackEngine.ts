@@ -28,6 +28,7 @@ export class PlaybackEngine {
   private stateListeners: Set<PlaybackStateListener> = new Set();
   private volume: number = 1.0;
   private isMuted: boolean = false;
+  private playbackRate: number = 1.0;
 
   constructor(sequence: Sequence) {
     this.sequence = sequence;
@@ -50,6 +51,18 @@ export class PlaybackEngine {
 
   public isPlaying(): boolean {
     return this.state === 'playing';
+  }
+
+  public getIsPlaying(): boolean {
+    return this.state === 'playing';
+  }
+
+  public getPlaybackRate(): number {
+    return this.playbackRate;
+  }
+
+  public setPlaybackRate(rate: number): void {
+    this.playbackRate = rate;
   }
 
   public play(): void {
@@ -146,7 +159,7 @@ export class PlaybackEngine {
 
       const deltaMs = now - this.lastPerfTime;
       this.lastPerfTime = now;
-      const deltaSeconds = deltaMs / 1000;
+      const deltaSeconds = (deltaMs / 1000) * this.playbackRate;
 
       const deltaRational = secondsToRationalTime(deltaSeconds);
       const nextTime = addRationalTime(this.currentTime, deltaRational);

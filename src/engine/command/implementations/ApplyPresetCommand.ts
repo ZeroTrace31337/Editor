@@ -5,9 +5,10 @@
 
 import { ICommand } from '../Command';
 import { TimelineEngine } from '../../timeline/TimelineEngine';
-import { FilterPreset } from '../../../domain/preset/Preset';
+import { FilterPreset, ActiveFilterConfig } from '../../../domain/preset/Preset';
 import { ColorGrade } from '../../../domain/color/ColorGrade';
 import { EffectInstance } from '../../../rendering/effects/EffectTypes';
+import { PresetManager } from '../../preset/PresetManager';
 
 export class ApplyPresetCommand implements ICommand {
   public readonly id = `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -18,15 +19,20 @@ export class ApplyPresetCommand implements ICommand {
   private timelineEngine: TimelineEngine;
   private clipId: string;
   private preset: FilterPreset;
+  private intensity: number;
   private previousColorGrade?: ColorGrade;
   private previousEffects?: EffectInstance[];
+  private previousBaseColorGrade?: ColorGrade;
+  private previousBaseEffects?: EffectInstance[];
+  private previousActiveFilter?: ActiveFilterConfig;
 
-  constructor(timelineEngine: TimelineEngine, clipId: string, preset: FilterPreset) {
+  constructor(timelineEngine: TimelineEngine, clipId: string, preset: FilterPreset, intensity = 1.0) {
     this.timelineEngine = timelineEngine;
     this.clipId = clipId;
     this.preset = preset;
-    this.name = `Apply Preset: ${preset.name}`;
-    this.description = `Apply look preset "${preset.name}"`;
+    this.intensity = intensity;
+    this.name = `Apply Preset: ${preset.name} (${Math.round(intensity * 100)}%)`;
+    this.description = `Apply look preset "${preset.name}" at ${Math.round(intensity * 100)}% intensity`;
   }
 
   public async execute(): Promise<void> {
@@ -35,11 +41,12 @@ export class ApplyPresetCommand implements ICommand {
 
     this.previousColorGrade = JSON.parse(JSON.stringify(found.clip.colorGrade));
     this.previousEffects = JSON.parse(JSON.stringify(found.clip.effects || []));
+    this.previousBaseColorGrade = found.clip.baseColorGrade ? JSON.parse(JSON.stringify(found.clip.baseColorGrade)) : undefined;
+    this.previousBaseEffects = found.clip.baseEffects ? JSON.parse(JSON.stringify(found.clip.baseEffects)) : undefined;
+    this.previousActiveFilter = found.clip.activeFilter ? JSON.parse(JSON.stringify(found.clip.activeFilter)) : undefined;
 
-    found.clip.colorGrade = JSON.parse(JSON.stringify(this.preset.colorGrade));
-    if (this.preset.effects && this.preset.effects.length > 0) {
-      found.clip.effects = JSON.parse(JSON.stringify(this.preset.effects));
-    }
+    const pm = PresetManager.getInstance();
+    pm.applyPresetToClip(found.clip, this.preset, this.intensity);
   }
 
   public async undo(): Promise<void> {
@@ -52,5 +59,8 @@ export class ApplyPresetCommand implements ICommand {
     if (this.previousEffects) {
       found.clip.effects = JSON.parse(JSON.stringify(this.previousEffects));
     }
+    found.clip.baseColorGrade = this.previousBaseColorGrade ? JSON.parse(JSON.stringify(this.previousBaseColorGrade)) : undefined;
+    found.clip.baseEffects = this.previousBaseEffects ? JSON.parse(JSON.stringify(this.previousBaseEffects)) : undefined;
+    found.clip.activeFilter = this.previousActiveFilter ? JSON.parse(JSON.stringify(this.previousActiveFilter)) : undefined;
   }
 }

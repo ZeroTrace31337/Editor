@@ -38,7 +38,8 @@ import { RippleDeleteCommand } from '../../engine/command/implementations/Ripple
 import { MoveKeyframeCommand } from '../../engine/command/implementations/MoveKeyframeCommand';
 import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { createBaseClip, TimelineClip } from '../../domain/timeline/Clip';
-import { createTrack } from '../../domain/timeline/Track';
+import { createTrack, Track } from '../../domain/timeline/Track';
+import { ContextMenu, ContextMenuState } from './ContextMenu';
 
 export const TimelinePanel: React.FC = () => {
   const {
@@ -46,13 +47,17 @@ export const TimelinePanel: React.FC = () => {
     projectService,
     timelineEngine,
     commandManager,
+    mediaRegistry,
+    playbackEngine,
     currentTime,
     seek,
     seekSeconds,
+    togglePlay,
     selectedClipId,
     setSelectedClipId,
     selectedClip,
     snappingEnabled,
+    setSnappingEnabled,
     timelineZoom,
     setTimelineZoom,
     selectedKeyframeId,
@@ -70,6 +75,7 @@ export const TimelinePanel: React.FC = () => {
   const rulerRef = useRef<HTMLDivElement>(null);
 
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [activeDrag, setActiveDrag] = useState<{
     type: 'move' | 'trim-left' | 'trim-right';
     clipId: string;
@@ -338,6 +344,16 @@ export const TimelinePanel: React.FC = () => {
               return (
                 <div
                   key={track.id}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenu({
+                      type: 'track',
+                      x: e.clientX,
+                      y: e.clientY,
+                      track,
+                    });
+                  }}
                   className="h-14 border-b border-zinc-800/70 px-2.5 flex items-center justify-between bg-[#0b0d17] hover:bg-zinc-900/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -402,6 +418,15 @@ export const TimelinePanel: React.FC = () => {
             <div
               className="h-6 border-b border-zinc-800/80 bg-[#0a0c16] relative cursor-pointer select-none"
               onMouseDown={handleRulerMouseDown}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({
+                  type: 'timeline',
+                  x: e.clientX,
+                  y: e.clientY,
+                });
+              }}
             >
               {rulerTicks.map((tick) => (
                 <div
@@ -421,6 +446,16 @@ export const TimelinePanel: React.FC = () => {
                 <div
                   key={track.id}
                   onDragOver={(e) => e.preventDefault()}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenu({
+                      type: 'track',
+                      x: e.clientX,
+                      y: e.clientY,
+                      track,
+                    });
+                  }}
                   className={`h-14 border-b border-zinc-800/60 relative transition-colors ${
                     track.locked ? 'bg-zinc-950/60 opacity-60' : 'hover:bg-zinc-900/20'
                   }`}
@@ -440,6 +475,17 @@ export const TimelinePanel: React.FC = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedClipId(clip.id);
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSelectedClipId(clip.id);
+                          setContextMenu({
+                            type: 'clip',
+                            x: e.clientX,
+                            y: e.clientY,
+                            clip,
+                          });
                         }}
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -762,6 +808,31 @@ export const TimelinePanel: React.FC = () => {
           <span className="font-mono text-[10px] text-zinc-500 w-8 text-right">{timelineZoom}%</span>
         </div>
       </div>
+
+      {/* Context Menu */}
+      <ContextMenu
+        menuState={contextMenu}
+        onClose={() => setContextMenu(null)}
+        context={{
+          project,
+          projectService,
+          timelineEngine,
+          commandManager,
+          mediaRegistry,
+          playbackEngine,
+          currentTime,
+          selectedClipId,
+          selectedClip,
+          snappingEnabled,
+          timelineZoom,
+          seek,
+          seekSeconds,
+          togglePlay,
+          setSnappingEnabled,
+          setTimelineZoom,
+          setSelectedClipId,
+        }}
+      />
     </div>
   );
 };

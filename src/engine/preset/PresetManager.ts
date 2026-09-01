@@ -3,17 +3,47 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FilterPreset } from '../../domain/preset/Preset';
-import { createDefaultColorGrade } from '../../domain/color/ColorGrade';
+import { FilterPreset, PresetCategory, ActiveFilterConfig } from '../../domain/preset/Preset';
+import { BUILT_IN_FILTER_PRESETS, FILTER_CATEGORIES_METADATA } from '../../domain/preset/filterPresetsData';
+import { ColorGrade, createDefaultColorGrade, HslBand } from '../../domain/color/ColorGrade';
+import { EffectInstance } from '../../rendering/effects/EffectTypes';
+import { BaseClip } from '../../domain/timeline/Clip';
 
-const LOCAL_STORAGE_KEY = 'lumina_user_presets_v1';
+const CUSTOM_PRESETS_STORAGE_KEY = 'veecut_user_custom_presets_v2';
+const FAVORITES_STORAGE_KEY = 'veecut_filter_favorites_v2';
+const USER_SIGNALS_STORAGE_KEY = 'veecut_user_filter_signals_v1';
+
+export interface FilterFilterOptions {
+  category?: string;
+  searchQuery?: string;
+  sortBy?: 'popular' | 'trending' | 'newest' | 'name' | 'rating';
+  favoritesOnly?: boolean;
+}
+
+interface UserSignals {
+  appliedCategories: Record<string, number>;
+  appliedPresetIds: string[];
+  lastSearchTerms: string[];
+  favoriteCategories: Record<string, number>;
+}
 
 export class PresetManager {
   private static instance: PresetManager;
   private presets: FilterPreset[] = [];
+  private favorites: Set<string> = new Set();
+  private userSignals: UserSignals = {
+    appliedCategories: {},
+    appliedPresetIds: [],
+    lastSearchTerms: [],
+    favoriteCategories: {},
+  };
+  private isSyncing = false;
 
   private constructor() {
+    this.loadFavorites();
+    this.loadUserSignals();
     this.loadPresets();
+    this.syncWithServer();
   }
 
   public static getInstance(): PresetManager {
@@ -23,227 +53,643 @@ export class PresetManager {
     return PresetManager.instance;
   }
 
-  private loadPresets(): void {
-    // 1. Built-in professional cinematic presets
-    const builtIn: FilterPreset[] = [
-      {
-        id: 'preset_teal_orange',
-        name: 'Blockbuster Teal & Orange',
-        category: 'cinematic',
-        description: 'Iconic Hollywood action color separation with teal shadows and warm amber skin tones.',
-        version: '1.0',
-        scope: 'color',
-        intensity: 1.0,
-        colorGrade: {
-          ...createDefaultColorGrade(),
-          temperature: 20,
-          tint: -15,
-          contrast: 1.25,
-          saturation: 1.3,
-          vignette: 0.3,
-          lutId: 'teal-orange',
-          lutIntensity: 0.85,
-        },
-        effects: [
-          {
-            id: 'fx_vignette_to',
-            effectId: 'lumina.vignette',
-            name: 'Cinematic Vignette',
-            enabled: true,
-            opacity: 0.6,
-            params: { amount: 0.4, radius: 0.8, softness: 0.7, color: '#000000' },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'preset_moody_noir',
-        name: 'Moody Noir Classic',
-        category: 'film',
-        description: 'Monochromatic high-contrast Silver Gelatin film print with atmospheric silver haze.',
-        version: '1.0',
-        scope: 'color',
-        intensity: 1.0,
-        colorGrade: {
-          ...createDefaultColorGrade(),
-          saturation: 0,
-          contrast: 1.45,
-          brightness: -0.05,
-          vignette: 0.5,
-          lutId: 'noir-bnw',
-          lutIntensity: 1.0,
-        },
-        effects: [
-          {
-            id: 'fx_grain_noir',
-            effectId: 'lumina.film_grain',
-            name: '35mm Film Grain',
-            enabled: true,
-            opacity: 0.5,
-            params: { intensity: 0.35, grainSize: 1, animated: true },
-          },
-          {
-            id: 'fx_vignette_noir',
-            effectId: 'lumina.vignette',
-            name: 'Cinematic Vignette',
-            enabled: true,
-            opacity: 0.7,
-            params: { amount: 0.6, radius: 0.75, softness: 0.6, color: '#000000' },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'preset_vintage_70s',
-        name: 'Warm 1970s Kodachrome',
-        category: 'vintage',
-        description: 'Retro nostalgic golden warmth with soft rolled highlights and gentle film grain.',
-        version: '1.0',
-        scope: 'color',
-        intensity: 1.0,
-        colorGrade: {
-          ...createDefaultColorGrade(),
-          temperature: 35,
-          tint: 12,
-          contrast: 0.95,
-          saturation: 0.88,
-          brightness: 0.05,
-          lutId: 'vintage-gold',
-          lutIntensity: 0.9,
-        },
-        effects: [
-          {
-            id: 'fx_grain_vintage',
-            effectId: 'lumina.film_grain',
-            name: '35mm Film Grain',
-            enabled: true,
-            opacity: 0.4,
-            params: { intensity: 0.3, grainSize: 2, animated: true },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'preset_cyberpunk_neon',
-        name: 'Cyberpunk Neon Matrix',
-        category: 'creative',
-        description: 'Acid neon magenta & cyan highlights with aggressive chromatic aberration.',
-        version: '1.0',
-        scope: 'transform_color_effects',
-        intensity: 1.0,
-        colorGrade: {
-          ...createDefaultColorGrade(),
-          tint: 40,
-          temperature: -25,
-          contrast: 1.35,
-          saturation: 1.45,
-          lutId: 'cyberpunk',
-          lutIntensity: 1.0,
-        },
-        effects: [
-          {
-            id: 'fx_chroma_cyber',
-            effectId: 'lumina.chromatic_aberration',
-            name: 'Chromatic Aberration',
-            enabled: true,
-            opacity: 0.8,
-            params: { offset: 12, angle: 45 },
-          },
-          {
-            id: 'fx_glow_cyber',
-            effectId: 'lumina.glow',
-            name: 'Luma Glow / Bloom',
-            enabled: true,
-            opacity: 0.7,
-            params: { intensity: 1.4, radius: 28, threshold: 0.3, colorTint: '#00f0ff' },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'preset_crisp_vivid',
-        name: 'Crisp HDR Commercial',
-        category: 'creative',
-        description: 'Punchy saturated colors, clean exposure lift, and edge enhancement.',
-        version: '1.0',
-        scope: 'color',
-        intensity: 1.0,
-        colorGrade: {
-          ...createDefaultColorGrade(),
-          exposure: 0.2,
-          contrast: 1.18,
-          saturation: 1.35,
-          brightness: 0.02,
-        },
-        effects: [
-          {
-            id: 'fx_sharpen_vivid',
-            effectId: 'lumina.sharpen',
-            name: 'Edge Sharpen',
-            enabled: true,
-            opacity: 0.7,
-            params: { amount: 1.0 },
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      },
-    ];
-
-    // 2. Load user presets from localStorage
-    let userPresets: FilterPreset[] = [];
+  private loadFavorites(): void {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
       if (stored) {
-        userPresets = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          this.favorites = new Set(parsed);
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('Could not load filter favorites from storage:', e);
+    }
+  }
 
-    this.presets = [...builtIn, ...userPresets];
+  private saveFavorites(): void {
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(this.favorites)));
+    } catch (e) {
+      console.warn('Could not save filter favorites to storage:', e);
+    }
+  }
+
+  private loadUserSignals(): void {
+    try {
+      const stored = localStorage.getItem(USER_SIGNALS_STORAGE_KEY);
+      if (stored) {
+        this.userSignals = { ...this.userSignals, ...JSON.parse(stored) };
+      }
+    } catch (e) {
+      console.warn('Could not load user filter signals:', e);
+    }
+  }
+
+  private saveUserSignals(): void {
+    try {
+      localStorage.setItem(USER_SIGNALS_STORAGE_KEY, JSON.stringify(this.userSignals));
+    } catch (e) {
+      console.warn('Could not save user filter signals:', e);
+    }
+  }
+
+  public recordInteraction(presetId: string, action: 'apply' | 'favorite' | 'search', query?: string): void {
+    const preset = this.getPresetById(presetId);
+    if (preset) {
+      const cat = preset.category;
+      if (action === 'apply') {
+        this.userSignals.appliedCategories[cat] = (this.userSignals.appliedCategories[cat] || 0) + 1;
+        this.userSignals.appliedPresetIds.unshift(presetId);
+        if (this.userSignals.appliedPresetIds.length > 50) {
+          this.userSignals.appliedPresetIds.pop();
+        }
+      } else if (action === 'favorite') {
+        this.userSignals.favoriteCategories[cat] = (this.userSignals.favoriteCategories[cat] || 0) + 1;
+      }
+    }
+    if (action === 'search' && query) {
+      this.userSignals.lastSearchTerms.unshift(query.toLowerCase().trim());
+      if (this.userSignals.lastSearchTerms.length > 20) {
+        this.userSignals.lastSearchTerms.pop();
+      }
+    }
+    this.saveUserSignals();
+  }
+
+  private loadPresets(): void {
+    // 1. Built-in professional presets
+    const builtIn: FilterPreset[] = BUILT_IN_FILTER_PRESETS.map((p) => ({
+      ...p,
+      isFavorite: this.favorites.has(p.id),
+    }));
+
+    // 2. Load custom user presets from localStorage
+    let userCustom: FilterPreset[] = [];
+    try {
+      const stored = localStorage.getItem(CUSTOM_PRESETS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          userCustom = parsed.map((p) => ({
+            ...p,
+            isCustom: true,
+            isFavorite: this.favorites.has(p.id),
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load custom presets from storage:', e);
+    }
+
+    this.presets = [...builtIn, ...userCustom];
+  }
+
+  private async syncWithServer(): Promise<void> {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
+    try {
+      const res = await fetch('/api/presets');
+      if (res.ok) {
+        const serverData = await res.json();
+        if (serverData && Array.isArray(serverData.presets)) {
+          const serverPresets: FilterPreset[] = serverData.presets;
+          const currentIds = new Set(this.presets.map((p) => p.id));
+          for (const sp of serverPresets) {
+            if (!currentIds.has(sp.id)) {
+              this.presets.push({
+                ...sp,
+                isFavorite: this.favorites.has(sp.id),
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Backend not running or offline, keep local presets
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  public getCategories() {
+    return FILTER_CATEGORIES_METADATA;
   }
 
   public getAllPresets(): FilterPreset[] {
-    return this.presets;
+    return this.presets.map((p) => ({
+      ...p,
+      isFavorite: this.favorites.has(p.id),
+    }));
   }
 
-  public getPresetsByCategory(cat: string): FilterPreset[] {
-    return this.presets.filter((p) => p.category === cat);
+  public getPresetById(id: string): FilterPreset | undefined {
+    const p = this.presets.find((item) => item.id === id);
+    if (!p) return undefined;
+    return {
+      ...p,
+      isFavorite: this.favorites.has(p.id),
+    };
   }
 
-  public saveCustomPreset(preset: FilterPreset): void {
-    const custom = { ...preset, isCustom: true };
-    this.presets.push(custom);
+  public getVeeCutOriginals(): FilterPreset[] {
+    return this.getAllPresets().filter((p) => p.category === 'veecut_originals' || p.isOriginal);
+  }
+
+  public getNewPresets(limit = 12): FilterPreset[] {
+    return this.getAllPresets()
+      .filter((p) => p.isNew || p.category === 'new')
+      .slice(0, limit);
+  }
+
+  public getPresetsByCategory(category: string): FilterPreset[] {
+    if (category === 'all') {
+      return this.getAllPresets();
+    }
+    if (category === 'for_you') {
+      return this.getForYouRecommendations();
+    }
+    if (category === 'trending') {
+      return this.getTrendingPresets();
+    }
+    if (category === 'new') {
+      return this.getNewPresets();
+    }
+    if (category === 'veecut_originals') {
+      return this.getVeeCutOriginals();
+    }
+    if (category === 'favorites') {
+      return this.getAllPresets().filter((p) => this.favorites.has(p.id));
+    }
+    if (category === 'my_filters') {
+      return this.getAllPresets().filter((p) => p.isCustom);
+    }
+    return this.getAllPresets().filter((p) => p.category === category);
+  }
+
+  public queryPresets(options: FilterFilterOptions): FilterPreset[] {
+    let result = this.getAllPresets();
+
+    // Category filter
+    if (options.category && options.category !== 'all') {
+      if (options.category === 'for_you') {
+        result = this.getForYouRecommendations();
+      } else if (options.category === 'trending') {
+        result = this.getTrendingPresets();
+      } else if (options.category === 'new') {
+        result = this.getNewPresets();
+      } else if (options.category === 'veecut_originals') {
+        result = this.getVeeCutOriginals();
+      } else if (options.category === 'favorites') {
+        result = result.filter((p) => this.favorites.has(p.id));
+      } else if (options.category === 'my_filters') {
+        result = result.filter((p) => p.isCustom);
+      } else {
+        result = result.filter((p) => p.category === options.category);
+      }
+    }
+
+    // Favorites only
+    if (options.favoritesOnly) {
+      result = result.filter((p) => this.favorites.has(p.id));
+    }
+
+    // Search query
+    if (options.searchQuery && options.searchQuery.trim()) {
+      const q = options.searchQuery.toLowerCase().trim();
+      this.recordInteraction('', 'search', q);
+      result = result.filter((p) => {
+        const nameMatch = p.name.toLowerCase().includes(q);
+        const descMatch = p.description.toLowerCase().includes(q);
+        const tagMatch = p.tags && p.tags.some((t) => t.toLowerCase().includes(q));
+        const authorMatch = p.author && p.author.toLowerCase().includes(q);
+        const catMatch = p.category.toLowerCase().includes(q);
+        return nameMatch || descMatch || tagMatch || authorMatch || catMatch;
+      });
+    }
+
+    // Sorting
+    const sortBy = options.sortBy || 'popular';
+    result = [...result].sort((a, b) => {
+      if (sortBy === 'popular') {
+        return (b.popularityScore || 50) - (a.popularityScore || 50);
+      }
+      if (sortBy === 'trending') {
+        return (b.usageCount || 0) - (a.usageCount || 0);
+      }
+      if (sortBy === 'rating') {
+        return (b.rating || 4.5) - (a.rating || 4.5);
+      }
+      if (sortBy === 'newest') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      return 0;
+    });
+
+    return result;
+  }
+
+  public getTrendingPresets(limit = 12): FilterPreset[] {
+    return this.getAllPresets()
+      .filter((p) => p.isTrending || (p.popularityScore || 0) >= 90)
+      .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
+      .slice(0, limit);
+  }
+
+  public getForYouRecommendations(limit = 12): FilterPreset[] {
+    const all = this.getAllPresets();
+    return [...all]
+      .sort((a, b) => {
+        let scoreA = (a.rating || 4.5) * 1000 + (a.isTrending ? 2000 : 0) + (a.isOriginal ? 3000 : 0);
+        let scoreB = (b.rating || 4.5) * 1000 + (b.isTrending ? 2000 : 0) + (b.isOriginal ? 3000 : 0);
+
+        // Boost favorited presets and categories
+        if (this.favorites.has(a.id)) scoreA += 6000;
+        if (this.favorites.has(b.id)) scoreB += 6000;
+
+        const catAffinityA = this.userSignals.appliedCategories[a.category] || 0;
+        const catAffinityB = this.userSignals.appliedCategories[b.category] || 0;
+        scoreA += catAffinityA * 500;
+        scoreB += catAffinityB * 500;
+
+        return scoreB - scoreA;
+      })
+      .slice(0, limit);
+  }
+
+  public toggleFavorite(id: string): boolean {
+    if (this.favorites.has(id)) {
+      this.favorites.delete(id);
+      this.saveFavorites();
+      return false;
+    } else {
+      this.favorites.add(id);
+      this.saveFavorites();
+      this.recordInteraction(id, 'favorite');
+      return true;
+    }
+  }
+
+  public isFavorite(id: string): boolean {
+    return this.favorites.has(id);
+  }
+
+  /**
+   * Applies a filter preset non-destructively to a clip
+   */
+  public applyPresetToClip(clip: BaseClip, preset: FilterPreset, intensity = 1.0): void {
+    // Preserve base color grade and base effects if this is the first filter applied
+    if (!clip.baseColorGrade) {
+      clip.baseColorGrade = JSON.parse(JSON.stringify(clip.colorGrade));
+    }
+    if (!clip.baseEffects) {
+      clip.baseEffects = JSON.parse(JSON.stringify(clip.effects || []));
+    }
+
+    const clampedIntensity = Math.max(0, Math.min(1, intensity));
+
+    clip.activeFilter = {
+      presetId: preset.id,
+      presetName: preset.name,
+      intensity: clampedIntensity,
+      category: preset.category,
+      appliedAt: new Date().toISOString(),
+      presetData: preset,
+    };
+
+    if (preset.colorGrade) {
+      clip.colorGrade = this.blendColorGradeWithPreset(
+        clip.baseColorGrade,
+        preset.colorGrade,
+        clampedIntensity
+      );
+    }
+
+    if (preset.effects && preset.effects.length > 0) {
+      clip.effects = this.blendEffectsWithPreset(
+        clip.baseEffects || [],
+        preset.effects,
+        clampedIntensity
+      );
+    } else {
+      clip.effects = JSON.parse(JSON.stringify(clip.baseEffects || []));
+    }
+
+    this.recordInteraction(preset.id, 'apply');
+  }
+
+  /**
+   * Modifies filter intensity non-destructively for an active clip filter
+   */
+  public setClipFilterIntensity(clip: BaseClip, intensity: number): void {
+    if (!clip.activeFilter) return;
+
+    const clampedIntensity = Math.max(0, Math.min(1, intensity));
+    clip.activeFilter.intensity = clampedIntensity;
+
+    const preset = clip.activeFilter.presetData || this.getPresetById(clip.activeFilter.presetId);
+    if (!preset) return;
+
+    const baseGrade = clip.baseColorGrade || createDefaultColorGrade();
+    if (preset.colorGrade) {
+      clip.colorGrade = this.blendColorGradeWithPreset(baseGrade, preset.colorGrade, clampedIntensity);
+    }
+
+    const baseFx = clip.baseEffects || [];
+    if (preset.effects && preset.effects.length > 0) {
+      clip.effects = this.blendEffectsWithPreset(baseFx, preset.effects, clampedIntensity);
+    } else {
+      clip.effects = JSON.parse(JSON.stringify(baseFx));
+    }
+  }
+
+  /**
+   * Removes active filter and cleanly restores original base media adjustments
+   */
+  public removeFilterFromClip(clip: BaseClip): void {
+    if (clip.baseColorGrade) {
+      clip.colorGrade = JSON.parse(JSON.stringify(clip.baseColorGrade));
+    }
+    if (clip.baseEffects) {
+      clip.effects = JSON.parse(JSON.stringify(clip.baseEffects));
+    }
+    clip.activeFilter = undefined;
+    clip.baseColorGrade = undefined;
+    clip.baseEffects = undefined;
+  }
+
+  public saveCustomPreset(payload: {
+    name: string;
+    category?: PresetCategory;
+    description?: string;
+    colorGrade?: ColorGrade;
+    effects?: EffectInstance[];
+    scope?: FilterPreset['scope'];
+    author?: string;
+    tags?: string[];
+  }): FilterPreset {
+    const id = `preset_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newPreset: FilterPreset = {
+      id,
+      name: payload.name,
+      category: payload.category || 'my_filters',
+      description: payload.description || 'Custom filter preset saved in VeeCut Studio.',
+      author: payload.author || 'You (Creator)',
+      version: '1.0',
+      scope: payload.scope || 'color',
+      intensity: 1.0,
+      colorGrade: payload.colorGrade ? JSON.parse(JSON.stringify(payload.colorGrade)) : undefined,
+      effects: payload.effects ? JSON.parse(JSON.stringify(payload.effects)) : undefined,
+      tags: payload.tags || ['Custom', 'Look'],
+      rating: 5.0,
+      popularityScore: 70,
+      usageCount: 1,
+      isCustom: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.presets.unshift(newPreset);
     this.persistCustomPresets();
+
+    // Async sync with server
+    fetch('/api/presets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPreset),
+    }).catch(() => {});
+
+    return newPreset;
   }
 
-  public deleteCustomPreset(id: string): void {
-    this.presets = this.presets.filter((p) => p.id !== id);
+  public updateCustomPreset(id: string, updates: Partial<FilterPreset>): FilterPreset | null {
+    const target = this.presets.find((p) => p.id === id);
+    if (!target) return null;
+
+    Object.assign(target, updates, { updatedAt: new Date().toISOString() });
     this.persistCustomPresets();
+    return target;
+  }
+
+  public duplicatePreset(id: string): FilterPreset | null {
+    const source = this.getPresetById(id);
+    if (!source) return null;
+
+    const dupId = `preset_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const duplicate: FilterPreset = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: dupId,
+      name: `${source.name} (Copy)`,
+      isCustom: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.presets.unshift(duplicate);
+    this.persistCustomPresets();
+    return duplicate;
+  }
+
+  public deleteCustomPreset(id: string): boolean {
+    const index = this.presets.findIndex((p) => p.id === id && p.isCustom);
+    if (index !== -1) {
+      this.presets.splice(index, 1);
+      this.favorites.delete(id);
+      this.saveFavorites();
+      this.persistCustomPresets();
+      return true;
+    }
+    return false;
   }
 
   private persistCustomPresets(): void {
     try {
       const customOnly = this.presets.filter((p) => p.isCustom);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(customOnly));
-    } catch {}
+      localStorage.setItem(CUSTOM_PRESETS_STORAGE_KEY, JSON.stringify(customOnly));
+    } catch (e) {
+      console.warn('Could not persist custom presets:', e);
+    }
   }
 
   public exportPresetsJson(): string {
     return JSON.stringify(this.presets, null, 2);
   }
 
-  public importPresetsJson(jsonStr: string): void {
+  public importPresetsJson(jsonStr: string): number {
     try {
       const imported: FilterPreset[] = JSON.parse(jsonStr);
+      let count = 0;
       if (Array.isArray(imported)) {
         for (const p of imported) {
-          if (!this.presets.some((existing) => existing.id === p.id)) {
-            this.presets.push({ ...p, isCustom: true });
+          if (p && p.name && !this.presets.some((existing) => existing.id === p.id)) {
+            this.presets.unshift({
+              ...p,
+              id: p.id || `preset_imp_${Date.now()}_${count}`,
+              isCustom: true,
+            });
+            count++;
           }
         }
-        this.persistCustomPresets();
+        if (count > 0) {
+          this.persistCustomPresets();
+        }
       }
+      return count;
     } catch (e) {
       throw new Error('Invalid preset JSON file format');
     }
+  }
+
+  /**
+   * Blends a base ColorGrade with a target Preset's ColorGrade according to an intensity factor [0.0 - 1.0].
+   */
+  public blendColorGradeWithPreset(
+    base: ColorGrade,
+    presetGrade: ColorGrade,
+    intensity: number
+  ): ColorGrade {
+    const t = Math.max(0, Math.min(1, intensity));
+    const neutral = createDefaultColorGrade();
+    const lerp = (a: number, b: number) => a + (b - a) * t;
+
+    // Deep clone base
+    const blended: ColorGrade = JSON.parse(JSON.stringify(base));
+
+    // Basic controls
+    blended.exposure = lerp(base.exposure ?? neutral.exposure, presetGrade.exposure ?? neutral.exposure);
+    blended.contrast = lerp(base.contrast ?? neutral.contrast, presetGrade.contrast ?? neutral.contrast);
+    blended.brightness = lerp(base.brightness ?? neutral.brightness, presetGrade.brightness ?? neutral.brightness);
+    blended.brilliance = lerp(base.brilliance ?? neutral.brilliance ?? 0, presetGrade.brilliance ?? 0);
+    blended.saturation = lerp(base.saturation ?? neutral.saturation, presetGrade.saturation ?? neutral.saturation);
+    blended.vibrance = lerp(base.vibrance ?? neutral.vibrance, presetGrade.vibrance ?? neutral.vibrance);
+    blended.temperature = lerp(base.temperature ?? neutral.temperature, presetGrade.temperature ?? neutral.temperature);
+    blended.tint = lerp(base.tint ?? neutral.tint, presetGrade.tint ?? neutral.tint);
+    blended.highlights = lerp(base.highlights ?? neutral.highlights, presetGrade.highlights ?? neutral.highlights);
+    blended.shadows = lerp(base.shadows ?? neutral.shadows, presetGrade.shadows ?? neutral.shadows);
+    blended.whites = lerp(base.whites ?? neutral.whites, presetGrade.whites ?? neutral.whites);
+    blended.blacks = lerp(base.blacks ?? neutral.blacks, presetGrade.blacks ?? neutral.blacks);
+    blended.clarity = lerp(base.clarity ?? neutral.clarity, presetGrade.clarity ?? neutral.clarity);
+    blended.sharpen = lerp(base.sharpen ?? neutral.sharpen, presetGrade.sharpen ?? neutral.sharpen);
+    blended.fade = lerp(base.fade ?? neutral.fade, presetGrade.fade ?? neutral.fade);
+    blended.grain = lerp(base.grain ?? neutral.grain, presetGrade.grain ?? neutral.grain);
+    blended.vignette = lerp(base.vignette ?? neutral.vignette, presetGrade.vignette ?? neutral.vignette);
+
+    // LUT
+    if (presetGrade.lutId) {
+      blended.lutId = presetGrade.lutId;
+      blended.lutIntensity = (presetGrade.lutIntensity ?? 1.0) * t;
+    }
+
+    // Wheels blending
+    if (presetGrade.wheels) {
+      const blendWheel = (wKey: 'lift' | 'gamma' | 'gain' | 'offset') => {
+        const pw = presetGrade.wheels?.[wKey];
+        const bw = base.wheels?.[wKey] || { r: 0, g: 0, b: 0, y: 0 };
+        if (pw) {
+          return {
+            r: bw.r + pw.r * t,
+            g: bw.g + pw.g * t,
+            b: bw.b + pw.b * t,
+            y: bw.y + pw.y * t,
+          };
+        }
+        return bw;
+      };
+
+      blended.wheels = {
+        lift: blendWheel('lift'),
+        gamma: blendWheel('gamma'),
+        gain: blendWheel('gain'),
+        offset: blendWheel('offset'),
+      };
+    }
+
+    // 8-Band HSL blending
+    if (presetGrade.hsl) {
+      const blendHslBand = (bandKey: keyof NonNullable<ColorGrade['hsl']>): HslBand => {
+        const bBand = base.hsl?.[bandKey];
+        const pBand = presetGrade.hsl?.[bandKey];
+        const rangeCenter = pBand?.rangeCenter ?? bBand?.rangeCenter ?? 0;
+        const rangeWidth = pBand?.rangeWidth ?? bBand?.rangeWidth ?? 45;
+        const softness = pBand?.softness ?? bBand?.softness ?? 20;
+
+        const bHue = bBand?.hue ?? 0;
+        const pHue = pBand?.hue ?? 0;
+        const bSat = bBand?.saturation ?? 0;
+        const pSat = pBand?.saturation ?? 0;
+        const bLum = bBand?.luminance ?? 0;
+        const pLum = pBand?.luminance ?? 0;
+
+        return {
+          hue: lerp(bHue, pHue),
+          saturation: lerp(bSat, pSat),
+          luminance: lerp(bLum, pLum),
+          rangeCenter,
+          rangeWidth,
+          softness,
+        };
+      };
+
+      blended.hsl = {
+        red: blendHslBand('red'),
+        orange: blendHslBand('orange'),
+        yellow: blendHslBand('yellow'),
+        green: blendHslBand('green'),
+        cyan: blendHslBand('cyan'),
+        blue: blendHslBand('blue'),
+        purple: blendHslBand('purple'),
+        magenta: blendHslBand('magenta'),
+      };
+    }
+
+    // Tone curves blending
+    if (presetGrade.curves) {
+      const blendCurve = (channel: 'master' | 'red' | 'green' | 'blue') => {
+        const pCurve = presetGrade.curves?.[channel];
+        const bCurve = base.curves?.[channel];
+        if (!pCurve) return bCurve || [];
+        return pCurve.map((pt, idx) => {
+          const bPt = bCurve?.[idx] || { x: pt.x, y: pt.x };
+          return {
+            x: pt.x,
+            y: lerp(bPt.y, pt.y),
+          };
+        });
+      };
+
+      blended.curves = {
+        master: blendCurve('master'),
+        red: blendCurve('red'),
+        green: blendCurve('green'),
+        blue: blendCurve('blue'),
+      };
+    }
+
+    return blended;
+  }
+
+  /**
+   * Applies preset effects scaled by intensity
+   */
+  public blendEffectsWithPreset(
+    baseEffects: EffectInstance[],
+    presetEffects: EffectInstance[],
+    intensity: number
+  ): EffectInstance[] {
+    const t = Math.max(0, Math.min(1, intensity));
+    const result = [...baseEffects];
+
+    for (const pe of presetEffects) {
+      const scaledEffect: EffectInstance = {
+        ...pe,
+        id: `fx_${pe.effectId}_${Date.now()}`,
+        opacity: (pe.opacity ?? 1.0) * t,
+        enabled: t > 0.05,
+      };
+      result.push(scaledEffect);
+    }
+
+    return result;
   }
 }

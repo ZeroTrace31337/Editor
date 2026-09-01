@@ -911,6 +911,54 @@ app.get("/api/templates/recommendations", (req, res) => {
   res.json({ topic, templates });
 });
 
+// 15. Filter Presets Management
+app.get("/api/presets", (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const presetsFile = path.join(process.cwd(), 'data', 'presets_db.json');
+    if (fs.existsSync(presetsFile)) {
+      const raw = fs.readFileSync(presetsFile, 'utf-8');
+      const parsed = JSON.parse(raw);
+      return res.json({ presets: parsed.presets || [] });
+    }
+    res.json({ presets: [] });
+  } catch (err: any) {
+    res.json({ presets: [] });
+  }
+});
+
+app.post("/api/presets", (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const presetsFile = path.join(dataDir, 'presets_db.json');
+    let presets: any[] = [];
+    if (fs.existsSync(presetsFile)) {
+      try {
+        const raw = fs.readFileSync(presetsFile, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.presets)) {
+          presets = parsed.presets;
+        }
+      } catch {}
+    }
+    const newPreset = req.body;
+    if (newPreset && newPreset.id) {
+      presets = presets.filter((p) => p.id !== newPreset.id);
+      presets.unshift(newPreset);
+      fs.writeFileSync(presetsFile, JSON.stringify({ presets }, null, 2));
+    }
+    res.status(201).json({ success: true, preset: newPreset });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save preset' });
+  }
+});
+
 // =========================================================================
 // YOUTUBE DATA API V3 INTEGRATION ENDPOINTS
 // =========================================================================

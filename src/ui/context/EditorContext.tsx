@@ -33,7 +33,7 @@ import { UpdateColorGradeCommand } from '../../engine/command/implementations/Up
 import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
 import { addRationalTime, subtractRationalTime } from '../../core/time/RationalTime';
 
-export type WorkspaceMode = 'edit' | 'adjust' | 'effects' | 'color' | 'audio' | 'export' | 'deliver';
+export type WorkspaceMode = 'edit' | 'adjust' | 'effects' | 'color' | 'audio' | 'export' | 'deliver' | 'multicam';
 
 export interface UploadState {
   id: string;

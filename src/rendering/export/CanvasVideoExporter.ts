@@ -7,12 +7,14 @@ import { Project } from '../../domain/project/Project';
 import { TimelineEngine } from '../../engine/timeline/TimelineEngine';
 import { CanvasCompositor } from '../compositor/CanvasCompositor';
 import { rationalTimeToSeconds, secondsToRationalTime, createRationalTime } from '../../core/time/RationalTime';
+import { AudioMixerEngine } from '../../engine/audio/AudioMixerEngine';
 import { logger } from '../../core/logging/Logger';
 
 export interface ExportSettings {
   width: number;
   height: number;
   fps: number;
+  bitrate?: number;
   format: 'video/webm;codecs=vp9' | 'video/webm' | 'video/mp4';
   filename: string;
 }
@@ -66,9 +68,23 @@ export class CanvasVideoExporter {
     }
 
     const stream = offscreenCanvas.captureStream(settings.fps);
+
+    // Attach mixed audio destination tracks if available
+    try {
+      const audioDest = AudioMixerEngine.getInstance().createExportDestination();
+      const audioTracks = audioDest.stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        stream.addTrack(audioTracks[0]);
+      }
+    } catch (e) {
+      logger.warn('CanvasVideoExporter', 'Audio mixdown destination could not be attached', { error: e });
+    }
+
+    const targetBitrate = settings.bitrate || (settings.width >= 3840 ? 35000000 : settings.width >= 2560 ? 18000000 : 8000000);
+
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 8000000, // 8 Mbps for 1080p high quality
+      videoBitsPerSecond: targetBitrate,
     });
 
     const recordedChunks: Blob[] = [];
