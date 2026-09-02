@@ -22,6 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Bookmark,
+  Magnet,
 } from 'lucide-react';
 import {
   RationalTime,
@@ -39,7 +41,9 @@ import { MoveKeyframeCommand } from '../../engine/command/implementations/MoveKe
 import { KeyframeEvaluator } from '../../domain/keyframe/KeyframeEvaluator';
 import { createBaseClip, TimelineClip } from '../../domain/timeline/Clip';
 import { createTrack, Track } from '../../domain/timeline/Track';
+import { TimelineMarker } from '../../domain/timeline/Sequence';
 import { ContextMenu, ContextMenuState } from './ContextMenu';
+import { MarkerEditModal } from './MarkerEditModal';
 
 export const TimelinePanel: React.FC = () => {
   const {
@@ -76,6 +80,7 @@ export const TimelinePanel: React.FC = () => {
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [editingMarker, setEditingMarker] = useState<TimelineMarker | null>(null);
   const [activeDrag, setActiveDrag] = useState<{
     type: 'move' | 'trim-left' | 'trim-right';
     clipId: string;
@@ -154,6 +159,22 @@ export const TimelinePanel: React.FC = () => {
       { start: currentTime, duration: dur },
       { start: createRationalTime(0), duration: dur }
     );
+    targetTrack.clips.push(adjClip as any);
+    timelineEngine.recalculateSequenceDuration();
+    projectService.setProject({ ...project });
+  };
+
+  const handleAddMarker = () => {
+    if (!sequence.markers) sequence.markers = [];
+    const markerColors = ['#06b6d4', '#eab308', '#ec4899', '#22c55e', '#a855f7', '#f97316'];
+    const randomColor = markerColors[sequence.markers.length % markerColors.length];
+    sequence.markers.push({
+      id: `marker_${Date.now()}`,
+      time: currentTime,
+      name: `Marker ${sequence.markers.length + 1}`,
+      color: randomColor,
+      comment: `Marker at ${rationalTimeToSeconds(currentTime).toFixed(2)}s`,
+    });
     projectService.setProject({ ...project });
   };
 
@@ -212,16 +233,42 @@ export const TimelinePanel: React.FC = () => {
 
         if (activeDrag.type === 'move') {
           const initStartSec = rationalTimeToSeconds(activeDrag.initialTimelineStart);
+          const clipDurSec = rationalTimeToSeconds(activeDrag.initialDuration);
           let newStartSec = Math.max(0, initStartSec + deltaSec);
+          let snapTriggered = false;
 
           if (snappingEnabled) {
-            const SNAP_THRESHOLD_SEC = 6 / timelineZoom;
-            if (Math.abs(newStartSec - currentTimeSec) < SNAP_THRESHOLD_SEC) {
-              newStartSec = currentTimeSec;
-              setSnapLineSec(currentTimeSec);
+            const thresholdSec = 10 / timelineZoom;
+            // Snap clip start (In point)
+            const snapStart = timelineEngine.calculateSnap(
+              secondsToRationalTime(newStartSec),
+              currentTime,
+              thresholdSec,
+              activeDrag.clipId
+            );
+            if (snapStart.didSnap) {
+              newStartSec = rationalTimeToSeconds(snapStart.snappedTime);
+              setSnapLineSec(newStartSec);
+              snapTriggered = true;
             } else {
-              setSnapLineSec(null);
+              // Snap clip end (Out point)
+              const snapEnd = timelineEngine.calculateSnap(
+                secondsToRationalTime(newStartSec + clipDurSec),
+                currentTime,
+                thresholdSec,
+                activeDrag.clipId
+              );
+              if (snapEnd.didSnap) {
+                const snappedEndSec = rationalTimeToSeconds(snapEnd.snappedTime);
+                newStartSec = Math.max(0, snappedEndSec - clipDurSec);
+                setSnapLineSec(snappedEndSec);
+                snapTriggered = true;
+              }
             }
+          }
+
+          if (!snapTriggered) {
+            setSnapLineSec(null);
           }
 
           const newStart = secondsToRationalTime(newStartSec);
@@ -231,16 +278,37 @@ export const TimelinePanel: React.FC = () => {
               ...found.clip.timelineRange,
               start: newStart,
             };
+            timelineEngine.recalculateSequenceDuration();
             projectService.setProject({ ...project });
           }
         } else if (activeDrag.type === 'trim-left') {
           const initStartSec = rationalTimeToSeconds(activeDrag.initialTimelineStart);
           const initDurSec = rationalTimeToSeconds(activeDrag.initialDuration);
           const maxDelta = initDurSec - 0.2;
-          const deltaClamped = Math.min(maxDelta, Math.max(-initStartSec, deltaSec));
+          let deltaClamped = Math.min(maxDelta, Math.max(-initStartSec, deltaSec));
+
+          if (snappingEnabled) {
+            const candidateSec = Math.max(0, initStartSec + deltaClamped);
+            const snap = timelineEngine.calculateSnap(
+              secondsToRationalTime(candidateSec),
+              currentTime,
+              10 / timelineZoom,
+              activeDrag.clipId
+            );
+            if (snap.didSnap) {
+              const snappedSec = rationalTimeToSeconds(snap.snappedTime);
+              deltaClamped = Math.min(maxDelta, Math.max(-initStartSec, snappedSec - initStartSec));
+              setSnapLineSec(snappedSec);
+            } else {
+              setSnapLineSec(null);
+            }
+          } else {
+            setSnapLineSec(null);
+          }
 
           const newStart = secondsToRationalTime(initStartSec + deltaClamped);
           const newDur = secondsToRationalTime(initDurSec - deltaClamped);
+          const sourceDelta = secondsToRationalTime(deltaClamped);
 
           const found = timelineEngine.findClip(activeDrag.clipId);
           if (found) {
@@ -248,19 +316,49 @@ export const TimelinePanel: React.FC = () => {
               start: newStart,
               duration: newDur,
             };
+            found.clip.sourceRange = {
+              start: addRationalTime(activeDrag.initialSourceIn, sourceDelta),
+              duration: newDur,
+            };
+            timelineEngine.recalculateSequenceDuration();
             projectService.setProject({ ...project });
           }
         } else if (activeDrag.type === 'trim-right') {
+          const initStartSec = rationalTimeToSeconds(activeDrag.initialTimelineStart);
           const initDurSec = rationalTimeToSeconds(activeDrag.initialDuration);
-          const newDurSec = Math.max(0.2, initDurSec + deltaSec);
-          const newDur = secondsToRationalTime(newDurSec);
+          let newDurSec = Math.max(0.2, initDurSec + deltaSec);
 
+          if (snappingEnabled) {
+            const candidateEndSec = initStartSec + newDurSec;
+            const snap = timelineEngine.calculateSnap(
+              secondsToRationalTime(candidateEndSec),
+              currentTime,
+              10 / timelineZoom,
+              activeDrag.clipId
+            );
+            if (snap.didSnap) {
+              const snappedEndSec = rationalTimeToSeconds(snap.snappedTime);
+              newDurSec = Math.max(0.2, snappedEndSec - initStartSec);
+              setSnapLineSec(snappedEndSec);
+            } else {
+              setSnapLineSec(null);
+            }
+          } else {
+            setSnapLineSec(null);
+          }
+
+          const newDur = secondsToRationalTime(newDurSec);
           const found = timelineEngine.findClip(activeDrag.clipId);
           if (found) {
             found.clip.timelineRange = {
               start: found.clip.timelineRange.start,
               duration: newDur,
             };
+            found.clip.sourceRange = {
+              start: found.clip.sourceRange.start,
+              duration: newDur,
+            };
+            timelineEngine.recalculateSequenceDuration();
             projectService.setProject({ ...project });
           }
         }
@@ -438,6 +536,43 @@ export const TimelinePanel: React.FC = () => {
                   <div className="w-[1px] h-1.5 bg-zinc-700" />
                 </div>
               ))}
+
+              {/* Timeline Sequence Markers */}
+              {(sequence.markers || []).map((marker) => {
+                const markerSec = rationalTimeToSeconds(marker.time);
+                const markerLeftPx = markerSec * timelineZoom;
+                return (
+                  <div
+                    key={marker.id}
+                    style={{ left: markerLeftPx - 5 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      seek(marker.time);
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMarker(marker);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      sequence.markers = sequence.markers.filter((m) => m.id !== marker.id);
+                      projectService.setProject({ ...project });
+                    }}
+                    className="absolute top-0 w-2.5 h-6 flex flex-col items-center cursor-pointer group z-30"
+                    title={`${marker.name || 'Marker'} @ ${markerSec.toFixed(2)}s (Click to seek, double-click to edit, right-click to delete)`}
+                  >
+                    <div
+                      className="w-2.5 h-3 rounded-t-xs shadow-xs"
+                      style={{ backgroundColor: marker.color || '#38bdf8' }}
+                    />
+                    <div
+                      className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[4px]"
+                      style={{ borderTopColor: marker.color || '#38bdf8' }}
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             {/* Track Lanes */}
@@ -781,6 +916,32 @@ export const TimelinePanel: React.FC = () => {
             />
             <span>Auto KF</span>
           </button>
+
+          <div className="h-4 w-[1px] bg-zinc-800" />
+
+          {/* Marker Tool */}
+          <button
+            onClick={handleAddMarker}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition bg-zinc-900 text-zinc-300 border border-zinc-800 hover:text-amber-300 hover:border-amber-500/50"
+            title="Add Marker at current playhead (M)"
+          >
+            <Bookmark className="w-3 h-3 text-amber-400" />
+            <span>+ Marker (M)</span>
+          </button>
+
+          {/* Snapping Toggle */}
+          <button
+            onClick={() => setSnappingEnabled(!snappingEnabled)}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition border ${
+              snappingEnabled
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                : 'bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300'
+            }`}
+            title="Toggle Snapping (N / S)"
+          >
+            <Magnet className="w-3 h-3" />
+            <span>Snap</span>
+          </button>
         </div>
 
         {/* Zoom Slider */}
@@ -831,6 +992,24 @@ export const TimelinePanel: React.FC = () => {
           setSnappingEnabled,
           setTimelineZoom,
           setSelectedClipId,
+        }}
+      />
+
+      {/* Marker Details Modal */}
+      <MarkerEditModal
+        marker={editingMarker}
+        isOpen={!!editingMarker}
+        onClose={() => setEditingMarker(null)}
+        onSave={(updated) => {
+          const idx = (sequence.markers || []).findIndex((m) => m.id === updated.id);
+          if (idx !== -1) {
+            sequence.markers[idx] = updated;
+            projectService.setProject({ ...project });
+          }
+        }}
+        onDelete={(markerId) => {
+          sequence.markers = (sequence.markers || []).filter((m) => m.id !== markerId);
+          projectService.setProject({ ...project });
         }}
       />
     </div>

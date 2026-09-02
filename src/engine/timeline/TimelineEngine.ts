@@ -363,6 +363,17 @@ export class TimelineEngine {
       }
     }
 
+    // Snap to Sequence Markers
+    for (const marker of (this.sequence.markers || [])) {
+      const markerSec = rationalTimeToSeconds(marker.time);
+      if (Math.abs(targetSec - markerSec) < closestDiff) {
+        closestDiff = Math.abs(targetSec - markerSec);
+        bestSnap = marker.time;
+        didSnap = true;
+        snapTargetName = `Marker: ${marker.name}`;
+      }
+    }
+
     return { snappedTime: bestSnap, didSnap, snapTargetName };
   }
 

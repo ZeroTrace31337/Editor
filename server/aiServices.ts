@@ -34,6 +34,57 @@ export class AIServiceLayer {
     return !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
   }
 
+  /**
+   * Helper to invoke generateContent with automatic retry and model fallback
+   * (e.g. if a model is temporarily experiencing 503 high demand or transient rate limits).
+   */
+  public async generateTextWithFallback(options: {
+    contents: any;
+    config?: any;
+    preferredModel?: string;
+  }) {
+    const ai = this.getClient();
+    if (!ai) return null;
+
+    const modelsToTry = [
+      options.preferredModel || "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+    ];
+    const uniqueModels = Array.from(new Set(modelsToTry));
+
+    for (let i = 0; i < uniqueModels.length; i++) {
+      const model = uniqueModels[i];
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: options.contents,
+          config: options.config,
+        });
+        return response;
+      } catch (err: any) {
+        const isLast = i === uniqueModels.length - 1;
+        const msg = String(err?.message || "");
+        const isTransient =
+          err?.status === 503 ||
+          err?.code === 503 ||
+          msg.includes("503") ||
+          msg.includes("high demand") ||
+          msg.includes("UNAVAILABLE");
+
+        if (isTransient && !isLast) {
+          console.log(`[AI Model Fallback] Model ${model} is experiencing high demand (503), attempting fallback with ${uniqueModels[i + 1]}...`);
+          continue;
+        }
+
+        if (isLast) {
+          throw err;
+        }
+      }
+    }
+    return null;
+  }
+
   // =========================================================================
   // 1. AI VIDEO GENERATOR (veo-3.1-lite-generate-preview)
   // =========================================================================
@@ -156,14 +207,16 @@ Return a JSON object:
   "scenePacing": "Pacing description",
   "motionVectors": number
 }`;
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: descPrompt,
           config: { responseMimeType: "application/json" },
         });
-        scriptDetails = JSON.parse(response.text || "{}");
-      } catch (e) {
-        console.warn("Script generation fallback:", e);
+        if (response?.text) {
+          scriptDetails = JSON.parse(response.text);
+        }
+      } catch (e: any) {
+        console.log("Using procedural video metadata fallback:", e?.message || "Model unavailable");
       }
     }
 
@@ -287,15 +340,17 @@ Return a JSON object:
 
     if (ai) {
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: `Analyze image-to-video motion prompt: "${params.motionPrompt}". Camera movement: "${params.cameraMotion}".
 Return JSON: { "motionVectors": number, "cameraTrack": string, "sceneDepth": string }`,
           config: { responseMimeType: "application/json" },
         });
-        analysis = JSON.parse(response.text || "{}");
-      } catch (e) {
-        console.warn("Image-to-video script fallback:", e);
+        if (response?.text) {
+          analysis = JSON.parse(response.text);
+        }
+      } catch (e: any) {
+        console.log("Image-to-video script fallback:", e?.message || "Model unavailable");
       }
     }
 
@@ -476,18 +531,18 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
   { "id": "sub_1", "startMs": 0, "endMs": 1500, "text": "...", "highlightWord": "..." }
 ]`;
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: prompt,
           config: { responseMimeType: "application/json" },
         });
 
-        const parsed = JSON.parse(response.text || "[]");
+        const parsed = JSON.parse(response?.text || "[]");
         if (Array.isArray(parsed) && parsed.length > 0) {
           captions = parsed;
         }
-      } catch (e) {
-        console.warn("Captions generation fallback:", e);
+      } catch (e: any) {
+        console.log("Captions generation fallback:", e?.message || "Model unavailable");
       }
     }
 
@@ -636,8 +691,8 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
 
     if (ai) {
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: `You are an ultra-accurate speech-to-text audio transcriber.
 Transcribe audio input from: "${audioUrl || "speech stream"}".
 Language setting: "${language}".
@@ -649,9 +704,11 @@ Return a JSON object:
 }`,
           config: { responseMimeType: "application/json" },
         });
-        return JSON.parse(response.text || "{}");
+        if (response?.text) {
+          return JSON.parse(response.text);
+        }
       } catch (e: any) {
-        console.warn("STT model fallback:", e.message);
+        console.log("STT model fallback:", e?.message || "Model unavailable");
       }
     }
 
@@ -696,8 +753,8 @@ Return JSON format:
 
     if (ai) {
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: `User instruction: "${message}".
 Current playhead: ${currentTimeSeconds}s.
 Selected clip: ${JSON.stringify(selectedClipInfo)}.
@@ -708,9 +765,11 @@ Project summary: ${projectSummary}.`,
           },
         });
 
-        return JSON.parse(response.text || "{}");
+        if (response?.text) {
+          return JSON.parse(response.text);
+        }
       } catch (e: any) {
-        console.warn("Assistant command fallback:", e.message);
+        console.log("Assistant command fallback:", e?.message || "Model unavailable");
       }
     }
 
@@ -929,8 +988,8 @@ Project summary: ${projectSummary}.`,
 
     if (ai) {
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+        const response = await this.generateTextWithFallback({
+          preferredModel: "gemini-3.8-flash",
           contents: `You are an Academy-award winning Hollywood colorist.
 Generate an exact mathematical color grading profile matching this look: "${stylePrompt}".
 Preset: "${preset}", Intensity: ${intensity}%.
@@ -959,9 +1018,11 @@ Return a clean JSON object:
 }`,
           config: { responseMimeType: "application/json" },
         });
-        grade = JSON.parse(response.text || "{}");
-      } catch (e) {
-        console.warn("Style transfer fallback:", e);
+        if (response?.text) {
+          grade = JSON.parse(response.text);
+        }
+      } catch (e: any) {
+        console.log("Style transfer fallback:", e?.message || "Model unavailable");
       }
     }
 

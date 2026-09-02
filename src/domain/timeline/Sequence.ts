@@ -14,6 +14,8 @@ export interface Marker {
   comment?: string;
 }
 
+export type TimelineMarker = Marker;
+
 export interface Sequence {
   readonly id: string;
   name: string;

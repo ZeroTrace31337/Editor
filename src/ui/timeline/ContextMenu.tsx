@@ -99,6 +99,28 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ menuState, onClose, co
           </button>
 
           <button
+            onClick={() => runCommand('edit.ripple_trim_start')}
+            className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-800 hover:text-white transition"
+          >
+            <div className="flex items-center gap-2">
+              <Scissors className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ripple Trim In to Playhead</span>
+            </div>
+            <kbd className="text-[10px] text-zinc-500 font-mono">Q</kbd>
+          </button>
+
+          <button
+            onClick={() => runCommand('edit.ripple_trim_end')}
+            className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-800 hover:text-white transition"
+          >
+            <div className="flex items-center gap-2">
+              <Scissors className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ripple Trim Out to Playhead</span>
+            </div>
+            <kbd className="text-[10px] text-zinc-500 font-mono">W</kbd>
+          </button>
+
+          <button
             onClick={() => runCommand('edit.ripple_delete')}
             className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-800 hover:text-white transition"
           >
@@ -249,6 +271,25 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ menuState, onClose, co
               <span>Add Marker at Playhead</span>
             </div>
             <kbd className="text-[10px] text-zinc-500 font-mono">M</kbd>
+          </button>
+
+          <button
+            onClick={() => runCommand('timeline.delete_marker_at_playhead')}
+            className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-800 hover:text-white transition"
+          >
+            <div className="flex items-center gap-2">
+              <Trash2 className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Delete Marker at Playhead</span>
+            </div>
+            <kbd className="text-[10px] text-zinc-500 font-mono">Alt+M</kbd>
+          </button>
+
+          <button
+            onClick={() => runCommand('timeline.clear_all_markers')}
+            className="w-full px-3 py-1.5 text-left flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition text-zinc-400"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All Markers</span>
           </button>
 
           <button

@@ -175,14 +175,6 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#0ea5e9', // Ocean Blue
   },
   {
-    id: 'gaming',
-    label: 'Gaming',
-    iconName: 'Gamepad2',
-    description: 'Esports clutch montages, streamer webcam overlays, and kill syncs',
-    tagline: 'Cyberpunk neon HUDs, particle glitches & bass drops',
-    colorAccent: '#8b5cf6',
-  },
-  {
     id: 'new',
     label: 'New',
     iconName: 'Clock',

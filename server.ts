@@ -586,9 +586,9 @@ app.post("/api/ai/motion-tracking", async (req, res) => {
 // Additional AI Utility: Sticker Generator
 app.post("/api/ai/generate-sticker", async (req, res) => {
   const { prompt = "Fire dragon", style = "3D Render" } = req.body;
-  const ai = getGeminiClient();
+  const aiService = AIServiceLayer.getInstance();
 
-  if (!ai) {
+  if (!aiService.hasApiKey()) {
     return res.json({
       stickerEmoji: "🔥🐉",
       stickerName: prompt,
@@ -597,16 +597,19 @@ app.post("/api/ai/generate-sticker", async (req, res) => {
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+    const response = await aiService.generateTextWithFallback({
+      preferredModel: "gemini-3.8-flash",
       contents: `Suggest a visual emoji / symbolic unicode combination and label for a video editor sticker based on prompt: "${prompt}", style: "${style}".
 Return JSON: { "stickerEmoji": "1 or 2 visual emojis or symbolic unicode e.g. ✨🚀", "stickerName": "Short 2-3 word name" }`,
       config: { responseMimeType: "application/json" },
     });
-    res.json(JSON.parse(response.text || "{}"));
+    if (response?.text) {
+      return res.json(JSON.parse(response.text));
+    }
   } catch {
-    res.json({ stickerEmoji: "✨ " + prompt.substring(0, 10), stickerName: prompt });
+    // fallback
   }
+  res.json({ stickerEmoji: "✨ " + prompt.substring(0, 10), stickerName: prompt });
 });
 
 // Provider status & health

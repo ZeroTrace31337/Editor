@@ -69,6 +69,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
   };
 
   const executeAndClose = (cmd: EditorCommandDefinition) => {
+    if (cmd.isAvailable && !cmd.isAvailable(context)) {
+      return;
+    }
     commandRegistry.executeCommand(cmd.id, context);
     onClose();
   };
@@ -146,6 +149,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
               const isSelected = idx === selectedIndex;
               const shortcut = shortcutManager.getBinding(cmd.id) || cmd.defaultShortcut;
               const isRecent = query.trim() === '' && recentCommands.some((r) => r.id === cmd.id);
+              const available = cmd.isAvailable ? cmd.isAvailable(context) : true;
 
               return (
                 <div
@@ -153,8 +157,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                   onClick={() => executeAndClose(cmd)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition ${
+                    !available ? 'opacity-40 cursor-not-allowed' : ''
+                  } ${
                     isSelected ? 'bg-zinc-800/90 text-white' : 'text-zinc-300 hover:bg-zinc-900'
                   }`}
+                  title={!available ? 'Command not currently available for selection' : undefined}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div

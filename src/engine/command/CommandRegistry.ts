@@ -12,6 +12,8 @@ import { FreezeFrameCommand } from './implementations/FreezeFrameCommand';
 import { RollEditCommand } from './implementations/RollEditCommand';
 import { SlipEditCommand } from './implementations/SlipEditCommand';
 import { SlideEditCommand } from './implementations/SlideEditCommand';
+import { RippleTrimCommand } from './implementations/RippleTrimCommand';
+import { NudgeClipCommand } from './implementations/NudgeClipCommand';
 import {
   RationalTime,
   createRationalTime,
@@ -447,6 +449,180 @@ export class CommandRegistry {
       },
     });
 
+    this.registerCommand({
+      id: 'edit.ripple_trim_start',
+      title: 'Ripple Trim Head to Playhead (Q)',
+      description: 'Trim selected clip from In point to playhead and ripple shift following clips',
+      category: 'editing',
+      defaultShortcut: 'Q',
+      isAvailable: (ctx) => {
+        const id = ctx.selectedClipId || ctx.timelineEngine.getClipsAtTime(ctx.currentTime)[0]?.clip.id;
+        return !!id;
+      },
+      execute: (ctx) => {
+        const targetId = ctx.selectedClipId || ctx.timelineEngine.getClipsAtTime(ctx.currentTime)[0]?.clip.id;
+        if (!targetId) return;
+        try {
+          const cmd = new RippleTrimCommand(ctx.timelineEngine, targetId, 'start', ctx.currentTime);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch (err: any) {
+          logger.warn('CommandRegistry', err.message || 'Ripple trim failed');
+        }
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.ripple_trim_end',
+      title: 'Ripple Trim Tail to Playhead (W)',
+      description: 'Trim selected clip from tail to playhead and ripple shift following clips',
+      category: 'editing',
+      defaultShortcut: 'W',
+      isAvailable: (ctx) => {
+        const id = ctx.selectedClipId || ctx.timelineEngine.getClipsAtTime(ctx.currentTime)[0]?.clip.id;
+        return !!id;
+      },
+      execute: (ctx) => {
+        const targetId = ctx.selectedClipId || ctx.timelineEngine.getClipsAtTime(ctx.currentTime)[0]?.clip.id;
+        if (!targetId) return;
+        try {
+          const cmd = new RippleTrimCommand(ctx.timelineEngine, targetId, 'end', ctx.currentTime);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch (err: any) {
+          logger.warn('CommandRegistry', err.message || 'Ripple trim failed');
+        }
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.slip_left',
+      title: 'Slip Footage 1 Frame Left',
+      description: 'Slip source footage 1 frame earlier within clip boundaries',
+      category: 'editing',
+      defaultShortcut: 'Mod+Alt+Left',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        try {
+          const offset = secondsToRationalTime(-0.04);
+          const cmd = new SlipEditCommand(ctx.timelineEngine, ctx.selectedClipId, offset);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.slip_right',
+      title: 'Slip Footage 1 Frame Right',
+      description: 'Slip source footage 1 frame later within clip boundaries',
+      category: 'editing',
+      defaultShortcut: 'Mod+Alt+Right',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        try {
+          const offset = secondsToRationalTime(0.04);
+          const cmd = new SlipEditCommand(ctx.timelineEngine, ctx.selectedClipId, offset);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.slide_left',
+      title: 'Slide Clip 1 Frame Left',
+      description: 'Slide clip earlier along timeline between adjacent clips',
+      category: 'editing',
+      defaultShortcut: 'Alt+,',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        const found = ctx.timelineEngine.findClip(ctx.selectedClipId);
+        if (!found || found.index <= 0 || found.index >= found.track.clips.length - 1) return;
+        const prev = found.track.clips[found.index - 1];
+        const next = found.track.clips[found.index + 1];
+        try {
+          const delta = secondsToRationalTime(-0.04);
+          const cmd = new SlideEditCommand(ctx.timelineEngine, prev.id, found.clip.id, next.id, delta);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.slide_right',
+      title: 'Slide Clip 1 Frame Right',
+      description: 'Slide clip later along timeline between adjacent clips',
+      category: 'editing',
+      defaultShortcut: 'Alt+.',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        const found = ctx.timelineEngine.findClip(ctx.selectedClipId);
+        if (!found || found.index <= 0 || found.index >= found.track.clips.length - 1) return;
+        const prev = found.track.clips[found.index - 1];
+        const next = found.track.clips[found.index + 1];
+        try {
+          const delta = secondsToRationalTime(0.04);
+          const cmd = new SlideEditCommand(ctx.timelineEngine, prev.id, found.clip.id, next.id, delta);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.nudge_left',
+      title: 'Nudge Clip 1 Frame Left',
+      description: 'Nudge selected clip 1 frame earlier on the timeline',
+      category: 'editing',
+      defaultShortcut: 'Alt+Left',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        try {
+          const offset = secondsToRationalTime(0.04);
+          const cmd = new NudgeClipCommand(ctx.timelineEngine, ctx.selectedClipId, offset, false);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.nudge_right',
+      title: 'Nudge Clip 1 Frame Right',
+      description: 'Nudge selected clip 1 frame later on the timeline',
+      category: 'editing',
+      defaultShortcut: 'Alt+Right',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        if (!ctx.selectedClipId) return;
+        try {
+          const offset = secondsToRationalTime(0.04);
+          const cmd = new NudgeClipCommand(ctx.timelineEngine, ctx.selectedClipId, offset, true);
+          ctx.commandManager.execute(cmd);
+          ctx.projectService.setProject({ ...ctx.project });
+        } catch {}
+      },
+    });
+
+    this.registerCommand({
+      id: 'edit.deselect_all',
+      title: 'Deselect Clip',
+      description: 'Clear current clip selection',
+      category: 'editing',
+      defaultShortcut: 'Escape',
+      isAvailable: (ctx) => !!ctx.selectedClipId,
+      execute: (ctx) => {
+        ctx.setSelectedClipId(null);
+      },
+    });
+
     // ----------------------------------------------------
     // TIMELINE, MARKERS & TRACKS
     // ----------------------------------------------------
@@ -507,6 +683,41 @@ export class CommandRegistry {
         if (next.length > 0) {
           ctx.seek(next[0].time);
         }
+      },
+    });
+
+    this.registerCommand({
+      id: 'timeline.delete_marker_at_playhead',
+      title: 'Delete Marker at Playhead',
+      description: 'Remove timeline marker closest to the current playhead position',
+      category: 'timeline',
+      defaultShortcut: 'Alt+M',
+      isAvailable: (ctx) => (ctx.timelineEngine.getSequence().markers || []).length > 0,
+      execute: (ctx) => {
+        const seq = ctx.timelineEngine.getSequence();
+        if (!seq.markers || seq.markers.length === 0) return;
+        const currentSec = rationalTimeToSeconds(ctx.currentTime);
+        const closestIndex = seq.markers.findIndex(
+          (m) => Math.abs(rationalTimeToSeconds(m.time) - currentSec) < 0.2
+        );
+        if (closestIndex !== -1) {
+          seq.markers.splice(closestIndex, 1);
+          ctx.projectService.setProject({ ...ctx.project });
+        }
+      },
+    });
+
+    this.registerCommand({
+      id: 'timeline.clear_all_markers',
+      title: 'Clear All Markers',
+      description: 'Remove all timeline markers from the current sequence',
+      category: 'timeline',
+      defaultShortcut: 'Mod+Alt+M',
+      isAvailable: (ctx) => (ctx.timelineEngine.getSequence().markers || []).length > 0,
+      execute: (ctx) => {
+        const seq = ctx.timelineEngine.getSequence();
+        seq.markers = [];
+        ctx.projectService.setProject({ ...ctx.project });
       },
     });
 
