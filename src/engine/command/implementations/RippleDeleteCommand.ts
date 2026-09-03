@@ -8,6 +8,7 @@ import { TimelineEngine } from '../../timeline/TimelineEngine';
 import { TimelineClip } from '../../../domain/timeline/Clip';
 import { RationalTime, subtractRationalTime, compareRationalTime } from '../../../core/time/RationalTime';
 import { LuminaError, ErrorCode } from '../../../core/errors/AppErrors';
+import { deepClone } from '../../../core/utils/clone';
 
 export class RippleDeleteCommand implements ICommand {
   public readonly id: string;
@@ -35,7 +36,7 @@ export class RippleDeleteCommand implements ICommand {
     }
 
     const { clip, track } = found;
-    this.deletedClip = JSON.parse(JSON.stringify(clip));
+    this.deletedClip = deepClone(clip);
     this.originalTrackId = track.id;
 
     const clipStart = clip.timelineRange.start;
@@ -84,7 +85,7 @@ export class RippleDeleteCommand implements ICommand {
       }
     }
 
-    this.timelineEngine.setSequence(this.timelineEngine.getSequence());
+    this.timelineEngine.recalculateSequenceDuration();
   }
 
   public undo(): void {
@@ -103,5 +104,6 @@ export class RippleDeleteCommand implements ICommand {
 
     // Re-add deleted clip
     this.timelineEngine.addClip(this.originalTrackId, this.deletedClip);
+    this.timelineEngine.recalculateSequenceDuration();
   }
 }

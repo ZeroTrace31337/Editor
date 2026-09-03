@@ -7,6 +7,7 @@ import { ICommand } from '../Command';
 import { TimelineEngine } from '../../timeline/TimelineEngine';
 import { RationalTime } from '../../../core/time/RationalTime';
 import { TimelineClip } from '../../../domain/timeline/Clip';
+import { deepClone } from '../../../core/utils/clone';
 
 export class SplitClipCommand implements ICommand {
   public readonly id = `cmd_split_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -26,7 +27,7 @@ export class SplitClipCommand implements ICommand {
     if (!found) {
       throw new Error(`Clip ${clipId} not found`);
     }
-    this.originalLeftClipSnapshot = JSON.parse(JSON.stringify(found.clip));
+    this.originalLeftClipSnapshot = deepClone(found.clip);
     this.description = `Split clip "${found.clip.name}" at playhead`;
   }
 

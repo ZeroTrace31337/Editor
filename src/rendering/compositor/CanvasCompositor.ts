@@ -19,22 +19,31 @@ import { StabilizationEngine } from '../../engine/stabilization/StabilizationEng
 import { ChromaKeyRenderer } from '../chroma/ChromaKeyRenderer';
 import { TrackingEngine } from '../../engine/tracking/TrackingEngine';
 import { SmoothSlowMoEngine } from '../../engine/speed/SmoothSlowMoEngine';
+import { VideoPlaybackManager } from '../playback/VideoPlaybackManager';
+import { PlaybackDiagnostics } from '../playback/PlaybackDiagnostics';
 
 export class CanvasCompositor {
   private mediaRegistry: MediaRegistry;
   private effectRegistry = EffectRegistry.getInstance();
   private transitionRegistry = TransitionRegistry.getInstance();
   private renderCache = RenderCache.getInstance();
+  private videoPlaybackManager = VideoPlaybackManager.getInstance();
+  private diagnostics = PlaybackDiagnostics.getInstance();
 
   private videoElementPool: Map<string, HTMLVideoElement> = new Map();
   private imageElementPool: Map<string, HTMLImageElement> = new Map();
   private layerCanvas: HTMLCanvasElement;
   private layerCtx: CanvasRenderingContext2D | null;
+  private isPlaying: boolean = false;
 
   constructor(mediaRegistry: MediaRegistry) {
     this.mediaRegistry = mediaRegistry;
     this.layerCanvas = document.createElement('canvas');
     this.layerCtx = this.layerCanvas.getContext('2d');
+  }
+
+  public setIsPlaying(isPlaying: boolean): void {
+    this.isPlaying = isPlaying;
   }
 
   /**
@@ -46,13 +55,26 @@ export class CanvasCompositor {
     currentTime: RationalTime,
     canvasWidth: number,
     canvasHeight: number,
-    bypassColorGradeAndEffects = false
+    bypassColorGradeAndEffects = false,
+    isPlaying = false
   ): void {
+    this.isPlaying = isPlaying;
+    const frameStart = this.diagnostics.recordFrameStart();
+    const tCompileStart = performance.now();
+
     // 1. Compile Render Graph into pure instruction tree
     const instructionTree = RenderGraphCompiler.compile(sequence, currentTime, canvasWidth, canvasHeight);
+    const compileTimeMs = performance.now() - tCompileStart;
 
     // 2. Execute Render Instructions
+    const tRenderStart = performance.now();
     this.executeInstructionTree(ctx, instructionTree, bypassColorGradeAndEffects);
+    const renderTimeMs = performance.now() - tRenderStart;
+
+    this.diagnostics.recordFrameEnd(frameStart, {
+      timelineMs: compileTimeMs,
+      renderMs: renderTimeMs,
+    });
   }
 
   /**
@@ -207,19 +229,13 @@ export class CanvasCompositor {
       return;
     }
 
-    let video = this.videoElementPool.get(asset.id);
-    if (!video) {
-      video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
-      video.playsInline = true;
-      video.src = asset.uri;
-      this.videoElementPool.set(asset.id, video);
-    }
-
-    if (Math.abs(video.currentTime - sourceSeconds) > 0.05) {
-      video.currentTime = sourceSeconds;
-    }
+    const video = this.videoPlaybackManager.getVideoElement(asset);
+    this.videoPlaybackManager.syncVideoPlayback(
+      video,
+      sourceSeconds,
+      this.isPlaying,
+      clip.speed ?? 1.0
+    );
 
     const mediaWidth = asset.videoMetadata?.width || canvasWidth;
     const mediaHeight = asset.videoMetadata?.height || canvasHeight;

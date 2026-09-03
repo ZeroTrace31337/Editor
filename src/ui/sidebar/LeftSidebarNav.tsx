@@ -46,16 +46,27 @@ import {
   Film,
   Bot,
   Youtube,
+  FileText,
+  Download,
 } from 'lucide-react';
 import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
 import { FiltersPanel } from '../filters/FiltersPanel';
-import { createBaseClip } from '../../domain/timeline/Clip';
+import { createBaseClip, TextClip } from '../../domain/timeline/Clip';
 import { createRationalTime, secondsToRationalTime, rationalTimeToSeconds } from '../../core/time/RationalTime';
 import { AudioSynthesisEngine, SoundItem, SfxCategory } from '../../engine/audio/AudioSynthesisEngine';
 import { SpeechEngine } from '../../engine/audio/SpeechEngine';
 import { AIToolModal } from '../home/AIToolModal';
 import { AI_TOOLS_LIST, AIToolItem } from '../home/homeData';
 import { YouTubePanel } from '../youtube/YouTubePanel';
+import {
+  parseSRT,
+  parseVTT,
+  exportSRT,
+  exportVTT,
+  downloadSubtitleFile,
+  SubtitleCue,
+} from '../../core/utils/subtitleParser';
+import { VideoReconstructionModal } from '../templates/VideoReconstructionModal';
 
 export type TopToolSection =
   | 'media'
@@ -587,6 +598,111 @@ export const LeftSidebarNav: React.FC = () => {
     } finally {
       setIsTranslatingCaptions(false);
     }
+  };
+
+  // Subtitle File Import Handler (.srt / .vtt)
+  const subtitleFileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportSubtitlesFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      let cues: SubtitleCue[] = [];
+      if (file.name.toLowerCase().endsWith('.vtt')) {
+        cues = parseVTT(text);
+      } else {
+        cues = parseSRT(text);
+      }
+
+      if (cues.length === 0) {
+        alert('No valid subtitle cues found in file. Please ensure it is standard SRT or WebVTT.');
+        return;
+      }
+
+      const sequence = timelineEngine.getSequence();
+      let videoTrack = sequence.tracks.find((t) => t.kind === 'video');
+      if (!videoTrack) videoTrack = sequence.tracks[0];
+
+      for (const cue of cues) {
+        const startRational = secondsToRationalTime(cue.startSeconds);
+        const durRational = secondsToRationalTime(cue.endSeconds - cue.startSeconds);
+        const clip = createBaseClip(
+          `sub_${Date.now()}_${cue.index}`,
+          'text',
+          cue.text,
+          videoTrack.id,
+          { start: startRational, duration: durRational },
+          { start: createRationalTime(0), duration: durRational }
+        ) as TextClip;
+
+        clip.text = cue.text;
+        clip.fontSize = 38;
+        clip.textColor = '#ffffff';
+        clip.strokeColor = '#000000';
+        clip.strokeWidth = 4;
+        clip.backgroundColor = 'rgba(0,0,0,0.65)';
+        clip.backgroundPadding = 10;
+        clip.backgroundRadius = 6;
+        clip.alignment = 'center';
+        clip.transform.position.y = 320;
+
+        const cmd = new AddClipCommand(timelineEngine, videoTrack.id, clip as any);
+        await commandManager.execute(cmd);
+      }
+
+      projectService.setProject({ ...project });
+      alert(`Successfully imported ${cues.length} subtitles from ${file.name}!`);
+    } catch (err: any) {
+      alert(`Subtitle import error: ${err.message || 'Failed to parse file'}`);
+    } finally {
+      if (subtitleFileInputRef.current) {
+        subtitleFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Subtitle File Export Handlers
+  const handleExportSubtitlesSRT = () => {
+    const sequence = timelineEngine.getSequence();
+    const textClips: TextClip[] = [];
+
+    for (const track of sequence.tracks) {
+      for (const clip of track.clips) {
+        if (clip.type === 'text') {
+          textClips.push(clip as TextClip);
+        }
+      }
+    }
+
+    if (textClips.length === 0) {
+      alert('No subtitle or text clips found on the timeline to export.');
+      return;
+    }
+
+    const srtContent = exportSRT(textClips);
+    downloadSubtitleFile(srtContent, `${project.metadata.name || 'project'}_subtitles.srt`);
+  };
+
+  const handleExportSubtitlesVTT = () => {
+    const sequence = timelineEngine.getSequence();
+    const textClips: TextClip[] = [];
+
+    for (const track of sequence.tracks) {
+      for (const clip of track.clips) {
+        if (clip.type === 'text') {
+          textClips.push(clip as TextClip);
+        }
+      }
+    }
+
+    if (textClips.length === 0) {
+      alert('No subtitle or text clips found on the timeline to export.');
+      return;
+    }
+
+    const vttContent = exportVTT(textClips);
+    downloadSubtitleFile(vttContent, `${project.metadata.name || 'project'}_subtitles.vtt`);
   };
 
   // AI Smart Filter Handler
@@ -1457,6 +1573,45 @@ export const LeftSidebarNav: React.FC = () => {
               >
                 <Sparkle className="w-3 h-3 text-cyan-400" />
                 <span>Translate All</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Subtitle File Import / Export */}
+          <div className="p-3 rounded-xl bg-[#111422] border border-zinc-800 space-y-2.5">
+            <span className="font-bold text-zinc-300 text-[11px] block">Subtitle Files (.SRT / .VTT)</span>
+            <input
+              ref={subtitleFileInputRef}
+              type="file"
+              accept=".srt,.vtt,text/plain"
+              className="hidden"
+              onChange={handleImportSubtitlesFile}
+            />
+            <button
+              onClick={() => subtitleFileInputRef.current?.click()}
+              className="w-full py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-cyan-300 font-semibold text-xs transition flex items-center justify-center gap-1.5 border border-zinc-700"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Import Subtitle File (.srt / .vtt)</span>
+            </button>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleExportSubtitlesSRT}
+                className="flex-1 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-[10px] font-semibold flex items-center justify-center gap-1 border border-zinc-800"
+                title="Download standard SubRip Subtitle file"
+              >
+                <Download className="w-3 h-3 text-cyan-400" />
+                <span>Export .SRT</span>
+              </button>
+
+              <button
+                onClick={handleExportSubtitlesVTT}
+                className="flex-1 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-[10px] font-semibold flex items-center justify-center gap-1 border border-zinc-800"
+                title="Download WebVTT file for web players"
+              >
+                <FileText className="w-3 h-3 text-purple-400" />
+                <span>Export .VTT</span>
               </button>
             </div>
           </div>

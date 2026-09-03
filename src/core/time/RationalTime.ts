@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// Enable safe BigInt JSON serialization globally when RationalTime is loaded
+if (typeof BigInt !== 'undefined' && !(BigInt.prototype as any).toJSON) {
+  (BigInt.prototype as any).toJSON = function () {
+    return { __bigint: this.toString() };
+  };
+}
+
 /**
  * RationalTime represents an exact, integer-ratio timestamp or duration.
  * This completely eliminates floating-point rounding errors and multi-frame drift

@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   Search,
   Grid,
+  Wand2,
 } from 'lucide-react';
 import { ProxyManagerModal } from '../proxy/ProxyManagerModal';
 import { PerformanceMonitorModal } from '../preview/PerformanceMonitorModal';
@@ -36,6 +37,7 @@ import { ShortcutsModal } from './ShortcutsModal';
 import { CommandPalette } from '../command/CommandPalette';
 import { RelinkModal } from '../media-pool/RelinkModal';
 import { PluginsModal } from '../plugins/PluginsModal';
+import { VideoReconstructionModal } from '../templates/VideoReconstructionModal';
 import { useLocale } from '../i18n/LocaleContext';
 import { ShortcutManager } from '../../core/shortcuts/ShortcutManager';
 import { Smartphone } from 'lucide-react';
@@ -79,6 +81,7 @@ export const EditorHeader: React.FC<{
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isProxyModalOpen, setIsProxyModalOpen] = useState(false);
   const [isPerfModalOpen, setIsPerfModalOpen] = useState(false);
+  const [isReconstructOpen, setIsReconstructOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const shortcutManager = ShortcutManager.getInstance();
@@ -221,6 +224,13 @@ export const EditorHeader: React.FC<{
               >
                 <ShieldAlert className="w-3 h-3 text-amber-400" />
                 <span>Relink Offline Media</span>
+              </button>
+              <button
+                onClick={() => setIsReconstructOpen(true)}
+                className="w-full text-left px-3 py-1.5 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+              >
+                <Wand2 className="w-3 h-3 text-cyan-400" />
+                <span>Video Reconstruction (AI)...</span>
               </button>
               <button
                 onClick={() => setIsPluginsModalOpen(true)}
@@ -406,6 +416,7 @@ export const EditorHeader: React.FC<{
       />
       <RelinkModal isOpen={isRelinkModalOpen} onClose={() => setIsRelinkModalOpen(false)} />
       <PluginsModal isOpen={isPluginsModalOpen} onClose={() => setIsPluginsModalOpen(false)} />
+      <VideoReconstructionModal isOpen={isReconstructOpen} onClose={() => setIsReconstructOpen(false)} />
     </header>
   );
 };

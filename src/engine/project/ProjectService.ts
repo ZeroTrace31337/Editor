@@ -38,7 +38,7 @@ export class ProjectService {
     return project;
   }
 
-  public serialize(project: Project = this.currentProject): string {
+  public static serialize(project: Project): string {
     // Custom JSON replacer for BigInt serialization
     return JSON.stringify(project, (_key, value) => {
       if (typeof value === 'bigint') {
@@ -48,7 +48,11 @@ export class ProjectService {
     }, 2);
   }
 
-  public deserialize(jsonString: string): Project {
+  public serialize(project: Project = this.currentProject): string {
+    return ProjectService.serialize(project);
+  }
+
+  public static deserialize(jsonString: string): Project {
     try {
       const parsed = JSON.parse(jsonString, (_key, value) => {
         if (value && typeof value === 'object' && value.__bigint !== undefined) {
@@ -57,7 +61,7 @@ export class ProjectService {
         return value;
       });
 
-      this.validateProject(parsed);
+      ProjectService.validateProject(parsed);
       return parsed as Project;
     } catch (err: any) {
       logger.error('ProjectService', 'Failed to deserialize project JSON', { error: err.message });
@@ -69,7 +73,11 @@ export class ProjectService {
     }
   }
 
-  public validateProject(project: any): void {
+  public deserialize(jsonString: string): Project {
+    return ProjectService.deserialize(jsonString);
+  }
+
+  public static validateProject(project: any): void {
     if (!project || typeof project !== 'object') {
       throw new LuminaError(ErrorCode.CORRUPT_PROJECT, 'Project is not a valid object', 'Invalid project data');
     }
@@ -79,6 +87,10 @@ export class ProjectService {
     if (!Array.isArray(project.sequences) || project.sequences.length === 0) {
       throw new LuminaError(ErrorCode.CORRUPT_PROJECT, 'Project has no sequences', 'Invalid project sequences');
     }
+  }
+
+  public validateProject(project: any): void {
+    ProjectService.validateProject(project);
   }
 
   public saveToLocalStorage(): void {
@@ -149,6 +161,8 @@ export class ProjectService {
   }
 
   private initAutosave(): void {
+    if (typeof localStorage === 'undefined') return;
+
     // Check for autosave recovery
     const autosaved = localStorage.getItem(AUTOSAVE_KEY);
     if (autosaved) {
@@ -165,6 +179,7 @@ export class ProjectService {
   }
 
   public triggerAutosave(): void {
+    if (typeof localStorage === 'undefined') return;
     try {
       const serialized = this.serialize(this.currentProject);
       localStorage.setItem(AUTOSAVE_KEY, serialized);

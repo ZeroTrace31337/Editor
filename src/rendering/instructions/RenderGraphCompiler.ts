@@ -20,6 +20,7 @@ import { RenderInstructionTree, RenderInstruction, ClipRenderInstruction } from 
 import { Transform2D } from '../../core/math/Transform2D';
 import { ColorGrade, createDefaultColorGrade } from '../../domain/color/ColorGrade';
 import { SpeedEngine } from '../../engine/speed/SpeedEngine';
+import { TimelineIntervalIndex } from '../../engine/timeline/TimelineIntervalIndex';
 
 export class RenderGraphCompiler {
   /**
@@ -39,25 +40,9 @@ export class RenderGraphCompiler {
       color: '#0a0b0e',
     });
 
-    // 2. Query active clips at current time
-    const activeLayers: { clip: TimelineClip; track: Track }[] = [];
-
-    for (const track of sequence.tracks) {
-      if (track.kind !== 'video' || !track.visible) continue;
-
-      for (const clip of track.clips) {
-        if (clip.muted) continue;
-        const start = clip.timelineRange.start;
-        const end = addRationalTime(start, clip.timelineRange.duration);
-
-        if (compareRationalTime(currentTime, start) >= 0 && compareRationalTime(currentTime, end) < 0) {
-          activeLayers.push({ clip, track });
-        }
-      }
-    }
-
-    // Sort tracks from bottom to top for correct layered composition
-    activeLayers.sort((a, b) => a.track.id.localeCompare(b.track.id));
+    // 2. Query active clips using high-performance TimelineIntervalIndex
+    const intervalIndex = TimelineIntervalIndex.getForSequence(sequence);
+    const activeLayers = intervalIndex.queryActiveVisualLayers(currentTime);
 
     // 3. Compile instructions for each active layer
     for (const { clip, track } of activeLayers) {

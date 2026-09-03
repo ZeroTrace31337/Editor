@@ -49,8 +49,10 @@ export class ShortcutManager {
       this.keyToCommandMap.set(this.normalizeKeyCombo(b.keyCombo), b.commandId);
     });
 
-    localStorage.setItem(PRESET_STORAGE_KEY, preset);
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(PRESET_STORAGE_KEY, preset);
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }
 
   public getBinding(commandId: string): string | undefined {
@@ -185,12 +187,18 @@ export class ShortcutManager {
   }
 
   private saveToStorage(): void {
+    if (typeof localStorage === 'undefined') return;
     const serializable = Array.from(this.bindings.entries());
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     localStorage.setItem(PRESET_STORAGE_KEY, this.activePreset);
   }
 
   private loadFromStorage(): void {
+    if (typeof localStorage === 'undefined') {
+      this.setPreset(this.activePreset);
+      return;
+    }
+
     const savedPreset = localStorage.getItem(PRESET_STORAGE_KEY) as ShortcutPresetName | null;
     if (savedPreset) this.activePreset = savedPreset;
 

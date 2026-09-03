@@ -61,6 +61,7 @@ import { CreateTemplateModal } from './CreateTemplateModal';
 import { LiveTrendsSection } from './LiveTrendsSection';
 import { ApiStatusModal } from './ApiStatusModal';
 import { TemplateImportExportModal } from './TemplateImportExportModal';
+import { VideoReconstructionModal } from './VideoReconstructionModal';
 
 interface TemplatesPageProps {
   onOpenEditor: () => void;
@@ -117,6 +118,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [customizingTemplate, setCustomizingTemplate] = useState<Template | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isReconstructModalOpen, setIsReconstructModalOpen] = useState(false);
   const [isApiStatusOpen, setIsApiStatusOpen] = useState(false);
   const [importExportModal, setImportExportModal] = useState<{
     isOpen: boolean;
@@ -338,12 +340,24 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
               <Upload className="w-3.5 h-3.5" />
             </button>
 
+            {/* Analyze Video to Template Button */}
+            <button
+              type="button"
+              id="btn_open_reconstruct_video"
+              onClick={() => setIsReconstructModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black shadow-lg shadow-cyan-500/25 transition-all hover:scale-105 active:scale-95"
+              title="Analyze any video and reconstruct an editable template"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Analyze Video</span>
+            </button>
+
             {/* Create Template Button */}
             <button
               type="button"
               id="btn_open_create_template"
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-lg shadow-sky-500/20 transition-all hover:scale-105 active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-all hover:scale-105 active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Create</span>
@@ -649,6 +663,15 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
         onImportSuccess={(newTmpl) => {
           setFavUpdateCount((c) => c + 1);
           setCustomizingTemplate(newTmpl);
+        }}
+      />
+
+      {/* F. Video to Template Neural Reconstruction Modal */}
+      <VideoReconstructionModal
+        isOpen={isReconstructModalOpen}
+        onClose={() => setIsReconstructModalOpen(false)}
+        onLoadedIntoProject={() => {
+          onOpenEditor();
         }}
       />
     </div>

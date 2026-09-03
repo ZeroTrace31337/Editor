@@ -612,6 +612,26 @@ Return JSON: { "stickerEmoji": "1 or 2 visual emojis or symbolic unicode e.g. âœ
   res.json({ stickerEmoji: "âœ¨ " + prompt.substring(0, 10), stickerName: prompt });
 });
 
+// -------------------------------------------------------------------------
+// VIDEO TO EDITABLE TEMPLATE RECONSTRUCTION PIPELINE
+// -------------------------------------------------------------------------
+app.post("/api/ai/reconstruct-template", async (req, res) => {
+  const { videoUrl, videoData, title, targetAspectRatio } = req.body;
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const analysis = await aiService.reconstructTemplateFromVideo({
+      videoUrl,
+      videoData,
+      title,
+      targetAspectRatio,
+    });
+    res.json({ success: true, analysis });
+  } catch (err: any) {
+    console.error("Video Reconstruction Error:", err);
+    res.status(500).json({ error: err.message || "Failed to reconstruct template from video" });
+  }
+});
+
 // Provider status & health
 app.get("/api/ai/provider-status", (req, res) => {
   const { provider } = req.query;

@@ -38,6 +38,7 @@ export class MediaOfflineError extends LuminaError {
       'Media Offline. The original source file could not be located.',
       { mediaId, path }
     );
+    Object.setPrototypeOf(this, MediaOfflineError.prototype);
   }
 }
 
@@ -49,5 +50,6 @@ export class TimelineCollisionError extends LuminaError {
       'Cannot place clip: space on this track is already occupied.',
       { trackId, details }
     );
+    Object.setPrototypeOf(this, TimelineCollisionError.prototype);
   }
 }

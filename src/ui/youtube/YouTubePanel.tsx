@@ -24,12 +24,14 @@ import {
   TrendingUp,
   Flame,
   Info,
+  Wand2,
 } from 'lucide-react';
 import { YouTubeVideoItem, YouTubeSearchResponse } from '../../domain/youtube/YouTubeTypes';
 import { YouTubeClientService } from '../../domain/youtube/youtubeService';
 import { useEditor } from '../context/EditorContext';
 import { YouTubePlayerModal } from './YouTubePlayerModal';
 import { YouTubeChannelModal } from './YouTubeChannelModal';
+import { VideoReconstructionModal } from '../templates/VideoReconstructionModal';
 
 const QUICK_TOPICS = [
   'Cinematic 4K',
@@ -71,6 +73,7 @@ export const YouTubePanel: React.FC = () => {
   // Quick insertion feedback
   const [insertingId, setInsertingId] = useState<string | null>(null);
   const [insertedId, setInsertedId] = useState<string | null>(null);
+  const [reconstructVideo, setReconstructVideo] = useState<{ url: string; title: string } | null>(null);
 
   const performSearch = useCallback(
     async (searchQuery: string, pageToken?: string) => {
@@ -467,7 +470,7 @@ export const YouTubePanel: React.FC = () => {
                         type="button"
                         onClick={(e) => handleAddToPool(e, video)}
                         disabled={isInserting}
-                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium transition-colors border border-zinc-750"
+                        className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-medium transition-colors border border-zinc-750"
                         title="Add to Media Pool"
                       >
                         <Film className="w-3 h-3 text-zinc-400" />
@@ -476,9 +479,25 @@ export const YouTubePanel: React.FC = () => {
 
                       <button
                         type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReconstructVideo({
+                            url: video.videoUrl,
+                            title: video.title,
+                          });
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500 text-cyan-300 hover:text-black text-[10px] font-semibold transition-colors border border-cyan-500/30"
+                        title="Analyze and reconstruct into an editable multi-track project"
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        <span>Reconstruct</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={(e) => handleInsertTimeline(e, video)}
                         disabled={isInserting}
-                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white text-[11px] font-semibold transition-colors shadow-sm"
+                        className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white text-[10px] font-semibold transition-colors shadow-sm"
                         title="Insert into Timeline at playhead"
                       >
                         {isInserted ? (
@@ -552,6 +571,13 @@ export const YouTubePanel: React.FC = () => {
           setIsChannelOpen(false);
           setSelectedChannelId(null);
         }}
+      />
+
+      <VideoReconstructionModal
+        isOpen={!!reconstructVideo}
+        initialUrl={reconstructVideo?.url || ''}
+        initialTitle={reconstructVideo?.title || ''}
+        onClose={() => setReconstructVideo(null)}
       />
     </div>
   );

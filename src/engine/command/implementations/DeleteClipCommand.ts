@@ -6,6 +6,7 @@
 import { ICommand } from '../Command';
 import { TimelineEngine } from '../../timeline/TimelineEngine';
 import { TimelineClip } from '../../../domain/timeline/Clip';
+import { deepClone } from '../../../core/utils/clone';
 
 export class DeleteClipCommand implements ICommand {
   public readonly id = `cmd_del_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -22,7 +23,7 @@ export class DeleteClipCommand implements ICommand {
     if (!found) {
       throw new Error(`Clip ${clipId} not found`);
     }
-    this.deletedClip = JSON.parse(JSON.stringify(found.clip));
+    this.deletedClip = deepClone(found.clip);
     this.trackId = found.track.id;
     this.originalIndex = found.index;
     this.description = `Delete clip "${found.clip.name}"`;

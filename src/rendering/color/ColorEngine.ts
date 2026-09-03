@@ -6,6 +6,7 @@
 import { ColorGrade, ColorWheelValue, HslBand, HslColorGrade } from '../../domain/color/ColorGrade';
 import { ToneCurveEvaluator } from './ToneCurveEvaluator';
 import { LutEngine } from './LutEngine';
+import { GPUColorGradingPass } from '../gpu/GPUColorGradingPass';
 
 /**
  * Professional Studio-Grade Real-Time Color Grading & Image Processing Engine
@@ -60,8 +61,17 @@ export class ColorEngine {
       (grade.fade || 0) > 0;
 
     if (hasAdvancedPasses) {
-      // Full precision pixel-level color grading pass
-      this.applyFullPixelGrading(ctx, canvasWidth, canvasHeight, grade);
+      // 1. Try Hardware-Accelerated WebGL2 GPU Shader Pass first (<0.5ms)
+      const gpuPass = GPUColorGradingPass.getInstance();
+      let handledByGPU = false;
+      if (gpuPass.canAccelerate()) {
+        handledByGPU = gpuPass.applyGPUColorGrade(ctx, canvasWidth, canvasHeight, grade);
+      }
+
+      // 2. CPU fallback if GPU context lost or unsupported
+      if (!handledByGPU) {
+        this.applyFullPixelGrading(ctx, canvasWidth, canvasHeight, grade);
+      }
     } else {
       // Fast-path hardware-accelerated filter pass for simple light/contrast adjustments
       this.applyFastFilter(ctx, canvasWidth, canvasHeight, grade);
