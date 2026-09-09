@@ -67,6 +67,7 @@ import {
   SubtitleCue,
 } from '../../core/utils/subtitleParser';
 import { VideoReconstructionModal } from '../templates/VideoReconstructionModal';
+import { notifyToast } from '../toast/ToastContext';
 
 export type TopToolSection =
   | 'media'
@@ -314,12 +315,19 @@ export const LeftSidebarNav: React.FC = () => {
   const handleAddSoundToTimeline = async (sound: SoundItem) => {
     setIsSynthesizing(true);
     try {
-      const { url, durationSeconds = sound.durationSeconds } = sound as any;
+      const wavBlob = await audioSynth.synthesizeSoundToWav(sound);
+      const safeName = sound.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const soundFile = new File([wavBlob], `${safeName}.wav`, { type: 'audio/wav' });
+      const asset = await importFile(soundFile);
+
       const sequence = timelineEngine.getSequence();
       let audioTrack = sequence.tracks.find((t) => t.kind === 'audio');
-      if (!audioTrack) audioTrack = sequence.tracks[0];
+      if (!audioTrack) {
+        audioTrack = sequence.tracks.find((t) => t.kind === 'audio') || sequence.tracks[sequence.tracks.length - 1];
+      }
 
-      const durRational = secondsToRationalTime(durationSeconds);
+      const durSeconds = rationalTimeToSeconds(asset.duration) || sound.durationSeconds;
+      const durRational = secondsToRationalTime(durSeconds);
       const clipId = `audio_clip_${Date.now()}`;
       const clip = createBaseClip(
         clipId,
@@ -331,14 +339,14 @@ export const LeftSidebarNav: React.FC = () => {
       );
       (clip as any).volume = 1.0;
       (clip as any).pan = 0.0;
-      (clip as any).mediaAssetId = sound.id;
+      (clip as any).mediaAssetId = asset.id;
 
       const cmd = new AddClipCommand(timelineEngine, audioTrack.id, clip as any);
       await commandManager.execute(cmd);
       setSelectedClipId(clipId);
       projectService.setProject({ ...project });
     } catch (e) {
-      console.error(e);
+      console.error('Failed to add sound to timeline', e);
     } finally {
       setIsSynthesizing(false);
     }
@@ -353,7 +361,7 @@ export const LeftSidebarNav: React.FC = () => {
         setMicLevel(level);
       });
     } catch (err: any) {
-      alert(err.message || 'Microphone recording failed.');
+      notifyToast(err.message || 'Microphone recording failed.', 'error');
       setIsVoiceoverRecording(false);
     }
   };
@@ -364,29 +372,36 @@ export const LeftSidebarNav: React.FC = () => {
       const { blob, url, duration } = await audioSynth.stopMicrophoneRecording();
       setIsVoiceoverRecording(false);
 
+      const fileName = `Voiceover_${Date.now()}.${blob.type.includes('webm') ? 'webm' : 'wav'}`;
+      const voiceFile = new File([blob], fileName, { type: blob.type || 'audio/webm' });
+      const asset = await importFile(voiceFile);
+
       const sequence = timelineEngine.getSequence();
       let audioTrack = sequence.tracks.find((t) => t.kind === 'audio');
-      if (!audioTrack) audioTrack = sequence.tracks[0];
+      if (!audioTrack) audioTrack = sequence.tracks[sequence.tracks.length - 1];
 
-      const durRational = secondsToRationalTime(duration);
+      const durRational = asset.duration || secondsToRationalTime(duration);
       const clipId = `voiceover_${Date.now()}`;
       const clip = createBaseClip(
         clipId,
         'audio',
-        `Voiceover Recording ${new Date().toLocaleTimeString()}`,
+        `Voiceover ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`,
         audioTrack.id,
         { start: currentTime, duration: durRational },
         { start: createRationalTime(0), duration: durRational }
       );
       (clip as any).volume = 1.0;
       (clip as any).pan = 0.0;
+      (clip as any).mediaAssetId = asset.id;
 
       const cmd = new AddClipCommand(timelineEngine, audioTrack.id, clip as any);
       await commandManager.execute(cmd);
       setSelectedClipId(clipId);
       projectService.setProject({ ...project });
-    } catch (e) {
+      notifyToast('Voiceover clip placed on timeline!', 'success');
+    } catch (e: any) {
       console.error(e);
+      notifyToast(e.message || 'Failed to process voiceover recording.', 'error');
       setIsVoiceoverRecording(false);
     }
   };
@@ -401,7 +416,7 @@ export const LeftSidebarNav: React.FC = () => {
         webcamVideoRef.current.srcObject = stream;
       }
     } catch (e) {
-      alert('Camera access denied or unavailable.');
+      notifyToast('Camera access denied or unavailable.', 'error');
       setIsWebcamOpen(false);
     }
   };
@@ -616,7 +631,7 @@ export const LeftSidebarNav: React.FC = () => {
       }
 
       if (cues.length === 0) {
-        alert('No valid subtitle cues found in file. Please ensure it is standard SRT or WebVTT.');
+        notifyToast('No valid subtitle cues found in file. Please ensure it is standard SRT or WebVTT.', 'warning');
         return;
       }
 
@@ -652,9 +667,9 @@ export const LeftSidebarNav: React.FC = () => {
       }
 
       projectService.setProject({ ...project });
-      alert(`Successfully imported ${cues.length} subtitles from ${file.name}!`);
+      notifyToast(`Successfully imported ${cues.length} subtitles from ${file.name}!`, 'success');
     } catch (err: any) {
-      alert(`Subtitle import error: ${err.message || 'Failed to parse file'}`);
+      notifyToast(`Subtitle import error: ${err.message || 'Failed to parse file'}`, 'error');
     } finally {
       if (subtitleFileInputRef.current) {
         subtitleFileInputRef.current.value = '';
@@ -676,12 +691,13 @@ export const LeftSidebarNav: React.FC = () => {
     }
 
     if (textClips.length === 0) {
-      alert('No subtitle or text clips found on the timeline to export.');
+      notifyToast('No subtitle or text clips found on the timeline to export.', 'warning');
       return;
     }
 
     const srtContent = exportSRT(textClips);
     downloadSubtitleFile(srtContent, `${project.metadata.name || 'project'}_subtitles.srt`);
+    notifyToast('Subtitles exported as .SRT file!', 'success');
   };
 
   const handleExportSubtitlesVTT = () => {
@@ -697,12 +713,13 @@ export const LeftSidebarNav: React.FC = () => {
     }
 
     if (textClips.length === 0) {
-      alert('No subtitle or text clips found on the timeline to export.');
+      notifyToast('No subtitle or text clips found on the timeline to export.', 'warning');
       return;
     }
 
     const vttContent = exportVTT(textClips);
     downloadSubtitleFile(vttContent, `${project.metadata.name || 'project'}_subtitles.vtt`);
+    notifyToast('Subtitles exported as .VTT file!', 'success');
   };
 
   // AI Smart Filter Handler

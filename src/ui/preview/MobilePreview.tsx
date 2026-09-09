@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react';
+import { VeeCutLogo } from '../common/VeeCutLogo';
 import { useEditor } from '../context/EditorContext';
 import {
   Scissors,
@@ -103,10 +104,8 @@ export const MobilePreview: React.FC = () => {
 
         {/* In-App Mobile Top Bar */}
         <div className="h-8 px-2.5 bg-zinc-950 flex items-center justify-between border-b border-zinc-850 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 flex items-center justify-center">
-              <Play className="w-2.5 h-2.5 text-white fill-white translate-x-0.2" />
-            </div>
+          <div className="flex items-center gap-1.5">
+            <VeeCutLogo size={18} rounded="sm" />
             <span className="font-bold text-white text-[11px]">VeeCut</span>
           </div>
 

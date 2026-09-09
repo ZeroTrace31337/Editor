@@ -44,6 +44,7 @@ import { createTrack, Track } from '../../domain/timeline/Track';
 import { TimelineMarker } from '../../domain/timeline/Sequence';
 import { ContextMenu, ContextMenuState } from './ContextMenu';
 import { MarkerEditModal } from './MarkerEditModal';
+import { AudioWaveformVisualizer } from '../audio/AudioWaveformVisualizer';
 
 export const TimelinePanel: React.FC = () => {
   const {
@@ -73,10 +74,13 @@ export const TimelinePanel: React.FC = () => {
     jumpToNextKeyframe,
     isKeyframeLaneOpen,
     setKeyframeLaneOpen,
+    importFile,
+    addMediaAssetAndClip,
   } = useEditor();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
+  const playheadNeedleRef = useRef<HTMLDivElement>(null);
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -105,6 +109,16 @@ export const TimelinePanel: React.FC = () => {
   const sequenceDurationSec = Math.max(90, rationalTimeToSeconds(sequence.duration) + 10);
   const totalTimelineWidthPx = Math.max(1600, sequenceDurationSec * timelineZoom);
   const currentTimeSec = rationalTimeToSeconds(currentTime);
+
+  // Directly translate playhead needle on 60/120 FPS frames without re-rendering tracks
+  useEffect(() => {
+    return playbackEngine.onFrame((time) => {
+      if (playheadNeedleRef.current) {
+        const sec = rationalTimeToSeconds(time);
+        playheadNeedleRef.current.style.left = `${sec * timelineZoom}px`;
+      }
+    });
+  }, [playbackEngine, timelineZoom]);
 
   const handleSplitAtPlayhead = () => {
     if (!selectedClipId) {
@@ -580,7 +594,49 @@ export const TimelinePanel: React.FC = () => {
               {sequence.tracks.map((track) => (
                 <div
                   key={track.id}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (track.locked) return;
+
+                    const trackRect = e.currentTarget.getBoundingClientRect();
+                    const dropOffsetPx = Math.max(0, e.clientX - trackRect.left + (rulerRef.current?.scrollLeft || 0));
+                    const dropSec = Math.max(0, dropOffsetPx / timelineZoom);
+                    const dropTime = secondsToRationalTime(dropSec);
+
+                    // 1. Files dragged directly from OS / desktop
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                        const file = e.dataTransfer.files[i];
+                        try {
+                          const asset = await importFile(file);
+                          if (asset) {
+                            await addMediaAssetAndClip(asset, track.id, dropTime);
+                          }
+                        } catch (err) {
+                          console.error('Failed to import dropped file to track', err);
+                        }
+                      }
+                      return;
+                    }
+
+                    // 2. Asset dragged from Media Pool / Audio Library
+                    const rawData = e.dataTransfer.getData('application/json');
+                    if (rawData) {
+                      try {
+                        const data = JSON.parse(rawData);
+                        if (data && data.id) {
+                          await addMediaAssetAndClip(data, track.id, dropTime);
+                        }
+                      } catch (err) {
+                        console.error('Failed to handle dropped asset', err);
+                      }
+                    }
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -659,23 +715,20 @@ export const TimelinePanel: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Audio Waveform SVG for Audio Clips */}
+                        {/* Audio Waveform for Audio Clips */}
                         {clip.type === 'audio' && (
-                          <div className="absolute inset-0 opacity-80 pointer-events-none flex items-center px-1">
-                            <svg className="w-full h-7" preserveAspectRatio="none" viewBox="0 0 100 20">
-                              <path
-                                d="M 0 10 Q 5 2, 10 10 T 20 10 T 30 4 T 40 10 T 50 16 T 60 10 T 70 2 T 80 10 T 90 14 T 100 10"
-                                stroke="#10b981"
-                                strokeWidth="2"
-                                fill="none"
-                              />
-                              <path
-                                d="M 0 10 Q 5 18, 10 10 T 20 10 T 30 16 T 40 10 T 50 4 T 60 10 T 70 18 T 80 10 T 90 6 T 100 10"
-                                stroke="#34d399"
-                                strokeWidth="1.5"
-                                fill="none"
-                              />
-                            </svg>
+                          <div className="absolute inset-0 opacity-85 pointer-events-none flex items-center px-1 overflow-hidden">
+                            <AudioWaveformVisualizer
+                              asset={mediaRegistry.getAsset((clip as any).mediaAssetId)}
+                              sourceStartSec={rationalTimeToSeconds(clip.sourceRange.start)}
+                              sourceDurationSec={rationalTimeToSeconds(clip.sourceRange.duration)}
+                              fadeInSec={(clip as any).fadeInDuration ? rationalTimeToSeconds((clip as any).fadeInDuration) : 0}
+                              fadeOutSec={(clip as any).fadeOutDuration ? rationalTimeToSeconds((clip as any).fadeOutDuration) : 0}
+                              color="#10b981"
+                              className="w-full h-8"
+                              showCenterLine={true}
+                              barGap={1}
+                            />
                           </div>
                         )}
 
@@ -804,8 +857,9 @@ export const TimelinePanel: React.FC = () => {
 
             {/* White Playhead Needle */}
             <div
+              ref={playheadNeedleRef}
               style={{ left: currentTimeSec * timelineZoom }}
-              className="absolute top-0 bottom-0 w-[1.5px] bg-white z-40 pointer-events-none flex flex-col items-center shadow-md shadow-white/40"
+              className="absolute top-0 bottom-0 w-[1.5px] bg-white z-40 pointer-events-none flex flex-col items-center shadow-md shadow-white/40 will-change-[left]"
             >
               {/* Playhead Header Cap */}
               <div className="w-3.5 h-3.5 bg-white rotate-45 -mt-1 shadow-lg shadow-white/60 rounded-xs" />

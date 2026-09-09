@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { VeeCutLogo } from '../common/VeeCutLogo';
 import { useEditor, WorkspaceMode } from '../context/EditorContext';
 import {
   Play,
@@ -158,9 +159,7 @@ export const EditorHeader: React.FC<{
           className="flex items-center gap-1.5 cursor-pointer group"
           title="Return to VeeCut Home Dashboard"
         >
-          <div className="w-5.5 h-5.5 rounded-md bg-gradient-to-tr from-cyan-400 to-cyan-600 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-            <Play className="w-3 h-3 text-black fill-black translate-x-0.5" />
-          </div>
+          <VeeCutLogo size={24} rounded="md" className="group-hover:scale-105 transition-transform" />
           <span className="text-[13px] font-black tracking-tight text-white group-hover:text-cyan-400 transition-colors">
             {t('app.title', 'VeeCut')}
           </span>

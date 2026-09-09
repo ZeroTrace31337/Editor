@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { VeeCutLogo } from '../common/VeeCutLogo';
 import {
   Play,
   Search,
@@ -35,6 +36,7 @@ interface HomeTopNavProps {
   activeProjectName?: string;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  onOpenAuth?: () => void;
 }
 
 export const HomeTopNav: React.FC<HomeTopNavProps> = ({
@@ -48,6 +50,7 @@ export const HomeTopNav: React.FC<HomeTopNavProps> = ({
   activeProjectName,
   searchQuery,
   onSearchChange,
+  onOpenAuth,
 }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -72,9 +75,7 @@ export const HomeTopNav: React.FC<HomeTopNavProps> = ({
           className="flex items-center gap-2.5 cursor-pointer group"
           id="home-brand-logo"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 via-cyan-500 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform duration-200">
-            <Play className="w-4 h-4 text-black fill-black translate-x-0.5" />
-          </div>
+          <VeeCutLogo size={34} rounded="lg" className="group-hover:scale-105 transition-transform duration-200" />
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="text-base font-black tracking-tight text-white font-sans">
@@ -269,6 +270,15 @@ export const HomeTopNav: React.FC<HomeTopNavProps> = ({
                   <BookOpen className="w-3.5 h-3.5 text-zinc-400" />
                   <span>Documentation & Guide</span>
                 </button>
+                {onOpenAuth && (
+                  <button
+                    onClick={onOpenAuth}
+                    className="w-full text-left px-3.5 py-1.5 text-zinc-300 hover:bg-cyan-500/15 hover:text-white flex items-center gap-2 border-t border-zinc-800/80 mt-1 pt-1.5"
+                  >
+                    <User className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Sign In / Switch Account</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

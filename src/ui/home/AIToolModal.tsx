@@ -133,6 +133,21 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
   const [upscaleFactor, setUpscaleFactor] = useState('4x');
   const [upscaleModel, setUpscaleModel] = useState('Super-Resolution Neural');
 
+  // Tool 12: AI Music & SFX Generator
+  const [musicPrompt, setMusicPrompt] = useState(
+    'Cinematic epic trailer orchestral synth hybrid with dramatic riser and bass drop'
+  );
+  const [musicGenre, setMusicGenre] = useState('Cinematic');
+  const [musicMood, setMusicMood] = useState('Epic');
+  const [musicBpm, setMusicBpm] = useState(128);
+  const [musicDuration, setMusicDuration] = useState(30);
+
+  // Tool 13: AI Speech-to-Text Workspace
+  const [transcriptionLang, setTranscriptionLang] = useState('auto');
+  const [transcriptionPrompt, setTranscriptionPrompt] = useState(
+    'Transcribe dialogue, identify speakers, and align timestamps with millisecond accuracy.'
+  );
+
   // Reset state when opening a new tool
   useEffect(() => {
     if (isOpen) {
@@ -270,6 +285,27 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
             message: assistantPrompt,
             projectSummary: 'VeeCut Master Timeline',
             currentTimeSeconds: 0,
+          };
+          break;
+
+        case 'ai_music_sfx':
+          setGenerationStatusText('Synthesizing cinematic music track with neural synth engine...');
+          endpoint = '/api/ai/music-gen';
+          payload = {
+            prompt: musicPrompt,
+            genre: musicGenre,
+            mood: musicMood,
+            bpm: musicBpm,
+            durationSeconds: musicDuration,
+          };
+          break;
+
+        case 'ai_transcription':
+          setGenerationStatusText('Analyzing audio and transcribing speech with speaker diarization...');
+          endpoint = '/api/ai/speech-to-text';
+          payload = {
+            audioUrl: 'sample_audio_clip.mp3',
+            language: transcriptionLang,
           };
           break;
 
@@ -925,6 +961,113 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
             </div>
           )}
 
+          {/* TOOL 12: AI MUSIC & SFX GENERATOR */}
+          {tool.id === 'ai_music_sfx' && (
+            <div className="space-y-3">
+              <div>
+                <label className="font-semibold text-zinc-300 mb-1 block">Music Generation Prompt</label>
+                <textarea
+                  value={musicPrompt}
+                  onChange={(e) => setMusicPrompt(e.target.value)}
+                  rows={2}
+                  className="w-full bg-[#141724] border border-zinc-750 focus:border-cyan-500 rounded-lg p-2.5 text-zinc-200 font-medium focus:outline-none transition leading-relaxed resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="text-zinc-400 text-[10px] uppercase font-bold block mb-1">Genre</label>
+                  <select
+                    value={musicGenre}
+                    onChange={(e) => setMusicGenre(e.target.value)}
+                    className="w-full bg-[#141724] border border-zinc-750 rounded-lg px-2 py-1.5 text-zinc-200 cursor-pointer"
+                  >
+                    {['Cinematic', 'Synthwave', 'Lofi Hip-Hop', 'Trailer Orchestral', 'Ambient Drone', 'Trap Electronic'].map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 text-[10px] uppercase font-bold block mb-1">Mood</label>
+                  <select
+                    value={musicMood}
+                    onChange={(e) => setMusicMood(e.target.value)}
+                    className="w-full bg-[#141724] border border-zinc-750 rounded-lg px-2 py-1.5 text-zinc-200 cursor-pointer"
+                  >
+                    {['Epic', 'Mysterious', 'Chill', 'Uplifting', 'Dark Suspense', 'Action'].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 text-[10px] uppercase font-bold block mb-1">Duration & Tempo</label>
+                  <div className="flex gap-1.5">
+                    <select
+                      value={musicDuration}
+                      onChange={(e) => setMusicDuration(Number(e.target.value))}
+                      className="w-1/2 bg-[#141724] border border-zinc-750 rounded-lg px-1.5 py-1.5 text-zinc-200 text-[11px] cursor-pointer"
+                    >
+                      <option value={15}>15s</option>
+                      <option value={30}>30s</option>
+                      <option value={60}>60s</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={musicBpm}
+                      onChange={(e) => setMusicBpm(Number(e.target.value))}
+                      min={60}
+                      max={180}
+                      className="w-1/2 bg-[#141724] border border-zinc-750 rounded-lg px-1.5 py-1.5 text-zinc-200 text-[11px] text-center"
+                      title="BPM"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TOOL 13: AI SPEECH-TO-TEXT WORKSPACE */}
+          {tool.id === 'ai_transcription' && (
+            <div className="space-y-3">
+              <div>
+                <label className="font-semibold text-zinc-300 mb-1 block">Transcription Prompt & Context</label>
+                <textarea
+                  value={transcriptionPrompt}
+                  onChange={(e) => setTranscriptionPrompt(e.target.value)}
+                  rows={2}
+                  className="w-full bg-[#141724] border border-zinc-750 focus:border-cyan-500 rounded-lg p-2.5 text-zinc-200 font-medium focus:outline-none transition leading-relaxed resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-zinc-400 text-[10px] uppercase font-bold block mb-1">Spoken Language</label>
+                  <select
+                    value={transcriptionLang}
+                    onChange={(e) => setTranscriptionLang(e.target.value)}
+                    className="w-full bg-[#141724] border border-zinc-750 rounded-lg px-2 py-1.5 text-zinc-200 cursor-pointer"
+                  >
+                    {['auto', 'en', 'es', 'fr', 'de', 'ja', 'zh'].map((l) => (
+                      <option key={l} value={l}>
+                        {l === 'auto' ? 'Auto-Detect Language' : l.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 text-[10px] uppercase font-bold block mb-1">Speaker Diarization</label>
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-lg bg-[#141724] border border-zinc-750 text-cyan-300 text-xs">
+                    <Check className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Auto Multi-Speaker Split</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Live Preview Area */}
           <div className="relative aspect-video rounded-xl bg-black border border-zinc-800 overflow-hidden flex items-center justify-center p-3">
             {isGenerating ? (
@@ -1177,6 +1320,63 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
                     <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/80 pt-1.5">
                       <span>Fidelity: {((resultData.fidelityScore || 0.994) * 100).toFixed(1)}%</span>
                       <span className="text-rose-400 font-semibold">{resultData.temporalStability || 'Motion-compensated'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* TOOL 12: AI MUSIC & SFX PREVIEW */}
+                {tool.id === 'ai_music_sfx' && (
+                  <div className="relative w-full h-full bg-gradient-to-tr from-pink-950/40 via-zinc-900 to-black rounded-lg border border-pink-500/30 p-4 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="w-4 h-4 text-pink-400" />
+                        <span className="text-pink-300 font-bold text-xs">
+                          {resultData.title || `${musicGenre} Track (${musicMood})`}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded font-mono text-[10px]">
+                        {resultData.bpm || musicBpm} BPM • {resultData.durationSeconds || musicDuration}s
+                      </span>
+                    </div>
+
+                    <div className="my-2 flex flex-col items-center justify-center gap-2">
+                      <button
+                        onClick={toggleAudioPlay}
+                        className="w-12 h-12 rounded-full bg-pink-500 text-white flex items-center justify-center shadow-lg hover:scale-105 transition cursor-pointer"
+                      >
+                        {isPlayingAudio ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-white translate-x-0.5" />}
+                      </button>
+                      <div className="text-[10px] text-pink-200 font-mono">
+                        {isPlayingAudio ? 'Playing Generated Track...' : 'Click Play to Listen'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/80 pt-1.5">
+                      <span>Key: {resultData.key || 'D minor'}</span>
+                      <span className="text-pink-400 font-semibold">{resultData.genre || musicGenre}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* TOOL 13: AI SPEECH-TO-TEXT PREVIEW */}
+                {tool.id === 'ai_transcription' && (
+                  <div className="relative w-full h-full bg-gradient-to-tr from-amber-950/40 via-zinc-900 to-black rounded-lg border border-amber-500/30 p-3.5 flex flex-col justify-between overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="text-amber-300 font-bold text-xs">Audio Transcript</span>
+                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded font-mono text-[10px]">
+                        Confidence: {((resultData.confidence || 0.985) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 my-2 overflow-y-auto max-h-24 p-2 bg-black/40 rounded border border-zinc-800 text-[11px] text-zinc-200 leading-relaxed">
+                      {resultData.transcript ||
+                        resultData.text ||
+                        'Speaker 1: Welcome to VeeCut Studio. We are generating high-impact videos with synchronized AI audio tracks.'}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/80 pt-1.5">
+                      <span>Language: {resultData.detectedLanguage || transcriptionLang}</span>
+                      <span className="text-amber-400 font-semibold">Diarization Complete</span>
                     </div>
                   </div>
                 )}

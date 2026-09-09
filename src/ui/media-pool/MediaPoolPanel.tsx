@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useEditor } from '../context/EditorContext';
 import { MediaAsset } from '../../domain/media/MediaAsset';
 import { AddClipCommand } from '../../engine/command/implementations/AddClipCommand';
@@ -24,8 +24,15 @@ import {
   FolderOpen,
   Youtube,
   X,
+  Play,
+  Pause,
+  Volume2,
+  Loader2,
 } from 'lucide-react';
 import { YouTubePanel } from '../youtube/YouTubePanel';
+import { AudioWaveformVisualizer } from '../audio/AudioWaveformVisualizer';
+import { BrowserMediaProcessor } from '../../media-services/browser/BrowserMediaProcessor';
+import { notifyToast } from '../toast/ToastContext';
 
 export const MediaPoolPanel: React.FC = () => {
   const {
@@ -42,7 +49,22 @@ export const MediaPoolPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isYouTubeModalOpen, setIsYouTubeModalOpen] = useState(false);
+  const [previewingAssetId, setPreviewingAssetId] = useState<string | null>(null);
+  const [previewProgress, setPreviewProgress] = useState<number>(0);
+  const [extractingAssetId, setExtractingAssetId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const assets = project.mediaPool || [];
 
@@ -60,6 +82,79 @@ export const MediaPoolPanel: React.FC = () => {
       } catch (e) {
         console.error('Import failed', e);
       }
+    }
+  };
+
+  const toggleAudioPreview = (asset: MediaAsset, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (previewingAssetId === asset.id) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+      setPreviewingAssetId(null);
+      setPreviewProgress(0);
+      return;
+    }
+
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+
+    try {
+      const audio = new Audio(asset.uri);
+      previewAudioRef.current = audio;
+      setPreviewingAssetId(asset.id);
+      setPreviewProgress(0);
+
+      audio.ontimeupdate = () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          setPreviewProgress(audio.currentTime / audio.duration);
+        }
+      };
+
+      audio.onended = () => {
+        setPreviewingAssetId(null);
+        setPreviewProgress(0);
+        previewAudioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        setPreviewingAssetId(null);
+        setPreviewProgress(0);
+        previewAudioRef.current = null;
+      };
+
+      audio.play().catch((err) => {
+        console.warn('Audio preview error', err);
+        setPreviewingAssetId(null);
+      });
+    } catch (e) {
+      console.warn('Could not initialize audio preview', e);
+      setPreviewingAssetId(null);
+    }
+  };
+
+  const handleExtractAudioFromVideo = async (asset: MediaAsset, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExtractingAssetId(asset.id);
+    try {
+      const processor = new BrowserMediaProcessor();
+      const result = await processor.extractAudioFromMedia(asset.uri);
+      const audioFile = new File(
+        [result.blob],
+        `${asset.name.replace(/\.[^/.]+$/, '')}_Audio.wav`,
+        { type: 'audio/wav' }
+      );
+      await importFile(audioFile);
+      notifyToast('Audio track extracted and added to Media Pool!', 'success');
+    } catch (err: any) {
+      console.error('Failed to extract audio from video', err);
+      notifyToast('Could not extract audio track from this video file.', 'error');
+    } finally {
+      setExtractingAssetId(null);
     }
   };
 
@@ -92,7 +187,7 @@ export const MediaPoolPanel: React.FC = () => {
 
     const cmd = new AddClipCommand(timelineEngine, targetTrack.id, clip as any);
     commandManager.execute(cmd).catch((err) => {
-      alert(err.message || 'Failed to place clip on timeline. Check track space.');
+      notifyToast(err.message || 'Failed to place clip on timeline. Check track space.', 'warning');
     });
   };
 
@@ -127,7 +222,7 @@ export const MediaPoolPanel: React.FC = () => {
           type="file"
           ref={fileInputRef}
           multiple
-          accept="video/*,audio/*,image/*"
+          accept="video/*,audio/*,image/*,.mp4,.mov,.webm,.mkv,.avi,.mp3,.wav,.ogg,.aac,.m4a,.flac"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
@@ -270,21 +365,33 @@ export const MediaPoolPanel: React.FC = () => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : asset.type === 'audio' ? (
-                      <div className="w-full h-full bg-gradient-to-br from-emerald-950/60 to-zinc-900 flex items-center justify-center">
-                        <Music className="w-8 h-8 text-emerald-400/80" />
+                      <div className="w-full h-full bg-gradient-to-br from-emerald-950/70 to-zinc-950 flex items-center justify-center p-1 relative">
+                        <AudioWaveformVisualizer
+                          asset={asset}
+                          color={previewingAssetId === asset.id ? '#10b981' : '#34d399'}
+                          height={55}
+                          className="w-full h-full opacity-80"
+                        />
+                        {/* Playhead progress if previewing */}
+                        {previewingAssetId === asset.id && (
+                          <div
+                            className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_8px_white] pointer-events-none"
+                            style={{ left: `${Math.max(0, Math.min(100, previewProgress * 100))}%` }}
+                          />
+                        )}
                       </div>
                     ) : (
                       <Film className="w-8 h-8 text-zinc-700" />
                     )}
 
                     {/* Duration Badge */}
-                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[10px] font-mono text-zinc-200 flex items-center gap-1">
+                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-xs text-[10px] font-mono text-zinc-200 flex items-center gap-1 z-10">
                       <Clock className="w-2.5 h-2.5 text-zinc-400" />
                       <span>{durSec > 0 ? `${durSec.toFixed(1)}s` : asset.type.toUpperCase()}</span>
                     </div>
 
                     {/* Media Type Icon Badge */}
-                    <div className="absolute top-1 left-1 p-1 rounded bg-black/70 backdrop-blur-xs text-zinc-300">
+                    <div className="absolute top-1 left-1 p-1 rounded bg-black/70 backdrop-blur-xs text-zinc-300 z-10">
                       {asset.type === 'video' ? (
                         <Film className="w-3 h-3 text-cyan-400" />
                       ) : asset.type === 'audio' ? (
@@ -294,11 +401,31 @@ export const MediaPoolPanel: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Audio Preview Play/Pause button */}
+                    {asset.type === 'audio' && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleAudioPreview(asset, e)}
+                        title={previewingAssetId === asset.id ? 'Pause Preview' : 'Play Preview'}
+                        className={`absolute bottom-1 left-1 p-1 rounded-full z-20 backdrop-blur-xs transition-all ${
+                          previewingAssetId === asset.id
+                            ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/50 scale-110'
+                            : 'bg-black/80 text-zinc-300 hover:text-white hover:bg-emerald-600'
+                        }`}
+                      >
+                        {previewingAssetId === asset.id ? (
+                          <Pause className="w-3 h-3" />
+                        ) : (
+                          <Play className="w-3 h-3 ml-0.5" />
+                        )}
+                      </button>
+                    )}
+
                     {/* Quick Add Overlay Button */}
                     <button
                       onClick={() => handleAddAssetToTimeline(asset)}
                       title="Add to Timeline at playhead"
-                      className="absolute inset-0 bg-cyan-950/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 text-xs font-medium"
+                      className="absolute inset-0 bg-cyan-950/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1 text-xs font-medium z-15"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Place</span>
@@ -320,13 +447,31 @@ export const MediaPoolPanel: React.FC = () => {
                       </p>
                     </div>
 
-                    <button
-                      onClick={(e) => handleRemoveAsset(asset.id, e)}
-                      title="Remove from project"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 transition-all rounded hover:bg-zinc-800"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      {asset.type === 'video' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleExtractAudioFromVideo(asset, e)}
+                          title="Extract original audio track to Media Pool"
+                          disabled={extractingAssetId === asset.id}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-cyan-400 transition-all rounded hover:bg-zinc-800 disabled:opacity-50"
+                        >
+                          {extractingAssetId === asset.id ? (
+                            <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                          ) : (
+                            <Volume2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => handleRemoveAsset(asset.id, e)}
+                        title="Remove from project"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 transition-all rounded hover:bg-zinc-800"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {asset.isOffline && (

@@ -27,6 +27,7 @@ export interface MediaAsset {
   id: string;
   name: string;
   uri: string; // ObjectURL, file path, or web blob URI
+  proxyUri?: string; // Low-resolution or optimized proxy stream
   type: MediaType;
   fileSize: number;
   duration: RationalTime;

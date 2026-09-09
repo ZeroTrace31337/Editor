@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { VeeCutLogo } from '../common/VeeCutLogo';
 import {
   X,
   BookOpen,
@@ -30,6 +31,7 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
   initialTab = 'tutorials',
 }) => {
   const [activeTab, setActiveTab] = useState<'tutorials' | 'shortcuts' | 'about'>(initialTab);
+  const [selectedTutorial, setSelectedTutorial] = useState<(typeof tutorials)[0] | null>(null);
 
   if (!isOpen) return null;
 
@@ -129,7 +131,58 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4">
-          {activeTab === 'tutorials' && (
+          {activeTab === 'tutorials' && selectedTutorial ? (
+            <div className="space-y-4">
+              <button
+                onClick={() => setSelectedTutorial(null)}
+                className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5"
+              >
+                ← Back to All Guides
+              </button>
+
+              <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                    {selectedTutorial.category} • {selectedTutorial.duration}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-mono">{selectedTutorial.level}</span>
+                </div>
+                <h3 className="text-sm font-bold text-white">{selectedTutorial.title}</h3>
+                <p className="text-xs text-zinc-300 leading-relaxed">{selectedTutorial.desc}</p>
+
+                {/* Interactive Walkthrough Steps */}
+                <div className="mt-4 pt-4 border-t border-zinc-800/80 space-y-2.5">
+                  <h4 className="text-xs font-semibold text-zinc-200">Interactive Walkthrough Steps:</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-start gap-2.5 p-2 rounded bg-zinc-950/60 border border-zinc-800/60">
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[10px] flex items-center justify-center shrink-0">1</span>
+                      <p className="text-zinc-300">Open your active project timeline or import media clips directly into the Media Pool.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5 p-2 rounded bg-zinc-950/60 border border-zinc-800/60">
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[10px] flex items-center justify-center shrink-0">2</span>
+                      <p className="text-zinc-300">Place the timeline playhead at the target edit point and use keyboard shortcuts like <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-cyan-300 font-mono text-[10px]">Ctrl+B</kbd> or the Quick Action Toolbar.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5 p-2 rounded bg-zinc-950/60 border border-zinc-800/60">
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[10px] flex items-center justify-center shrink-0">3</span>
+                      <p className="text-zinc-300">Fine-tune parameters in the Inspector panel on the right (Transforms, Effects, Color grading, and Speed curves).</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setSelectedTutorial(null);
+                      onClose();
+                    }}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Got it, let's edit!
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'tutorials' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {tutorials.map((tut, i) => (
                 <div
@@ -149,16 +202,16 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
                   <div className="mt-3 pt-2 border-t border-zinc-800 flex items-center justify-between">
                     <span className="text-[10px] text-zinc-400">{tut.level}</span>
                     <button
-                      onClick={() => alert(`Starting video walkthrough for: ${tut.title}`)}
+                      onClick={() => setSelectedTutorial(tut)}
                       className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
                     >
-                      <Play className="w-3 h-3 fill-current" /> Watch Guide
+                      <Play className="w-3 h-3 fill-current" /> Open Guide
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           {activeTab === 'shortcuts' && (
             <div className="divide-y divide-zinc-800/80 bg-zinc-900/60 rounded-xl border border-zinc-800 overflow-hidden">
@@ -176,9 +229,7 @@ export const TutorialsModal: React.FC<TutorialsModalProps> = ({
           {activeTab === 'about' && (
             <div className="space-y-4 text-xs text-zinc-300 leading-relaxed bg-zinc-900/60 p-5 rounded-xl border border-zinc-800">
               <div className="flex items-center gap-3 pb-3 border-b border-zinc-800">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-400 to-blue-600 flex items-center justify-center text-black font-black text-lg">
-                  <Play className="w-5 h-5 fill-black translate-x-0.5" />
-                </div>
+                <VeeCutLogo size={42} rounded="xl" />
                 <div>
                   <h3 className="text-base font-black text-white">VeeCut Pro Studio</h3>
                   <span className="text-[11px] text-cyan-400 font-mono">v3.4.2 Desktop Edition</span>

@@ -22,6 +22,8 @@ export class VideoPlaybackManager {
   private pool: Map<string, VideoElementState> = new Map();
   private maxPooledElements = 16;
   private proxyEnabled = true;
+  private masterVolume = 1.0;
+  private isMasterMuted = false;
 
   private constructor() {}
 
@@ -30,6 +32,25 @@ export class VideoPlaybackManager {
       VideoPlaybackManager.instance = new VideoPlaybackManager();
     }
     return VideoPlaybackManager.instance;
+  }
+
+  public setMasterVolume(vol: number): void {
+    this.masterVolume = Math.max(0, Math.min(1.0, vol));
+    for (const entry of this.pool.values()) {
+      entry.element.volume = this.masterVolume;
+    }
+  }
+
+  public setMasterMuted(muted: boolean): void {
+    this.isMasterMuted = muted;
+    for (const entry of this.pool.values()) {
+      entry.element.muted = muted;
+    }
+  }
+
+  public getVideoElementIfActive(assetId: string): HTMLVideoElement | null {
+    const entry = this.pool.get(assetId);
+    return entry ? entry.element : null;
   }
 
   public setProxyEnabled(enabled: boolean): void {
@@ -63,11 +84,24 @@ export class VideoPlaybackManager {
       this.evictOldestIfNeeded();
 
       const video = document.createElement('video');
-      video.crossOrigin = 'anonymous';
-      video.muted = true;
+      // Set crossOrigin only for non-blob remote resources
+      if (!activeUri.startsWith('blob:') && !activeUri.startsWith('data:')) {
+        video.crossOrigin = 'anonymous';
+      }
+      video.muted = this.isMasterMuted;
+      video.volume = this.masterVolume;
       video.playsInline = true;
       video.preload = 'auto';
       video.src = activeUri;
+
+      // Safe fallback if crossOrigin causes media error on non-CORS servers
+      video.addEventListener('error', () => {
+        if (video.crossOrigin) {
+          video.removeAttribute('crossorigin');
+          video.src = activeUri;
+          video.load();
+        }
+      });
 
       entry = {
         element: video,
@@ -99,8 +133,8 @@ export class VideoPlaybackManager {
    *
    * CRITICAL OPTIMIZATION:
    * Instead of repeatedly setting `video.currentTime = targetSeconds` (which forces hardware decoder flush),
-   * if the engine is playing, we allow `video.play()` and adjust `video.playbackRate` smoothly
-   * to eliminate micro-drifts. We ONLY seek if the drift exceeds 250ms or when paused!
+   * if the engine is playing, we allow `video.play()` and keep the rate steady.
+   * We ONLY seek if the drift exceeds 250ms or when paused!
    */
   public syncVideoPlayback(
     video: HTMLVideoElement,
@@ -120,7 +154,7 @@ export class VideoPlaybackManager {
         video.pause();
       }
       if (Math.abs(driftSec) > 0.04) {
-        if (!entry || !entry.isSeeking || Math.abs(currentVideoTime - targetSourceSeconds) > 0.1) {
+        if (!entry || !entry.isSeeking || Math.abs(currentVideoTime - targetSourceSeconds) > 0.08) {
           video.currentTime = Math.max(0, targetSourceSeconds);
         }
       }
@@ -138,7 +172,8 @@ export class VideoPlaybackManager {
       }
     }
 
-    // Micro-Drift Handling
+    // Steady Zero-Stutter Drift Handling:
+    // If drift is small (< 60ms), maintain exact playback rate to avoid micro-stutter.
     if (Math.abs(driftSec) > 0.25) {
       // Large drift (e.g. after a large jump or initial play): perform single coordinated seek
       if (!entry || !entry.isSeeking) {
@@ -146,15 +181,13 @@ export class VideoPlaybackManager {
         video.currentTime = Math.max(0, targetSourceSeconds);
       }
       video.playbackRate = playbackSpeed;
-    } else if (Math.abs(driftSec) > 0.03) {
-      // Subtle drift: adapt playbackRate gently to nudge video back into lock without pausing decoder!
-      // If video is behind (driftSec < 0), speed up slightly (e.g. 1.05x).
-      // If video is ahead (driftSec > 0), slow down slightly (e.g. 0.95x).
-      const nudgeFactor = Math.max(-0.15, Math.min(0.15, -driftSec * 0.8));
-      video.playbackRate = Math.max(0.1, playbackSpeed * (1.0 + nudgeFactor));
+    } else if (Math.abs(driftSec) > 0.06) {
+      // Gentle nudge (max ±5%) to smoothly pull back into lock without pausing decoder
+      const nudgeFactor = Math.max(-0.05, Math.min(0.05, -driftSec * 0.4));
+      video.playbackRate = Math.max(0.2, playbackSpeed * (1.0 + nudgeFactor));
     } else {
-      // Locked in sync: maintain exact playback speed
-      if (Math.abs(video.playbackRate - playbackSpeed) > 0.01) {
+      // In lockstep with authoritative clock: maintain exact playback speed
+      if (Math.abs(video.playbackRate - playbackSpeed) > 0.005) {
         video.playbackRate = playbackSpeed;
       }
     }

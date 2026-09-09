@@ -6,11 +6,12 @@
 import React, { useState } from 'react';
 import { useEditor } from '../context/EditorContext';
 import { ExportSettings } from '../../rendering/export/CanvasVideoExporter';
-import { Download, X, Film, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Download, X, Film, Music, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { project, exporter } = useEditor();
 
+  const [exportType, setExportType] = useState<'video' | 'audio'>('video');
   const [resolution, setResolution] = useState<'720p' | '1080p' | '1440p' | '4k'>('1080p');
   const [fps, setFps] = useState<number>(30);
   const [bitrateMode, setBitrateMode] = useState<'ultra' | 'high' | 'standard'>('high');
@@ -32,57 +33,74 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
     setErrorMsg(null);
     setExportedBlobUrl(null);
 
-    let width = 1920;
-    let height = 1080;
-    if (resolution === '720p') {
-      width = 1280;
-      height = 720;
-    } else if (resolution === '1080p') {
-      width = 1920;
-      height = 1080;
-    } else if (resolution === '1440p') {
-      width = 2560;
-      height = 1440;
-    } else if (resolution === '4k') {
-      width = 3840;
-      height = 2160;
-    }
-
-    // Handle aspect ratio
-    if (project.settings.aspectRatio === '9:16') {
-      const temp = width;
-      width = height;
-      height = temp;
-    } else if (project.settings.aspectRatio === '1:1') {
-      height = width;
-    }
-
-    const settings: ExportSettings = {
-      width,
-      height,
-      fps,
-      format: 'video/webm',
-      filename,
-    };
-
     try {
-      const blob = await exporter.exportVideo(project, settings, (p, text) => {
-        setProgress(p);
-        setStatusText(text);
-      });
+      if (exportType === 'audio') {
+        const blob = await exporter.exportAudioOnly(project, (p, text) => {
+          setProgress(p);
+          setStatusText(text);
+        });
 
-      const url = URL.createObjectURL(blob);
-      setExportedBlobUrl(url);
+        const url = URL.createObjectURL(blob);
+        setExportedBlobUrl(url);
 
-      // Auto trigger download
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filename}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.wav`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        let width = 1920;
+        let height = 1080;
+        if (resolution === '720p') {
+          width = 1280;
+          height = 720;
+        } else if (resolution === '1080p') {
+          width = 1920;
+          height = 1080;
+        } else if (resolution === '1440p') {
+          width = 2560;
+          height = 1440;
+        } else if (resolution === '4k') {
+          width = 3840;
+          height = 2160;
+        }
+
+        // Handle aspect ratio
+        if (project.settings.aspectRatio === '9:16') {
+          const temp = width;
+          width = height;
+          height = temp;
+        } else if (project.settings.aspectRatio === '1:1') {
+          height = width;
+        }
+
+        const settings: ExportSettings = {
+          width,
+          height,
+          fps,
+          format: 'video/webm',
+          filename,
+        };
+
+        const blob = await exporter.exportVideo(project, settings, (p, text) => {
+          setProgress(p);
+          setStatusText(text);
+        });
+
+        const url = URL.createObjectURL(blob);
+        setExportedBlobUrl(url);
+
+        // Auto trigger download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Video export encountered an error');
+      setErrorMsg(err.message || 'Export encountered an error');
     } finally {
       setIsExporting(false);
     }
@@ -131,91 +149,146 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
 
           {!isExporting && !exportedBlobUrl && (
             <>
+              {/* Export Mode */}
+              <div className="space-y-1.5">
+                <label className="text-zinc-400 font-medium">Export Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportType('video')}
+                    className={`py-2 px-3 rounded-lg border flex items-center justify-center gap-2 transition-all ${
+                      exportType === 'video'
+                        ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold shadow-xs'
+                        : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Film className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Video + Audio (MP4)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportType('audio')}
+                    className={`py-2 px-3 rounded-lg border flex items-center justify-center gap-2 transition-all ${
+                      exportType === 'audio'
+                        ? 'border-emerald-500 bg-emerald-950/40 text-white font-semibold shadow-xs'
+                        : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Music className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Audio Master (WAV)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* File Name */}
               <div className="space-y-1.5">
                 <label className="text-zinc-400 font-medium">Output Filename</label>
-                <input
-                  type="text"
-                  value={filename}
-                  onChange={(e) => setFilename(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-indigo-500 font-mono text-xs"
-                />
-              </div>
-
-              {/* Resolution Options */}
-              <div className="space-y-1.5">
-                <label className="text-zinc-400 font-medium">Resolution</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { id: '720p', label: '720p HD' },
-                    { id: '1080p', label: '1080p FHD' },
-                    { id: '1440p', label: '2K QHD' },
-                    { id: '4k', label: '4K UHD' },
-                  ].map((res) => (
-                    <button
-                      key={res.id}
-                      onClick={() => setResolution(res.id as any)}
-                      className={`py-2 rounded-lg border text-center transition-all ${
-                        resolution === res.id
-                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
-                          : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {res.label}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={filename}
+                    onChange={(e) => setFilename(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-indigo-500 font-mono text-xs"
+                  />
+                  <span className="px-2 py-1.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-xs">
+                    {exportType === 'audio' ? '.wav' : '.mp4'}
+                  </span>
                 </div>
               </div>
 
-              {/* Frame Rate Options */}
-              <div className="space-y-1.5">
-                <label className="text-zinc-400 font-medium">Frame Rate</label>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[
-                    { fps: 24, label: '24 (Cinema)' },
-                    { fps: 25, label: '25 (PAL)' },
-                    { fps: 30, label: '30 (Web)' },
-                    { fps: 50, label: '50 (High)' },
-                    { fps: 60, label: '60 (Smooth)' },
-                  ].map((f) => (
-                    <button
-                      key={f.fps}
-                      onClick={() => setFps(f.fps)}
-                      className={`py-1.5 rounded-lg border text-center transition-all text-[11px] ${
-                        fps === f.fps
-                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
-                          : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {exportType === 'video' ? (
+                <>
+                  {/* Resolution Options */}
+                  <div className="space-y-1.5">
+                    <label className="text-zinc-400 font-medium">Resolution</label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { id: '720p', label: '720p HD' },
+                        { id: '1080p', label: '1080p FHD' },
+                        { id: '1440p', label: '2K QHD' },
+                        { id: '4k', label: '4K UHD' },
+                      ].map((res) => (
+                        <button
+                          key={res.id}
+                          onClick={() => setResolution(res.id as any)}
+                          className={`py-2 rounded-lg border text-center transition-all ${
+                            resolution === res.id
+                              ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
+                              : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          {res.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Bitrate & Quality */}
-              <div className="space-y-1.5">
-                <label className="text-zinc-400 font-medium">Bitrate & Quality</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'standard', label: 'Standard (8 Mbps)' },
-                    { id: 'high', label: 'High (16 Mbps)' },
-                    { id: 'ultra', label: 'Ultra Cinema (32 Mbps)' },
-                  ].map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => setBitrateMode(b.id as any)}
-                      className={`py-1.5 rounded-lg border text-center transition-all text-[10px] ${
-                        bitrateMode === b.id
-                          ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
-                          : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
+                  {/* Frame Rate Options */}
+                  <div className="space-y-1.5">
+                    <label className="text-zinc-400 font-medium">Frame Rate</label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[
+                        { fps: 24, label: '24 (Cinema)' },
+                        { fps: 25, label: '25 (PAL)' },
+                        { fps: 30, label: '30 (Web)' },
+                        { fps: 50, label: '50 (High)' },
+                        { fps: 60, label: '60 (Smooth)' },
+                      ].map((f) => (
+                        <button
+                          key={f.fps}
+                          onClick={() => setFps(f.fps)}
+                          className={`py-1.5 rounded-lg border text-center transition-all text-[11px] ${
+                            fps === f.fps
+                              ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
+                              : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bitrate & Quality */}
+                  <div className="space-y-1.5">
+                    <label className="text-zinc-400 font-medium">Bitrate & Quality</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'standard', label: 'Standard (8 Mbps)' },
+                        { id: 'high', label: 'High (16 Mbps)' },
+                        { id: 'ultra', label: 'Ultra Cinema (32 Mbps)' },
+                      ].map((b) => (
+                        <button
+                          key={b.id}
+                          onClick={() => setBitrateMode(b.id as any)}
+                          className={`py-1.5 rounded-lg border text-center transition-all text-[10px] ${
+                            bitrateMode === b.id
+                              ? 'border-indigo-500 bg-indigo-950/40 text-white font-semibold'
+                              : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-800/50 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                    <Music className="w-4 h-4" />
+                    <span>PCM Lossless Audio Mixdown</span>
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    Combines all timeline audio tracks, voiceover recordings, and synthesized sound effects with clip volume, stereo panning, fade in/out curves, and speed pitch timing.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1 font-mono text-[10px] text-emerald-300">
+                    <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80">48,000 Hz</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80">16-bit Stereo</span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80">RIFF WAV</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 

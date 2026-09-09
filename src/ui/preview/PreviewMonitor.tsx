@@ -17,6 +17,9 @@ import {
   Eye,
   EyeOff,
   Check,
+  Activity,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   createRationalTime,
@@ -26,6 +29,8 @@ import {
   subtractRationalTime,
   formatTimecode,
 } from '../../core/time/RationalTime';
+import { PlaybackDiagnosticsOverlay } from './PlaybackDiagnosticsOverlay';
+import { PlaybackDiagnostics } from '../../rendering/playback/PlaybackDiagnostics';
 
 export const PreviewMonitor: React.FC = () => {
   const {
@@ -80,22 +85,89 @@ export const PreviewMonitor: React.FC = () => {
     return `${pad(hours)}:${pad(mins)}:${pad(secs)}:${pad(frames)}`;
   };
 
-  // Continuous frame rendering on canvas
+  const [isMuted, setIsMuted] = useState(() => playbackEngine.isMute());
+  const [volume, setVolumeState] = useState(() => playbackEngine.getVolume());
+
+  const handleToggleMute = () => {
+    playbackEngine.toggleMute();
+    setIsMuted(playbackEngine.isMute());
+  };
+
+  const handleVolumeChange = (newVol: number) => {
+    playbackEngine.setVolume(newVol);
+    setVolumeState(newVol);
+    if (isMuted && newVol > 0) {
+      playbackEngine.setMuted(false);
+      setIsMuted(false);
+    }
+  };
+
+  const renderWidthRef = useRef(renderWidth);
+  renderWidthRef.current = renderWidth;
+  const renderHeightRef = useRef(renderHeight);
+  renderHeightRef.current = renderHeight;
+  const isBeforeAfterRef = useRef(isBeforeAfterActive);
+  isBeforeAfterRef.current = isBeforeAfterActive;
+
+  // Immediate stationary frame rendering when paused or seeking
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    compositor.renderSequence(
-      ctx,
-      timelineEngine.getSequence(),
-      currentTime,
-      renderWidth,
-      renderHeight,
-      isBeforeAfterActive
-    );
-  }, [currentTime, isBeforeAfterActive, timelineEngine, compositor, renderWidth, renderHeight, project]);
+    if (!isPlaying) {
+      compositor.renderSequence(
+        ctx,
+        timelineEngine.getSequence(),
+        currentTime,
+        renderWidth,
+        renderHeight,
+        isBeforeAfterActive,
+        false
+      );
+    }
+  }, [currentTime, isPlaying, renderWidth, renderHeight, isBeforeAfterActive, compositor, timelineEngine]);
+
+  // Continuous uninterrupted 60/120 FPS hardware-synchronized playback frame loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const unsubscribe = playbackEngine.onFrame((frameTime, playing) => {
+      compositor.renderSequence(
+        ctx,
+        timelineEngine.getSequence(),
+        frameTime,
+        renderWidthRef.current,
+        renderHeightRef.current,
+        isBeforeAfterRef.current,
+        playing
+      );
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [timelineEngine, compositor, playbackEngine]);
+
+  // Global Shift+D keyboard listener to toggle Playback Telemetry HUD
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        PlaybackDiagnostics.getInstance().toggleDebugEnabled();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const stepFrame = (frames: number) => {
     const frameSeconds = frames / fps;
@@ -152,7 +224,17 @@ export const PreviewMonitor: React.FC = () => {
     >
       {/* 1. TOP PLAYER TOOLBAR BAR (Player | Full Quality ▾ | 4K 60fps ▾ | Menu) */}
       <div className="h-8 bg-[#0a0c13] border-b border-zinc-850 px-3 flex items-center justify-between shrink-0 text-xs relative z-30">
-        <span className="font-bold text-zinc-200">Player</span>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-zinc-200">Player</span>
+          <button
+            onClick={() => PlaybackDiagnostics.getInstance().toggleDebugEnabled()}
+            title="Toggle Playback Telemetry HUD (Shift+D)"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-zinc-400 hover:text-cyan-400 hover:bg-zinc-850 transition"
+          >
+            <Activity className="w-3 h-3 text-cyan-400" />
+            <span className="hidden sm:inline">Telemetry</span>
+          </button>
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Full Quality Dropdown */}
@@ -175,6 +257,9 @@ export const PreviewMonitor: React.FC = () => {
                     key={q}
                     onClick={() => {
                       setQualityPreset(q);
+                      PlaybackDiagnostics.getInstance().setQualityLevel(
+                        q === 'Full Quality' ? 'Full' : q === 'Half' ? 'Half' : 'Quarter'
+                      );
                       setShowQualityMenu(false);
                     }}
                     className={`w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-800 ${
@@ -286,6 +371,9 @@ export const PreviewMonitor: React.FC = () => {
             onClick={togglePlay}
           />
 
+          {/* Playback Diagnostics & Telemetry HUD Overlay */}
+          <PlaybackDiagnosticsOverlay />
+
           {/* Rule of Thirds Overlay */}
           {showRuleOfThirds && (
             <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 z-15 border border-cyan-500/20">
@@ -379,7 +467,7 @@ export const PreviewMonitor: React.FC = () => {
           <span className="text-zinc-400 text-[11px]">{totalTimecode}</span>
         </div>
 
-        {/* Center: Playback Controls (|◀, ▶, ▶|) */}
+        {/* Center: Playback Controls (|◀, ▶, ▶| and Audio Level) */}
         <div className="flex items-center gap-2">
           <button
             onClick={jumpToStart}
@@ -408,6 +496,31 @@ export const PreviewMonitor: React.FC = () => {
           >
             <SkipForward className="w-3.5 h-3.5" />
           </button>
+
+          {/* Master Audio Mute & Volume Control */}
+          <div className="flex items-center gap-1 ml-2 pl-2 border-l border-zinc-800">
+            <button
+              onClick={handleToggleMute}
+              title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+              className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-850 transition"
+            >
+              {isMuted ? (
+                <VolumeX className="w-3.5 h-3.5 text-red-400" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5" />
+              )}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={isMuted ? 0 : volume}
+              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+              className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              title={`Master Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+            />
+          </div>
         </div>
 
         {/* Right: Ratio Dropdown & Fullscreen */}

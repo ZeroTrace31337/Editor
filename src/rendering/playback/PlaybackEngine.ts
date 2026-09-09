@@ -19,6 +19,7 @@ import { AudioPlaybackSync } from './AudioPlaybackSync';
 import { TimelineIntervalIndex } from '../../engine/timeline/TimelineIntervalIndex';
 import { MediaRegistry } from '../../engine/media/MediaRegistry';
 import { VideoClip } from '../../domain/timeline/Clip';
+import { AudioMixerEngine } from '../../engine/audio/AudioMixerEngine';
 
 export type PlaybackState = 'playing' | 'paused';
 export type TimeUpdateListener = (time: RationalTime) => void;
@@ -51,7 +52,8 @@ export class PlaybackEngine {
     if (mediaRegistry) {
       this.mediaRegistry = mediaRegistry;
     }
-    const fps = sequence.frameRate ? sequence.frameRate.numerator / sequence.frameRate.denominator : 60;
+    const seqAny = sequence as any;
+    const fps = seqAny.frameRate ? seqAny.frameRate.numerator / seqAny.frameRate.denominator : 60;
     this.targetFps = Math.round(fps) || 60;
     this.diagnostics.setTargetFps(this.targetFps);
   }
@@ -62,7 +64,8 @@ export class PlaybackEngine {
 
   public setSequence(sequence: Sequence): void {
     this.sequence = sequence;
-    const fps = sequence.frameRate ? sequence.frameRate.numerator / sequence.frameRate.denominator : 60;
+    const seqAny = sequence as any;
+    const fps = seqAny.frameRate ? seqAny.frameRate.numerator / seqAny.frameRate.denominator : 60;
     this.targetFps = Math.round(fps) || 60;
     this.diagnostics.setTargetFps(this.targetFps);
 
@@ -99,8 +102,11 @@ export class PlaybackEngine {
     this.playbackRate = Math.max(0.1, Math.min(8.0, rate));
   }
 
-  public play(): void {
+  public async play(): Promise<void> {
     if (this.state === 'playing') return;
+
+    // Unlock Web Audio API context during user gesture
+    await AudioMixerEngine.getInstance().resumeContext();
 
     // If at end of sequence, loop back to start
     if (
@@ -203,6 +209,7 @@ export class PlaybackEngine {
   public setVolume(vol: number): void {
     this.volume = Math.max(0, Math.min(1, vol));
     this.audioSync.setVolume(this.getVolume());
+    this.videoManager.setMasterVolume(this.getVolume());
   }
 
   public getVolume(): number {
@@ -212,6 +219,15 @@ export class PlaybackEngine {
   public toggleMute(): void {
     this.isMuted = !this.isMuted;
     this.audioSync.setMuted(this.isMuted);
+    this.videoManager.setMasterMuted(this.isMuted);
+    this.notifyTime(true);
+  }
+
+  public setMuted(muted: boolean): void {
+    this.isMuted = muted;
+    this.audioSync.setMuted(this.isMuted);
+    this.videoManager.setMasterMuted(this.isMuted);
+    this.notifyTime(true);
   }
 
   public isMute(): boolean {
@@ -225,14 +241,51 @@ export class PlaybackEngine {
       const deltaMs = now - this.lastPerfTime;
       this.lastPerfTime = now;
 
-      // Drop obsolete frame calculations if main thread stalled excessively
       if (deltaMs > 250) {
         this.diagnostics.recordSkippedFrame();
       }
 
-      const deltaSeconds = (Math.min(deltaMs, 100) / 1000) * this.playbackRate;
-      const deltaRational = secondsToRationalTime(deltaSeconds);
-      const nextTime = addRationalTime(this.currentTime, deltaRational);
+      // Check Authoritative Video Media Clock:
+      // If a video element is actively decoding and presenting on the primary visible track,
+      // its hardware-decoded media position is the authoritative master clock!
+      let authoritativeTime: RationalTime | null = null;
+      if (this.mediaRegistry) {
+        const currentSec = rationalTimeToSeconds(this.currentTime);
+        for (const track of this.sequence.tracks) {
+          if (track.kind === 'video' && track.visible) {
+            for (const clip of track.clips) {
+              const cStart = rationalTimeToSeconds(clip.timelineRange.start);
+              const cDur = rationalTimeToSeconds(clip.timelineRange.duration);
+              if (currentSec >= cStart && currentSec < cStart + cDur) {
+                const asset = this.mediaRegistry.getAsset((clip as VideoClip).mediaAssetId);
+                if (asset) {
+                  const video = this.videoManager.getVideoElementIfActive(asset.id);
+                  if (video && !video.paused && video.readyState >= 2) {
+                    const srcStart = rationalTimeToSeconds(clip.sourceRange.start);
+                    const videoElapsed = video.currentTime - srcStart;
+                    const timelineSec = cStart + videoElapsed / (clip.speed ?? 1.0);
+                    if (timelineSec >= cStart && timelineSec <= cStart + cDur + 0.1) {
+                      authoritativeTime = secondsToRationalTime(timelineSec);
+                    }
+                  }
+                }
+                break;
+              }
+            }
+          }
+          if (authoritativeTime) break;
+        }
+      }
+
+      let nextTime: RationalTime;
+      if (authoritativeTime) {
+        nextTime = authoritativeTime;
+      } else {
+        // High-precision fallback clock when over transitions, title cards, or audio-only sections
+        const deltaSeconds = (Math.min(deltaMs, 100) / 1000) * this.playbackRate;
+        const deltaRational = secondsToRationalTime(deltaSeconds);
+        nextTime = addRationalTime(this.currentTime, deltaRational);
+      }
 
       // Check if reached sequence duration
       if (
@@ -248,24 +301,22 @@ export class PlaybackEngine {
 
       this.currentTime = nextTime;
 
-      // 1. Sync Audio Graph
-      let audioSyncOffset = 0;
+      // 1. Sync Audio Graph (both audio tracks & video clips)
       if (this.mediaRegistry) {
-        const audioStatus = this.audioSync.syncAudio(this.sequence, this.currentTime, true, this.mediaRegistry);
-        audioSyncOffset = audioStatus.driftMs;
+        this.audioSync.syncAudio(this.sequence, this.currentTime, true, this.mediaRegistry);
       }
 
-      // 2. High-Frequency Frame Rendering (Direct Canvas & Playhead, 60/120 FPS)
+      // 2. High-Frequency Frame Presentation (Direct Canvas & Needle, 60/120 FPS)
       this.notifyFrame();
 
-      // 3. Lookahead Preloading for upcoming video clips (runs every ~500ms)
+      // 3. Lookahead Preloading for upcoming video clips (every ~500ms)
       if (now - this.lastLookaheadCheckTime > 500) {
         this.lastLookaheadCheckTime = now;
         this.runLookaheadPreload();
       }
 
-      // 4. Rate-limited UI Notification (~8-10 updates/sec for React components)
-      // This prevents the entire React tree from re-rendering 60 times a second!
+      // 4. Throttled UI Notification (~8-10 updates/sec for React components)
+      // This prevents the React timeline tree from re-rendering on every animation frame!
       if (now - this.lastUiNotifyTime >= 100) {
         this.lastUiNotifyTime = now;
         this.notifyTime(false);

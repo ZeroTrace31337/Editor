@@ -516,6 +516,42 @@ export class AudioSynthesisEngine {
   }
 
   /**
+   * Procedurally synthesizes any library SFX or music item offline into a genuine WAV Blob.
+   */
+  public async synthesizeSoundToWav(sound: SoundItem): Promise<Blob> {
+    const dur = Math.max(0.5, sound.durationSeconds);
+    const sampleRate = 44100;
+    const OfflineAudioContextClass = window.OfflineAudioContext || (window as any).webkitOfflineAudioContext;
+    const offlineCtx = new OfflineAudioContextClass(2, Math.ceil(sampleRate * dur), sampleRate);
+    const masterGain = offlineCtx.createGain();
+    masterGain.gain.setValueAtTime(0.8, 0);
+    masterGain.connect(offlineCtx.destination);
+
+    if (sound.category === 'whoosh') {
+      this.synthWhoosh(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'impact') {
+      this.synthImpact(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'transition' || sound.category === 'cinematic') {
+      this.synthRiserOrBoom(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'technology' || sound.category === 'ui') {
+      this.synthUIBeep(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'nature' || sound.category === 'ambient') {
+      this.synthAmbientNoise(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'comedy') {
+      this.synthComedyBoing(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'horror') {
+      this.synthHorrorDrone(offlineCtx as any, masterGain, 0, dur);
+    } else if (sound.category === 'weapons') {
+      this.synthLaserOrGun(offlineCtx as any, masterGain, 0, dur);
+    } else {
+      this.synthMusicGroove(offlineCtx as any, masterGain, 0, dur, sound.bpm || 120);
+    }
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    return this.audioBufferToWav(renderedBuffer);
+  }
+
+  /**
    * Helper: converts AudioBuffer into standard WAV Blob
    */
   private audioBufferToWav(buffer: AudioBuffer): Blob {

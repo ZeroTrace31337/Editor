@@ -983,6 +983,247 @@ app.post("/api/presets", (req, res) => {
 });
 
 // =========================================================================
+// VEECUT PROJECT PERSISTENCE & SETTINGS API ENDPOINTS
+// =========================================================================
+
+const getProjectsDbPath = () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  return path.join(dataDir, 'projects_db.json');
+};
+
+const readProjectsDb = (): any[] => {
+  const fs = require('fs');
+  const filePath = getProjectsDbPath();
+  if (fs.existsSync(filePath)) {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.projects)) {
+        return parsed.projects;
+      }
+    } catch {}
+  }
+  return [];
+};
+
+const writeProjectsDb = (projects: any[]): void => {
+  const fs = require('fs');
+  const filePath = getProjectsDbPath();
+  fs.writeFileSync(filePath, JSON.stringify({ projects }, null, 2));
+};
+
+// 1. Get All Projects
+app.get("/api/projects", (_req, res) => {
+  try {
+    const projects = readProjectsDb();
+    res.json({ projects });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch projects' });
+  }
+});
+
+// 2. Create or Save a Project
+app.post("/api/projects", (req, res) => {
+  try {
+    const project = req.body;
+    if (!project || !project.id) {
+      return res.status(400).json({ error: 'Missing project or project ID' });
+    }
+    const projects = readProjectsDb();
+    const existingIdx = projects.findIndex((p) => p.id === project.id);
+    const updatedProject = {
+      ...project,
+      lastEdited: 'Just now',
+      lastEditedTimestamp: Date.now(),
+    };
+    if (existingIdx >= 0) {
+      projects[existingIdx] = updatedProject;
+    } else {
+      projects.unshift(updatedProject);
+    }
+    writeProjectsDb(projects);
+    res.status(201).json({ success: true, project: updatedProject });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save project' });
+  }
+});
+
+// 3. Get Project by ID
+app.get("/api/projects/:id", (req, res) => {
+  try {
+    const projects = readProjectsDb();
+    const found = projects.find((p) => p.id === req.params.id);
+    if (!found) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    res.json({ project: found });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch project' });
+  }
+});
+
+// 4. Update / Rename Project
+app.put("/api/projects/:id", (req, res) => {
+  try {
+    const projects = readProjectsDb();
+    const existingIdx = projects.findIndex((p) => p.id === req.params.id);
+    if (existingIdx === -1) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    const updated = {
+      ...projects[existingIdx],
+      ...req.body,
+      id: req.params.id, // Preserve ID
+      lastEdited: 'Just now',
+      lastEditedTimestamp: Date.now(),
+    };
+    projects[existingIdx] = updated;
+    writeProjectsDb(projects);
+    res.json({ success: true, project: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update project' });
+  }
+});
+
+// 5. Delete Project
+app.delete("/api/projects/:id", (req, res) => {
+  try {
+    let projects = readProjectsDb();
+    const initialLen = projects.length;
+    projects = projects.filter((p) => p.id !== req.params.id);
+    if (projects.length === initialLen) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    writeProjectsDb(projects);
+    res.json({ success: true, id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete project' });
+  }
+});
+
+// 6. Duplicate Project
+app.post("/api/projects/:id/duplicate", (req, res) => {
+  try {
+    const projects = readProjectsDb();
+    const original = projects.find((p) => p.id === req.params.id);
+    if (!original) {
+      return res.status(404).json({ error: 'Original project not found' });
+    }
+    const cloned = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: `${original.name} (Copy)`,
+      lastEdited: 'Just now',
+      lastEditedTimestamp: Date.now(),
+      isStarred: false,
+    };
+    projects.unshift(cloned);
+    writeProjectsDb(projects);
+    res.status(201).json({ success: true, project: cloned });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to duplicate project' });
+  }
+});
+
+// 7. Toggle Starred Status
+app.post("/api/projects/:id/star", (req, res) => {
+  try {
+    const projects = readProjectsDb();
+    const existing = projects.find((p) => p.id === req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    existing.isStarred = !existing.isStarred;
+    writeProjectsDb(projects);
+    res.json({ success: true, isStarred: existing.isStarred, id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle star' });
+  }
+});
+
+// 8. User Settings API
+app.get("/api/settings", (_req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dataDir = path.join(process.cwd(), 'data');
+    const settingsFile = path.join(dataDir, 'user_settings.json');
+    if (fs.existsSync(settingsFile)) {
+      const raw = fs.readFileSync(settingsFile, 'utf-8');
+      return res.json({ settings: JSON.parse(raw) });
+    }
+    res.json({
+      settings: {
+        profile: {
+          name: "Studio Creator",
+          email: "creator@veecut.studio",
+          role: "Lead Video Editor",
+          bio: "Creating cinematic stories, commercials, and YouTube content with VeeCut.",
+          avatar: "U",
+        },
+        account: {
+          plan: "Pro Active (Unlimited)",
+          quotaUsedGb: 14.8,
+          quotaTotalGb: 100,
+        },
+        theme: {
+          mode: "dark",
+          accentColor: "cyan",
+          uiScale: "100%",
+        },
+        editor: {
+          autoSaveIntervalSec: 30,
+          snappingTolerancePx: 8,
+          defaultTransitionSec: 1.0,
+          rippleEditing: true,
+          waveformStyle: "detailed",
+        },
+        export: {
+          defaultFormat: "mp4",
+          defaultResolution: "1920x1080",
+          defaultFps: 60,
+          defaultBitrateMbps: 24,
+          hardwareAcceleration: true,
+        },
+        notifications: {
+          renderCompleteAlert: true,
+          cloudSyncAlert: true,
+          soundCues: false,
+          aiTips: true,
+        },
+        security: {
+          telemetry: false,
+          localCacheOnly: false,
+        },
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to read settings' });
+  }
+});
+
+app.post("/api/settings", (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const settingsFile = path.join(dataDir, 'user_settings.json');
+    fs.writeFileSync(settingsFile, JSON.stringify(req.body, null, 2));
+    res.json({ success: true, settings: req.body });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save settings' });
+  }
+});
+
+// =========================================================================
 // YOUTUBE DATA API V3 INTEGRATION ENDPOINTS
 // =========================================================================
 
@@ -1077,6 +1318,9 @@ app.get("/api/youtube/status", (_req, res) => {
   const status = youtubeService.getStatus();
   res.json(status);
 });
+
+// Serve public folder statically for assets, logos, and favicons
+app.use(express.static(path.join(process.cwd(), "public")));
 
 // Start Server and mount Vite middleware
 async function startServer() {

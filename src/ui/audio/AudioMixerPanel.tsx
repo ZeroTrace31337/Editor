@@ -10,7 +10,7 @@ import { Track } from '../../domain/timeline/Track';
 import { AudioMixerEngine } from '../../engine/audio/AudioMixerEngine';
 
 export const AudioMixerPanel: React.FC = () => {
-  const { project, projectService, timelineEngine, isPlaying } = useEditor();
+  const { project, projectService, timelineEngine, isPlaying, playbackEngine } = useEditor();
   const sequence = timelineEngine.getSequence();
   const audioTracks = sequence.tracks.filter((t) => t.kind === 'audio');
 
@@ -27,34 +27,46 @@ export const AudioMixerPanel: React.FC = () => {
     }
 
     const mixer = AudioMixerEngine.getInstance();
-    const interval = setInterval(() => {
-      const realMaster = mixer.getRealtimeMasterLevels();
-      const newMeters: Record<string, { left: number; right: number }> = {};
+    let animId: number | null = null;
+    let lastUpdate = 0;
 
-      for (const t of audioTracks) {
-        if (t.muted) {
-          newMeters[t.id] = { left: 0, right: 0 };
-          continue;
+    const updateMeters = (now: number) => {
+      // Throttle meter UI state updates to ~15-18 FPS to eliminate React reconciliation stutter during playback
+      if (now - lastUpdate >= 60) {
+        lastUpdate = now;
+        const realMaster = mixer.getRealtimeMasterLevels();
+        const newMeters: Record<string, { left: number; right: number }> = {};
+
+        for (const t of sequence.tracks) {
+          if (t.muted || !t.visible) {
+            newMeters[t.id] = { left: 0, right: 0 };
+            continue;
+          }
+          const vol = t.volume ?? 1.0;
+          const pan = t.pan ?? 0;
+          // Genuine audio meter level: 0 if no audio is passing through the master output
+          const baseLevel = realMaster.rms > 0 ? realMaster.rms * vol : 0;
+          const left = Math.min(1.0, baseLevel * (1 - Math.max(0, pan)));
+          const right = Math.min(1.0, baseLevel * (1 - Math.max(0, -pan)));
+          newMeters[t.id] = { left, right };
         }
-        // Query clips in track or evaluate based on track parameters
-        const vol = (t.volume ?? 1.0);
-        const pan = t.pan ?? 0;
-        const baseLevel = realMaster.rms > 0 ? realMaster.rms * vol : (vol * 0.4);
-        const left = Math.min(1.0, baseLevel * (1 - Math.max(0, pan)));
-        const right = Math.min(1.0, baseLevel * (1 - Math.max(0, -pan)));
-        newMeters[t.id] = { left, right };
+
+        setMeterLevels(newMeters);
+        setMasterLevel({
+          left: Math.min(1.0, realMaster.peak * masterVolume),
+          right: Math.min(1.0, realMaster.peak * 0.96 * masterVolume),
+          lufs: realMaster.lufsEstimate,
+        });
       }
 
-      setMeterLevels(newMeters);
-      setMasterLevel({
-        left: Math.min(1.0, realMaster.peak * masterVolume),
-        right: Math.min(1.0, realMaster.peak * 0.96 * masterVolume),
-        lufs: realMaster.lufsEstimate,
-      });
-    }, 40);
+      animId = requestAnimationFrame(updateMeters);
+    };
 
-    return () => clearInterval(interval);
-  }, [isPlaying, audioTracks, masterVolume]);
+    animId = requestAnimationFrame(updateMeters);
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
+  }, [isPlaying, sequence.tracks, masterVolume]);
 
   const handleTrackVolumeChange = (track: Track, vol: number) => {
     track.volume = vol;
@@ -78,7 +90,7 @@ export const AudioMixerPanel: React.FC = () => {
 
   const handleMasterVolumeChange = (vol: number) => {
     setMasterVolume(vol);
-    AudioMixerEngine.getInstance().setMasterVolume(vol);
+    playbackEngine.setVolume(vol);
   };
 
   return (

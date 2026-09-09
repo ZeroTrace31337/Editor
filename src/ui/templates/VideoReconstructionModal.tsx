@@ -37,6 +37,7 @@ import {
 import { TemplateService } from '../../domain/template/templateService';
 import { useEditor } from '../context/EditorContext';
 import { UserMediaSlotAssignment, UserTextSlotAssignment } from '../../domain/template/Template';
+import { notifyToast } from '../toast/ToastContext';
 
 interface VideoReconstructionModalProps {
   isOpen: boolean;
@@ -174,7 +175,7 @@ export const VideoReconstructionModal: React.FC<VideoReconstructionModalProps> =
       filters: result.template.filters,
       creatorName: 'AI Reconstructed',
     });
-    alert('Reconstructed template saved to your VeeCut Template Library!');
+    notifyToast('Reconstructed template saved to your VeeCut Template Library!', 'success');
   };
 
   const handleReplaceSlotMedia = (e: React.ChangeEvent<HTMLInputElement>) => {

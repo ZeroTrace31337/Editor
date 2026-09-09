@@ -19,6 +19,7 @@ import {
   Search,
   Filter,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 import { RecentProjectItem } from './homeData';
 
@@ -28,6 +29,10 @@ interface RecentProjectsSectionProps {
   onViewAllProjects: () => void;
   onDeleteProject?: (id: string) => void;
   onToggleStar?: (id: string) => void;
+  onDuplicateProject?: (project: RecentProjectItem) => void;
+  onRenameProject?: (id: string, newName: string) => void;
+  onExportProject?: (project: RecentProjectItem) => void;
+  onNewProject?: () => void;
 }
 
 export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
@@ -36,18 +41,38 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
   onViewAllProjects,
   onDeleteProject,
   onToggleStar,
+  onDuplicateProject,
+  onRenameProject,
+  onExportProject,
+  onNewProject,
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'all' | 'starred'>('all');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
 
   const filteredProjects = projects.filter((p) => {
     const matchesTab = activeTab === 'all' || (activeTab === 'starred' && p.isStarred);
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.tags.some((t) => t.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesTab && matchesSearch;
   });
+
+  const handleStartRename = (proj: RecentProjectItem) => {
+    setRenamingId(proj.id);
+    setRenameInput(proj.name);
+    setActiveMenuId(null);
+  };
+
+  const handleSaveRename = (id: string) => {
+    if (renameInput.trim() && onRenameProject) {
+      onRenameProject(id, renameInput.trim());
+    }
+    setRenamingId(null);
+  };
 
   return (
     <section className="flex flex-col gap-4" id="recent-projects-section">
@@ -117,7 +142,7 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
           <button
             onClick={onViewAllProjects}
             id="btn-view-all-projects"
-            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-cyan-400 hover:text-cyan-300 border border-zinc-800 text-xs font-semibold transition"
+            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-cyan-400 hover:text-cyan-300 border border-zinc-800 text-xs font-semibold transition cursor-pointer"
           >
             <span>View All</span>
             <ExternalLink className="w-3 h-3" />
@@ -125,11 +150,36 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
         </div>
       </div>
 
-      {/* Projects Grid View */}
-      {viewMode === 'grid' ? (
+      {/* Empty State */}
+      {filteredProjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 rounded-2xl bg-[#0e1018] border border-dashed border-zinc-800 text-center">
+          <div className="w-12 h-12 rounded-xl bg-zinc-900 flex items-center justify-center text-zinc-500 mb-3">
+            <FolderOpen className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-200">No Projects Found</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mt-1 mb-4">
+            {searchTerm
+              ? `No projects matched "${searchTerm}". Try a different search term or clear the filter.`
+              : activeTab === 'starred'
+              ? 'You have not starred any projects yet. Click the star icon on any project to pin it here.'
+              : 'Start your creative journey by creating your first timeline project or importing video footage.'}
+          </p>
+          {onNewProject && (
+            <button
+              onClick={onNewProject}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-bold text-xs shadow-md transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create New Project</span>
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        /* Projects Grid View */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {filteredProjects.map((proj) => {
             const isMenuOpen = activeMenuId === proj.id;
+            const isEditing = renamingId === proj.id;
             return (
               <div
                 key={proj.id}
@@ -182,13 +232,29 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
                 <div className="p-3 flex flex-col justify-between flex-1">
                   <div>
                     <div className="flex items-start justify-between gap-1">
-                      <h3
-                        onClick={() => onOpenProject(proj)}
-                        className="text-xs font-bold text-zinc-200 group-hover:text-white truncate cursor-pointer"
-                        title={proj.name}
-                      >
-                        {proj.name}
-                      </h3>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={renameInput}
+                          onChange={(e) => setRenameInput(e.target.value)}
+                          onBlur={() => handleSaveRename(proj.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveRename(proj.id);
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          className="text-xs bg-zinc-950 border border-cyan-500 text-white rounded px-1.5 py-0.5 w-full outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <h3
+                          onClick={() => onOpenProject(proj)}
+                          className="text-xs font-bold text-zinc-200 group-hover:text-white truncate cursor-pointer"
+                          title={proj.name}
+                        >
+                          {proj.name}
+                        </h3>
+                      )}
 
                       {/* More Options Dropdown */}
                       <div className="relative shrink-0">
@@ -217,16 +283,28 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
                               <Play className="w-3 h-3" /> Open
                             </button>
                             <button
-                              onClick={() => setActiveMenuId(null)}
+                              onClick={() => handleStartRename(proj)}
+                              className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+                            >
+                              <Edit2 className="w-3 h-3" /> Rename
+                            </button>
+                            <button
+                              onClick={() => {
+                                onDuplicateProject?.(proj);
+                                setActiveMenuId(null);
+                              }}
                               className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
                             >
                               <Copy className="w-3 h-3" /> Duplicate
                             </button>
                             <button
-                              onClick={() => setActiveMenuId(null)}
+                              onClick={() => {
+                                onExportProject?.(proj);
+                                setActiveMenuId(null);
+                              }}
                               className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
                             >
-                              <Download className="w-3 h-3" /> Export
+                              <Download className="w-3 h-3" /> Export JSON
                             </button>
                             <div className="my-1 border-t border-zinc-800" />
                             <button
@@ -275,47 +353,123 @@ export const RecentProjectsSection: React.FC<RecentProjectsSectionProps> = ({
       ) : (
         /* List View */
         <div className="flex flex-col bg-[#11131b] rounded-xl border border-zinc-800 divide-y divide-zinc-800/60 overflow-hidden">
-          {filteredProjects.map((proj) => (
-            <div
-              key={proj.id}
-              onClick={() => onOpenProject(proj)}
-              className="p-3 flex items-center justify-between hover:bg-zinc-850/50 cursor-pointer transition"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <img
-                  src={proj.thumbnail}
-                  alt={proj.name}
-                  className="w-16 h-10 object-cover rounded border border-zinc-700/80 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-zinc-200 truncate">{proj.name}</span>
-                    {proj.isStarred && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
+          {filteredProjects.map((proj) => {
+            const isMenuOpen = activeMenuId === `list_${proj.id}`;
+            const isEditing = renamingId === proj.id;
+            return (
+              <div
+                key={proj.id}
+                onClick={() => onOpenProject(proj)}
+                className="p-3 flex items-center justify-between hover:bg-zinc-850/50 cursor-pointer transition relative"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={proj.thumbnail}
+                    alt={proj.name}
+                    className="w-16 h-10 object-cover rounded border border-zinc-700/80 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={renameInput}
+                          onChange={(e) => setRenameInput(e.target.value)}
+                          onBlur={() => handleSaveRename(proj.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveRename(proj.id);
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          className="text-xs bg-zinc-950 border border-cyan-500 text-white rounded px-1.5 py-0.5 outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-zinc-200 truncate">{proj.name}</span>
+                      )}
+                      {proj.isStarred && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+                      <span>{proj.lastEdited}</span>
+                      <span>•</span>
+                      <span>{proj.resolution}</span>
+                      <span>•</span>
+                      <span>{proj.fps} FPS</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                    <span>{proj.lastEdited}</span>
-                    <span>•</span>
-                    <span>{proj.resolution}</span>
-                    <span>•</span>
-                    <span>{proj.fps} FPS</span>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="font-mono text-xs text-zinc-300">{proj.duration}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenProject(proj);
+                    }}
+                    className="px-3 py-1 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-400 hover:text-black text-xs font-semibold transition"
+                  >
+                    Edit
+                  </button>
+
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuId(isMenuOpen ? null : `list_${proj.id}`);
+                      }}
+                      className="p-1 text-zinc-400 hover:text-white rounded hover:bg-zinc-800 transition"
+                    >
+                      <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+
+                    {isMenuOpen && (
+                      <div
+                        className="absolute right-0 top-full mt-1 w-36 bg-[#161824] border border-zinc-700 rounded-lg shadow-xl py-1 z-30 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => {
+                            handleStartRename(proj);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+                        >
+                          <Edit2 className="w-3 h-3" /> Rename
+                        </button>
+                        <button
+                          onClick={() => {
+                            onDuplicateProject?.(proj);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+                        >
+                          <Copy className="w-3 h-3" /> Duplicate
+                        </button>
+                        <button
+                          onClick={() => {
+                            onExportProject?.(proj);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-zinc-200 hover:bg-cyan-500/20 hover:text-cyan-300 flex items-center gap-2"
+                        >
+                          <Download className="w-3 h-3" /> Export JSON
+                        </button>
+                        <div className="my-1 border-t border-zinc-800" />
+                        <button
+                          onClick={() => {
+                            onDeleteProject?.(proj.id);
+                            setActiveMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-red-400 hover:bg-red-500/20 flex items-center gap-2"
+                        >
+                          <Trash2 className="w-3 h-3" /> Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="font-mono text-xs text-zinc-300">{proj.duration}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenProject(proj);
-                  }}
-                  className="px-3 py-1 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-400 hover:text-black text-xs font-semibold transition"
-                >
-                  Edit
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

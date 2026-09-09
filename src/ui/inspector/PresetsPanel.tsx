@@ -10,6 +10,7 @@ import { useEditor } from '../context/EditorContext';
 import { PresetManager } from '../../engine/preset/PresetManager';
 import { FilterPreset } from '../../domain/preset/Preset';
 import { ApplyPresetCommand } from '../../engine/command/implementations/ApplyPresetCommand';
+import { notifyToast } from '../toast/ToastContext';
 
 interface PresetsPanelProps {
   clip: TimelineClip;
@@ -75,8 +76,9 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ clip }) => {
         const text = event.target?.result as string;
         presetManager.importPresetsJson(text);
         setPresets(presetManager.getAllPresets());
+        notifyToast('Preset successfully imported!', 'success');
       } catch (err) {
-        alert('Invalid preset JSON file');
+        notifyToast('Invalid preset JSON file format.', 'error');
       }
     };
     reader.readAsText(file);

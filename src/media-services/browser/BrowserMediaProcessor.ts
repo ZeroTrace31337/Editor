@@ -7,6 +7,7 @@ import { IMediaProcessor, MediaProbeResult } from '../contracts/IMediaProcessor'
 import { secondsToRationalTime } from '../../core/time/RationalTime';
 import { LuminaError, ErrorCode } from '../../core/errors/AppErrors';
 import { logger } from '../../core/logging/Logger';
+import { audioBufferToWav, extractAudioPeaks } from '../../core/utils/audioUtils';
 
 export class BrowserMediaProcessor implements IMediaProcessor {
   private audioContext: AudioContext | null = null;
@@ -274,27 +275,41 @@ export class BrowserMediaProcessor implements IMediaProcessor {
       const buffer = await resp.arrayBuffer();
       const audioCtx = this.getAudioContext();
       const audioBuffer = await audioCtx.decodeAudioData(buffer);
-      return this.extractWaveformPeaks(audioBuffer, samplesCount);
+      return extractAudioPeaks(audioBuffer, samplesCount);
     } catch {
       return Array(samplesCount).fill(0.2);
     }
   }
 
-  private extractWaveformPeaks(audioBuffer: AudioBuffer, samplesCount: number): number[] {
-    const rawData = audioBuffer.getChannelData(0);
-    const blockSize = Math.floor(rawData.length / samplesCount);
-    const peaks: number[] = [];
-
-    for (let i = 0; i < samplesCount; i++) {
-      const start = i * blockSize;
-      let max = 0;
-      for (let j = 0; j < blockSize; j++) {
-        const val = Math.abs(rawData[start + j] || 0);
-        if (val > max) max = val;
-      }
-      peaks.push(Math.min(1.0, Number(max.toFixed(3))));
+  /**
+   * Extracts audio track from a video or audio file and returns a standard WAV Blob
+   */
+  public async extractAudioFromMedia(
+    fileOrUri: File | Blob | string
+  ): Promise<{ blob: Blob; url: string; duration: number; peaks: number[] }> {
+    let arrayBuffer: ArrayBuffer;
+    if (typeof fileOrUri === 'string') {
+      const resp = await fetch(fileOrUri);
+      arrayBuffer = await resp.arrayBuffer();
+    } else {
+      arrayBuffer = await fileOrUri.arrayBuffer();
     }
 
-    return peaks;
+    const audioCtx = this.getAudioContext();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    const wavBlob = audioBufferToWav(audioBuffer);
+    const url = URL.createObjectURL(wavBlob);
+    const peaks = extractAudioPeaks(audioBuffer, 100);
+
+    return {
+      blob: wavBlob,
+      url,
+      duration: audioBuffer.duration,
+      peaks,
+    };
+  }
+
+  private extractWaveformPeaks(audioBuffer: AudioBuffer, samplesCount: number): number[] {
+    return extractAudioPeaks(audioBuffer, samplesCount);
   }
 }

@@ -41,6 +41,7 @@ export class AudioMixerEngine {
   private masterGainNode: GainNode | null = null;
   private masterAnalyserNode: AnalyserNode | null = null;
   private masterCompressorNode: DynamicsCompressorNode | null = null;
+  private elementSourceMap: WeakMap<HTMLMediaElement, MediaElementAudioSourceNode> = new WeakMap();
   private clipNodesMap: Map<string, {
     source: MediaElementAudioSourceNode | AudioBufferSourceNode;
     gainNode: GainNode;
@@ -60,6 +61,11 @@ export class AudioMixerEngine {
 
   private waveformCache: Map<string, number[]> = new Map();
   private impulseResponses: Map<string, AudioBuffer> = new Map();
+  private isUserActivated = false;
+
+  private constructor() {
+    this.initUserActivationListener();
+  }
 
   public static getInstance(): AudioMixerEngine {
     if (!this.instance) {
@@ -68,15 +74,47 @@ export class AudioMixerEngine {
     return this.instance;
   }
 
+  /**
+   * Unlocks AudioContext on user interaction (pointer or key press)
+   */
+  private initUserActivationListener(): void {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this.isUserActivated = true;
+      this.resumeContext();
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    window.addEventListener('keydown', unlock, { once: true, passive: true });
+  }
+
   public getContext(): AudioContext {
     if (!this.audioCtx) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
       this.audioCtx = new AudioCtxClass();
     }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+    if (this.audioCtx.state === 'suspended' && this.isUserActivated) {
+      this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
+  }
+
+  /**
+   * Resumes AudioContext on user-initiated play or unmute
+   */
+  public async resumeContext(): Promise<boolean> {
+    try {
+      const ctx = this.getContext();
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+        logger.info('AudioMixerEngine', 'AudioContext resumed successfully', { state: ctx.state });
+      }
+      return ctx.state === 'running';
+    } catch (e) {
+      logger.warn('AudioMixerEngine', 'Failed to resume AudioContext', { error: e });
+      return false;
+    }
   }
 
   public getMasterGain(): GainNode {
@@ -98,6 +136,8 @@ export class AudioMixerEngine {
       this.masterAnalyserNode.fftSize = 256;
       this.masterAnalyserNode.smoothingTimeConstant = 0.8;
 
+      // Unbroken Audio Destination Chain:
+      // masterGain -> masterCompressor -> masterAnalyser -> ctx.destination
       this.masterGainNode.connect(this.masterCompressorNode);
       this.masterCompressorNode.connect(this.masterAnalyserNode);
       this.masterAnalyserNode.connect(ctx.destination);
@@ -166,7 +206,9 @@ export class AudioMixerEngine {
   }
 
   /**
-   * Connects an HTMLMediaElement (video or audio) into the Web Audio processing graph
+   * Connects an HTMLMediaElement (video or audio) into the Web Audio processing graph.
+   * Reuses existing MediaElementAudioSourceNode instances to prevent InvalidStateError.
+   * If Web Audio attachment fails (e.g. CORS restrictions), gracefully falls back to native playback.
    */
   public attachMediaElement(
     element: HTMLMediaElement,
@@ -181,7 +223,13 @@ export class AudioMixerEngine {
     }
 
     try {
-      const source = ctx.createMediaElementSource(element);
+      // Re-use source node if element was previously connected
+      let source = this.elementSourceMap.get(element);
+      if (!source) {
+        source = ctx.createMediaElementSource(element);
+        this.elementSourceMap.set(element, source);
+      }
+
       const gainNode = ctx.createGain();
       const pannerNode = ctx.createStereoPanner ? ctx.createStereoPanner() : (ctx.createPanner() as any);
       const analyserNode = ctx.createAnalyser();
@@ -215,7 +263,7 @@ export class AudioMixerEngine {
       lowpass.frequency.setValueAtTime(initialEffects?.noiseReductionEnabled ? 12000 : 20000, ctx.currentTime);
 
       // Serial Graph Wiring:
-      // Source -> Highpass -> Lowpass -> EQLow -> EQMid -> EQHigh -> Gain -> Pan -> Analyser -> Master
+      // Source -> Highpass -> Lowpass -> EQLow -> EQMid -> EQHigh -> Gain -> Pan -> Analyser -> Master -> Limiter -> Analyser -> Destination
       source.connect(highpass);
       highpass.connect(lowpass);
       lowpass.connect(eqLow);
@@ -238,8 +286,31 @@ export class AudioMixerEngine {
         analyserNode,
       });
     } catch (e) {
-      logger.warn('AudioMixerEngine', `Failed to attach audio graph for clip ${clipId}`, { error: e });
+      logger.warn('AudioMixerEngine', `Web Audio routing bypassed for clip ${clipId}. Fallback to direct media element audio output.`, { error: e });
+      // Direct playback fallback: ensure element is not muted
+      element.muted = false;
     }
+  }
+
+  /**
+   * Safely detaches clip audio nodes to prevent memory and audio graph leaks
+   */
+  public detachClipAudio(clipId: string): void {
+    const nodeSet = this.clipNodesMap.get(clipId);
+    if (!nodeSet) return;
+    try {
+      nodeSet.analyserNode.disconnect();
+      nodeSet.pannerNode.disconnect();
+      nodeSet.gainNode.disconnect();
+      nodeSet.eqHigh.disconnect();
+      nodeSet.eqMid.disconnect();
+      nodeSet.eqLow.disconnect();
+      nodeSet.lowpass.disconnect();
+      nodeSet.highpass.disconnect();
+    } catch (e) {
+      // Ignored
+    }
+    this.clipNodesMap.delete(clipId);
   }
 
   /**

@@ -241,31 +241,75 @@ export function createCinematicThumbnail(type: 'man_bokeh' | 'sunset' | 'city_ni
     }
 
   } else if (type === 'logo') {
-    // VeeCut vibrant logo
-    ctx.fillStyle = '#090b14';
+    // Authentic VeeCut 3D Logo Emblem (Dark Emerald Green + Champagne Gold + Filmstrip V)
+    const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 10, width / 2, height / 2, width * 0.7);
+    bgGrad.addColorStop(0, '#0a2318');
+    bgGrad.addColorStop(0.6, '#04130d');
+    bgGrad.addColorStop(1, '#020906');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Vibrant 3D gradient triangle
     const cx = width / 2;
-    const cy = height / 2;
-    const size = height * 0.45;
+    const cy = height * 0.44;
+    const emblemSize = Math.min(width, height) * 0.28;
 
-    const grad = ctx.createLinearGradient(cx - size, cy - size, cx + size, cy + size);
-    grad.addColorStop(0, '#38bdf8');
-    grad.addColorStop(0.4, '#a855f7');
-    grad.addColorStop(0.8, '#ec4899');
-    grad.addColorStop(1, '#f97316');
-
+    // Rounded emblem badge with champagne gold border
+    const badgeR = emblemSize * 1.15;
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(cx - size * 0.6, cy - size);
-    ctx.lineTo(cx + size, cy);
-    ctx.lineTo(cx - size * 0.6, cy + size);
+    ctx.roundRect(cx - badgeR, cy - badgeR, badgeR * 2, badgeR * 2, 22);
+    ctx.fillStyle = '#061b12';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    const goldGrad = ctx.createLinearGradient(cx - badgeR, cy - badgeR, cx + badgeR, cy + badgeR);
+    goldGrad.addColorStop(0, '#f9e7a2');
+    goldGrad.addColorStop(0.3, '#d4af37');
+    goldGrad.addColorStop(0.7, '#f3d980');
+    goldGrad.addColorStop(1, '#aa820a');
+    ctx.strokeStyle = goldGrad;
+    ctx.stroke();
+
+    // 3D Metallic V Emblem with Play Button
+    ctx.beginPath();
+    ctx.moveTo(cx - emblemSize * 0.75, cy - emblemSize * 0.65);
+    ctx.lineTo(cx - emblemSize * 0.35, cy - emblemSize * 0.65);
+    ctx.lineTo(cx, cy + emblemSize * 0.55);
+    ctx.lineTo(cx + emblemSize * 0.35, cy - emblemSize * 0.65);
+    ctx.lineTo(cx + emblemSize * 0.75, cy - emblemSize * 0.65);
+    ctx.lineTo(cx + emblemSize * 0.15, cy + emblemSize * 0.85);
+    ctx.lineTo(cx - emblemSize * 0.15, cy + emblemSize * 0.85);
     ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.shadowColor = '#a855f7';
-    ctx.shadowBlur = 25;
+    ctx.fillStyle = goldGrad;
+    ctx.shadowColor = 'rgba(212, 175, 55, 0.4)';
+    ctx.shadowBlur = 15;
     ctx.fill();
     ctx.shadowBlur = 0;
+
+    // Play triangle in the center
+    ctx.beginPath();
+    const playSize = emblemSize * 0.26;
+    ctx.moveTo(cx - playSize * 0.45, cy - playSize * 0.55);
+    ctx.lineTo(cx + playSize * 0.65, cy);
+    ctx.lineTo(cx - playSize * 0.45, cy + playSize * 0.55);
+    ctx.closePath();
+    ctx.fillStyle = '#072418';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#f9e7a2';
+    ctx.stroke();
+    ctx.restore();
+
+    // "VeeCut" Text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 32px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('VeeCut', cx, height * 0.80);
+
+    // "EDITING APP" Subtitle
+    ctx.font = '700 11px sans-serif';
+    ctx.fillStyle = '#d4af37';
+    ctx.fillText('EDITING APP', cx, height * 0.88);
   }
 
   return canvas.toDataURL('image/jpeg', 0.92);

@@ -18,6 +18,7 @@ import { ExportModal } from './ui/export/ExportModal';
 import { DeliverWorkspaceView } from './ui/export/DeliverWorkspaceView';
 import { MulticamViewer } from './ui/preview/MulticamViewer';
 import { LocaleProvider } from './ui/i18n/LocaleContext';
+import { ToastProvider } from './ui/toast/ToastContext';
 import { SplitClipCommand } from './engine/command/implementations/SplitClipCommand';
 import { DeleteClipCommand } from './engine/command/implementations/DeleteClipCommand';
 import { secondsToRationalTime, addRationalTime, subtractRationalTime } from './core/time/RationalTime';
@@ -179,9 +180,11 @@ const RootApp: React.FC = () => {
 export function App() {
   return (
     <LocaleProvider>
-      <EditorProvider>
-        <RootApp />
-      </EditorProvider>
+      <ToastProvider>
+        <EditorProvider>
+          <RootApp />
+        </EditorProvider>
+      </ToastProvider>
     </LocaleProvider>
   );
 }

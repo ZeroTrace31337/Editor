@@ -130,8 +130,11 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const timelineEngine = useMemo(() => new TimelineEngine(initialSequence), [initialSequence]);
   const commandManager = useMemo(() => new CommandManager(60), []);
   const compositor = useMemo(() => new CanvasCompositor(mediaRegistry), [mediaRegistry]);
-  const playbackEngine = useMemo(() => new PlaybackEngine(initialSequence), [initialSequence]);
-  const exporter = useMemo(() => new CanvasVideoExporter(timelineEngine, compositor), [timelineEngine, compositor]);
+  const playbackEngine = useMemo(() => {
+    const engine = new PlaybackEngine(initialSequence, mediaRegistry);
+    return engine;
+  }, [initialSequence, mediaRegistry]);
+  const exporter = useMemo(() => new CanvasVideoExporter(timelineEngine, compositor, mediaRegistry), [timelineEngine, compositor, mediaRegistry]);
 
   const [currentTime, setCurrentTime] = useState<RationalTime>(createRationalTime(0));
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -541,7 +544,20 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       importedAt: new Date().toISOString(),
     };
 
-    const sampleList = [assetCinematic, assetCity, assetForest, assetDrone, assetMusic];
+    const assetVeeCutLogo: MediaAsset = {
+      id: 'sample_asset_veecut_logo',
+      name: 'VeeCut_Master_Logo_4K.png',
+      type: 'image',
+      uri: '/veecut_logo.png',
+      fileSize: 520000,
+      duration: createRationalTime(10 * 120000, 120000),
+      videoMetadata: { width: 1024, height: 1024, fps: 60, codec: 'png' },
+      thumbnailUrl: '/veecut_logo.png',
+      isOffline: false,
+      importedAt: new Date().toISOString(),
+    };
+
+    const sampleList = [assetCinematic, assetCity, assetForest, assetDrone, assetMusic, assetVeeCutLogo];
     sampleList.forEach((a) => mediaRegistry.registerAsset(a));
 
     const currentProj = projectService.getProject();
@@ -757,7 +773,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // 5. Media Asset (Video, Image, Audio)
-    const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing' || resultInfo.type === 'ai_voice' || resultInfo.type === 'ai_audio_enhance' || !!resultInfo.audioData;
+    const isAud = resultInfo.type === 'Audio & Dubbing' || resultInfo.type === 'Audio Mixing' || resultInfo.type === 'ai_voice' || resultInfo.type === 'ai_audio_enhance' || resultInfo.type === 'ai_music_sfx' || !!resultInfo.audioData;
     const isImg = !resultInfo.videoUrl && (resultInfo.type === 'Asset Creation' || resultInfo.type === 'VFX & Rotoscoping' || resultInfo.type === 'Cleanup & Inpainting' || resultInfo.type === 'ai_image_gen' || resultInfo.type === 'ai_bg_removal' || resultInfo.type === 'ai_object_removal' || resultInfo.type === 'ai_upscale');
     const mediaType: 'video' | 'image' | 'audio' = isAud ? 'audio' : isImg ? 'image' : 'video';
 

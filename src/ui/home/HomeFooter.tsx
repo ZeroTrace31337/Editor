@@ -15,6 +15,7 @@ import {
   Cpu,
   Zap,
 } from 'lucide-react';
+import { notifyToast } from '../toast/ToastContext';
 
 interface HomeFooterProps {
   onOpenShortcuts: () => void;
@@ -64,7 +65,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
             href="#feedback"
             onClick={(e) => {
               e.preventDefault();
-              alert('Thank you for using VeeCut Pro! We welcome your feedback.');
+              notifyToast('Thank you for using VeeCut Pro! Feedback channel is active.', 'info');
             }}
             className="hover:text-zinc-200 transition flex items-center gap-1.5 cursor-pointer"
           >

@@ -37,4 +37,7 @@ export interface IMediaProcessor {
   probeMedia(file: File | Blob | string, name: string): Promise<MediaProbeResult>;
   generateThumbnail(uri: string, timestampSeconds: number): Promise<string>;
   generateWaveform(uri: string, samplesCount?: number): Promise<number[]>;
+  extractAudioFromMedia?(
+    fileOrUri: File | Blob | string
+  ): Promise<{ blob: Blob; url: string; duration: number; peaks: number[] }>;
 }

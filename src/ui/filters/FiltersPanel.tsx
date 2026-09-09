@@ -38,6 +38,7 @@ import {
 import { FilterPreset, PresetCategory } from '../../domain/preset/Preset';
 import { PresetManager, FilterFilterOptions } from '../../engine/preset/PresetManager';
 import { useEditor } from '../context/EditorContext';
+import { notifyToast } from '../toast/ToastContext';
 import { ApplyPresetCommand } from '../../engine/command/implementations/ApplyPresetCommand';
 import { createBaseClip } from '../../domain/timeline/Clip';
 import { secondsToRationalTime, createRationalTime } from '../../core/time/RationalTime';
@@ -213,10 +214,10 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({ onFilterApplied }) =
       try {
         const text = event.target?.result as string;
         const count = presetManager.importPresetsJson(text);
-        alert(`Successfully imported ${count} filter presets into VeeCut!`);
+        notifyToast(`Successfully imported ${count} filter presets into VeeCut!`, 'success');
         setActiveCategory('my_filters');
       } catch (err) {
-        alert('Invalid preset JSON file');
+        notifyToast('Invalid preset JSON file format.', 'error');
       }
     };
     reader.readAsText(file);
