@@ -26,7 +26,7 @@ export interface CanvasPreset {
   ratioText: string;
   width: number;
   height: number;
-  iconType: 'youtube' | 'phone' | 'square' | 'instagram' | 'cinematic' | 'sliders';
+  iconType: 'monitor' | 'phone' | 'square' | 'instagram' | 'cinematic' | 'sliders';
   description: string;
   popular?: boolean;
 }
@@ -45,7 +45,7 @@ export interface AIToolItem {
 export interface TemplateItem {
   id: string;
   name: string;
-  category: 'Trending' | 'Cinematic' | 'YouTube' | 'Shorts' | 'Reels' | 'Gaming' | 'Business' | 'Travel' | 'Music';
+  category: 'Trending' | 'Cinematic' | 'Shorts' | 'Reels' | 'Gaming' | 'Business' | 'Travel' | 'Music';
   duration: string;
   aspectRatio: '16:9' | '9:16' | '1:1' | '21:9';
   resolution: string;
@@ -202,9 +202,9 @@ export const INITIAL_RECENT_PROJECTS: RecentProjectItem[] = [
     isStarred: true,
   },
   {
-    id: 'proj_youtube_intro',
-    name: 'YouTube Intro & Channel Branding',
-    thumbnail: generateDashboardThumbnail('YouTube Intro', 'purple', '16:9'),
+    id: 'proj_channel_intro',
+    name: '4K Intro & Channel Branding',
+    thumbnail: generateDashboardThumbnail('4K Intro', 'purple', '16:9'),
     lastEdited: 'Yesterday',
     lastEditedTimestamp: Date.now() - 24 * 3600 * 1000,
     duration: '00:15:20',
@@ -212,7 +212,7 @@ export const INITIAL_RECENT_PROJECTS: RecentProjectItem[] = [
     aspectRatio: '16:9',
     fps: 60,
     size: '420 MB',
-    tags: ['YouTube', 'Motion Graphics', 'Logo'],
+    tags: ['Intro', 'Motion Graphics', 'Logo'],
     isStarred: true,
   },
   {
@@ -276,15 +276,15 @@ export const INITIAL_RECENT_PROJECTS: RecentProjectItem[] = [
 // Canvas Presets for "Start Creating"
 export const CANVAS_PRESETS: CanvasPreset[] = [
   {
-    id: 'preset_youtube',
-    name: '16:9 YouTube / Horizontal',
+    id: 'preset_widescreen',
+    name: '16:9 Widescreen / Horizontal',
     label: 'Standard Widescreen',
     aspectRatio: '16:9',
     ratioText: '16:9',
     width: 1920,
     height: 1080,
-    iconType: 'youtube',
-    description: 'YouTube, Vimeo, Web, TV & Presentation',
+    iconType: 'monitor',
+    description: 'Vimeo, Web, TV, Streaming & Presentation',
     popular: true,
   },
   {
@@ -296,7 +296,7 @@ export const CANVAS_PRESETS: CanvasPreset[] = [
     width: 1080,
     height: 1920,
     iconType: 'phone',
-    description: 'TikTok, Instagram Reels, YouTube Shorts & Stories',
+    description: 'TikTok, Instagram Reels, Vertical Shorts & Stories',
     popular: true,
   },
   {
@@ -514,7 +514,7 @@ export const TRENDING_TEMPLATES: TemplateItem[] = [
   {
     id: 'tmpl_minimal_podcast',
     name: 'Clean Split-Screen Podcast',
-    category: 'YouTube',
+    category: 'Business',
     duration: '01:00',
     aspectRatio: '16:9',
     resolution: '4K UHD',

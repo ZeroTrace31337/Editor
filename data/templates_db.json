@@ -1,0 +1,2469 @@
+{
+  "templates": [
+    {
+      "id": "tmpl_velocity_beat",
+      "name": "Velocity Beat Sync & Speed Ramp",
+      "category": "beat_sync",
+      "primaryPlatform": "tiktok",
+      "platforms": [
+        "tiktok",
+        "reels",
+        "shorts"
+      ],
+      "description": "Fast-paced kinetic velocity cuts mapped to high-energy electronic kick and snare transients with optical flow blur.",
+      "thumbnail": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop&q=80",
+      "previewVideoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Fast",
+      "tags": [
+        "Beat Sync",
+        "Velocity",
+        "TikTok",
+        "Speed Ramp",
+        "Cyberpunk",
+        "Phonk"
+      ],
+      "creator": {
+        "name": "Alex Rivera",
+        "handle": "@rivera_edits",
+        "verified": true
+      },
+      "usageCount": 248900,
+      "likesCount": 19400,
+      "rating": 4.9,
+      "isTrending": true,
+      "isNew": false,
+      "isStaffPick": true,
+      "createdAt": "2026-08-15T12:00:00Z",
+      "colorPalette": [
+        "#06b6d4",
+        "#f43f5e",
+        "#3b82f6"
+      ],
+      "transitions": [
+        "Whip Pan",
+        "Flash Cut",
+        "Zoom In Blur"
+      ],
+      "effects": [
+        "RGB Split Glitch",
+        "Motion Blur",
+        "Bass Shake"
+      ],
+      "filters": [
+        "Teal & Orange Blockbuster",
+        "High Contrast"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "audioTrack": {
+        "id": "mus_velocity_drop",
+        "title": "Neon Overdrive Drop (140 BPM)",
+        "artist": "Kroma Sound Lab",
+        "durationSeconds": 15,
+        "bpm": 140,
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        "beatMarkers": [
+          0,
+          1.28,
+          2.57,
+          3.85,
+          5.14,
+          6.42,
+          7.71,
+          9,
+          10.28,
+          11.57,
+          12.85,
+          14.14
+        ]
+      },
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Opening Hook Clip",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 1.28,
+          "label": "Clip 1 (Hook)",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Speed Build 1",
+          "type": "video",
+          "startTimeSeconds": 1.28,
+          "durationSeconds": 1.29,
+          "label": "Clip 2 (Build)",
+          "defaultUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Bass Drop Impact",
+          "type": "video",
+          "startTimeSeconds": 2.57,
+          "durationSeconds": 1.28,
+          "label": "Clip 3 (Drop)",
+          "defaultUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        },
+        {
+          "id": "slot_4",
+          "slotIndex": 3,
+          "name": "Action Motion 1",
+          "type": "video",
+          "startTimeSeconds": 3.85,
+          "durationSeconds": 2.57,
+          "label": "Clip 4 (Action)",
+          "defaultUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        },
+        {
+          "id": "slot_5",
+          "slotIndex": 4,
+          "name": "Flash Cut 2",
+          "type": "video",
+          "startTimeSeconds": 6.42,
+          "durationSeconds": 2.58,
+          "label": "Clip 5 (Ramp)",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        },
+        {
+          "id": "slot_6",
+          "slotIndex": 5,
+          "name": "Outro Finale",
+          "type": "video",
+          "startTimeSeconds": 9,
+          "durationSeconds": 6,
+          "label": "Clip 6 (Finale)",
+          "defaultUrl": "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=400&auto=format&fit=crop&q=80",
+          "cropBehavior": "cover"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Main Title",
+          "defaultText": "VELOCITY FLOW",
+          "startTimeSeconds": 0.2,
+          "durationSeconds": 2,
+          "fontFamily": "Montserrat",
+          "fontSize": 72,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "alignment": "center",
+          "animation": "pop",
+          "glowColor": "#06b6d4",
+          "glowIntensity": 0.8
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Subtitle Hook",
+          "defaultText": "DROP THE BASS",
+          "startTimeSeconds": 2.57,
+          "durationSeconds": 2.2,
+          "fontFamily": "Impact",
+          "fontSize": 48,
+          "fontWeight": "800",
+          "color": "#fde047",
+          "alignment": "center",
+          "animation": "zoom-in"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_cinematic_master_intro",
+      "name": "4K Cinematic Master Intro & Review",
+      "category": "cinematic",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "Landscape 16:9 widescreen layout designed for Video tech reviews, video essays, and high-budget documentary intros.",
+      "thumbnail": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&auto=format&fit=crop&q=80",
+      "previewVideoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 3840,
+      "height": 2160,
+      "fps": 60,
+      "style": "Professional",
+      "tags": [
+        "Video",
+        "4K",
+        "Intro",
+        "Video Essay",
+        "Tech Review",
+        "Cinematic"
+      ],
+      "creator": {
+        "name": "VeeCut Studio",
+        "handle": "@veecut_official",
+        "verified": true
+      },
+      "usageCount": 182400,
+      "likesCount": 15300,
+      "rating": 4.95,
+      "isTrending": true,
+      "isStaffPick": true,
+      "createdAt": "2026-08-20T10:00:00Z",
+      "colorPalette": [
+        "#1e293b",
+        "#38bdf8",
+        "#f8fafc"
+      ],
+      "transitions": [
+        "Smooth Push",
+        "Lens Flare Wipe",
+        "Film Cross Dissolve"
+      ],
+      "effects": [
+        "Subtle Film Grain",
+        "Anamorphic Glow",
+        "Vignette"
+      ],
+      "filters": [
+        "Clean Cinema LUT"
+      ],
+      "region": "US",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Opening Cold Open",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 6,
+          "label": "Clip 1 (Hook Intro)",
+          "defaultUrl": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Topic Presentation B-Roll",
+          "type": "video",
+          "startTimeSeconds": 6,
+          "durationSeconds": 8,
+          "label": "Clip 2 (B-Roll Presentation)",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Main Feature Highlight",
+          "type": "video",
+          "startTimeSeconds": 14,
+          "durationSeconds": 10,
+          "label": "Clip 3 (Core Breakdown)",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_4",
+          "slotIndex": 3,
+          "name": "Subscribe End-Card",
+          "type": "any",
+          "startTimeSeconds": 24,
+          "durationSeconds": 6,
+          "label": "Clip 4 (Outro Stinger)",
+          "defaultUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Episode / Video Title",
+          "defaultText": "THE FUTURE OF CINEMA TECH",
+          "startTimeSeconds": 1,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 64,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "alignment": "left",
+          "animation": "slide-right"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Host Name & Lower Third",
+          "defaultText": "REVIEW & DEEP DIVE // 4K 60FPS",
+          "startTimeSeconds": 6.5,
+          "durationSeconds": 4.5,
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "600",
+          "color": "#38bdf8",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_viral_hook_shorts",
+      "name": "Shorts 3-Second Retention Hook",
+      "category": "shorts",
+      "primaryPlatform": "shorts",
+      "platforms": [
+        "shorts",
+        "tiktok",
+        "reels"
+      ],
+      "description": "Engineered specifically for Video Shorts algorithm with instant visual hook in first 1.2s and looping climax.",
+      "thumbnail": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:20",
+      "durationSeconds": 20,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Fast",
+      "tags": [
+        "Shorts",
+        "Hook",
+        "Retention",
+        "Viral",
+        "Video Shorts"
+      ],
+      "creator": {
+        "name": "Growth Viral",
+        "handle": "@growthvids",
+        "verified": true
+      },
+      "usageCount": 312000,
+      "likesCount": 28400,
+      "rating": 4.92,
+      "isTrending": true,
+      "createdAt": "2026-08-22T14:00:00Z",
+      "colorPalette": [
+        "#ef4444",
+        "#f59e0b",
+        "#ffffff"
+      ],
+      "transitions": [
+        "Quick Zoom Punch",
+        "Camera Whip",
+        "Glitch Cut"
+      ],
+      "effects": [
+        "Subtle Shake",
+        "Edge Glow"
+      ],
+      "filters": [
+        "Vibrant Saturation"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Viral Hook Point",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 3,
+          "label": "Hook Scene (0-3s)",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Problem / Setup",
+          "type": "video",
+          "startTimeSeconds": 3,
+          "durationSeconds": 7,
+          "label": "Setup Demonstration",
+          "defaultUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Climax Reveal",
+          "type": "video",
+          "startTimeSeconds": 10,
+          "durationSeconds": 10,
+          "label": "Payoff & Loop Cut",
+          "defaultUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Curiosity Hook",
+          "defaultText": "NEVER DO THIS IN VIDEO!",
+          "startTimeSeconds": 0.1,
+          "durationSeconds": 3,
+          "fontFamily": "Montserrat",
+          "fontSize": 56,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "backgroundColor": "#ef4444",
+          "alignment": "center",
+          "animation": "pop"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_tiktok_karaoke_pop",
+      "name": "TikTok Kinetic Lyric Pop & Sound Drop",
+      "category": "tiktok",
+      "primaryPlatform": "tiktok",
+      "platforms": [
+        "tiktok",
+        "reels"
+      ],
+      "description": "Dynamic word-by-word highlighted captions synchronized to trending audio beats with spring bounce animations.",
+      "thumbnail": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Energetic",
+      "tags": [
+        "TikTok",
+        "Lyrics",
+        "Karaoke",
+        "Bouncing Text",
+        "Phonk"
+      ],
+      "creator": {
+        "name": "LyricVibe",
+        "handle": "@lyricvibe",
+        "verified": true
+      },
+      "usageCount": 420000,
+      "likesCount": 38000,
+      "rating": 4.97,
+      "isTrending": true,
+      "createdAt": "2026-08-18T16:00:00Z",
+      "colorPalette": [
+        "#06b6d4",
+        "#f43f5e",
+        "#facc15"
+      ],
+      "transitions": [
+        "Flash Wipe",
+        "RGB Split",
+        "Zoom Blur"
+      ],
+      "effects": [
+        "Bass Shake",
+        "Neon Text Glow"
+      ],
+      "filters": [
+        "Vibrant Pop LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Full Background Video / Aesthetic Loop",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 15,
+          "label": "Background Clip",
+          "defaultUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Lyric Line 1",
+          "defaultText": "FEEL THE ENERGY PULSE",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 3.5,
+          "fontFamily": "Montserrat",
+          "fontSize": 54,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "glowColor": "#06b6d4",
+          "glowIntensity": 0.9,
+          "alignment": "center"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Lyric Line 2 (Drop)",
+          "defaultText": "NEVER SLOWING DOWN",
+          "startTimeSeconds": 4,
+          "durationSeconds": 4,
+          "fontFamily": "Impact",
+          "fontSize": 60,
+          "fontWeight": "900",
+          "color": "#facc15",
+          "glowColor": "#f43f5e",
+          "glowIntensity": 1,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_reels_golden_hour_hook",
+      "name": "Instagram Reels Golden Hour & Soft Bloom",
+      "category": "reels",
+      "primaryPlatform": "reels",
+      "platforms": [
+        "reels",
+        "instagram",
+        "tiktok"
+      ],
+      "description": "Dreamy aesthetic 9:16 layout with warm golden hour tones, light leak dissolves, and elegant serif typography.",
+      "thumbnail": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:12",
+      "durationSeconds": 12,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "style": "Aesthetic",
+      "tags": [
+        "Reels",
+        "Golden Hour",
+        "Aesthetic",
+        "Warm",
+        "Serif",
+        "Lifestyle"
+      ],
+      "creator": {
+        "name": "Elena Sol",
+        "handle": "@elenasol",
+        "verified": true
+      },
+      "usageCount": 195000,
+      "likesCount": 22100,
+      "rating": 4.88,
+      "isTrending": true,
+      "createdAt": "2026-08-21T11:00:00Z",
+      "colorPalette": [
+        "#fde047",
+        "#fb923c",
+        "#475569"
+      ],
+      "transitions": [
+        "Soft Dissolve",
+        "Light Leak Flash",
+        "Lens Blur Push"
+      ],
+      "effects": [
+        "Halation Glow",
+        "35mm Film Grain"
+      ],
+      "filters": [
+        "Kodak Portra 400 Warm LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Opening Portrait",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 4,
+          "label": "Aesthetic Scene 1",
+          "defaultUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Details / Atmosphere",
+          "type": "any",
+          "startTimeSeconds": 4,
+          "durationSeconds": 4,
+          "label": "Atmosphere Scene 2",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Sunset Climax",
+          "type": "any",
+          "startTimeSeconds": 8,
+          "durationSeconds": 4,
+          "label": "Golden Hour Finale",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Poetic Title",
+          "defaultText": "chasing golden hours",
+          "startTimeSeconds": 0.8,
+          "durationSeconds": 4,
+          "fontFamily": "Playfair Display",
+          "fontSize": 48,
+          "fontWeight": "700",
+          "color": "#ffffff",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_instagram_aesthetic_square",
+      "name": "Instagram Square (1:1) Editorial Lookbook",
+      "category": "instagram",
+      "primaryPlatform": "instagram",
+      "platforms": [
+        "instagram"
+      ],
+      "description": "Perfect 1:1 square ratio for Instagram grid feeds, brand announcements, and lookbook photo-video combos.",
+      "thumbnail": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "1:1",
+      "width": 1080,
+      "height": 1080,
+      "fps": 30,
+      "style": "Minimal",
+      "tags": [
+        "Instagram",
+        "Square",
+        "1:1",
+        "Grid",
+        "Lookbook",
+        "Minimal"
+      ],
+      "creator": {
+        "name": "Studio Editorial",
+        "handle": "@studioedit",
+        "verified": true
+      },
+      "usageCount": 88400,
+      "likesCount": 9200,
+      "rating": 4.85,
+      "isStaffPick": true,
+      "createdAt": "2026-08-19T09:00:00Z",
+      "colorPalette": [
+        "#0f172a",
+        "#e2e8f0",
+        "#94a3b8"
+      ],
+      "transitions": [
+        "Smooth Push",
+        "Minimal Cut"
+      ],
+      "effects": [
+        "Subtle Frame Border",
+        "Shadow Card"
+      ],
+      "filters": [
+        "Clean Monochrome Neutral"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Square Showcase 1",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 5,
+          "label": "Square Card 1",
+          "defaultUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Square Showcase 2",
+          "type": "any",
+          "startTimeSeconds": 5,
+          "durationSeconds": 5,
+          "label": "Square Card 2",
+          "defaultUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Square Showcase 3",
+          "type": "any",
+          "startTimeSeconds": 10,
+          "durationSeconds": 5,
+          "label": "Square Card 3",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Brand Header",
+          "defaultText": "NEW COLLECTION 2026",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 4.5,
+          "fontFamily": "Inter",
+          "fontSize": 36,
+          "fontWeight": "800",
+          "color": "#ffffff",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_gaming_clutch_esports",
+      "name": "Esports Clutch Kill Montage & Neon HUD",
+      "category": "gaming",
+      "primaryPlatform": "general",
+      "platforms": [
+        "tiktok",
+        "shorts"
+      ],
+      "description": "High-adrenaline gaming montage with kill impact sound markers, slow motion bullet time ramp, and futuristic holographic HUD overlays.",
+      "thumbnail": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:25",
+      "durationSeconds": 25,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "style": "Energetic",
+      "tags": [
+        "Gaming",
+        "Esports",
+        "Valorant",
+        "CS2",
+        "Clutch",
+        "Montage",
+        "Glitch"
+      ],
+      "creator": {
+        "name": "Vanguard Gaming",
+        "handle": "@vanguard",
+        "verified": true
+      },
+      "usageCount": 215000,
+      "likesCount": 26000,
+      "rating": 4.94,
+      "isTrending": true,
+      "createdAt": "2026-08-17T18:00:00Z",
+      "colorPalette": [
+        "#a855f7",
+        "#06b6d4",
+        "#ef4444"
+      ],
+      "transitions": [
+        "Cyber Wipe",
+        "Chromatic Shake",
+        "Zoom Snip"
+      ],
+      "effects": [
+        "CRT Scanlines",
+        "Bass Shake",
+        "Damage Flash"
+      ],
+      "filters": [
+        "Neon Esports Punch LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Setup / Scouting Gameplay",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 5,
+          "label": "Clip 1 (Scouting)",
+          "defaultUrl": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Clutch Elimination 1",
+          "type": "video",
+          "startTimeSeconds": 5,
+          "durationSeconds": 6,
+          "label": "Clip 2 (First Kill)",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "1v4 Ace Finale (Drop)",
+          "type": "video",
+          "startTimeSeconds": 11,
+          "durationSeconds": 14,
+          "label": "Clip 3 (Ace Finale)",
+          "defaultUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Player Tag / Clutch Banner",
+          "defaultText": "CLUTCH 1v4 ACE",
+          "startTimeSeconds": 1,
+          "durationSeconds": 4,
+          "fontFamily": "Montserrat",
+          "fontSize": 60,
+          "fontWeight": "900",
+          "color": "#a855f7",
+          "glowColor": "#06b6d4",
+          "glowIntensity": 1,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_cinematic_nordic",
+      "name": "Nordic Cinematic 21:9 Anamorphic Film",
+      "category": "cinematic",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "Slow anamorphic landscape sweeps with 35mm film grain, 21:9 letterbox ratio, and orchestral emotional swells.",
+      "thumbnail": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:45",
+      "durationSeconds": 45,
+      "aspectRatio": "21:9",
+      "width": 2560,
+      "height": 1080,
+      "fps": 24,
+      "style": "Cinematic",
+      "tags": [
+        "Cinematic",
+        "Film",
+        "Anamorphic",
+        "21:9",
+        "Landscape",
+        "Nordic"
+      ],
+      "creator": {
+        "name": "Soren Lindqvist",
+        "handle": "@sorenfilms",
+        "verified": true
+      },
+      "usageCount": 164000,
+      "likesCount": 18700,
+      "rating": 4.96,
+      "isStaffPick": true,
+      "createdAt": "2026-08-16T12:00:00Z",
+      "colorPalette": [
+        "#0f172a",
+        "#38bdf8",
+        "#fbbf24"
+      ],
+      "transitions": [
+        "Film Dissolve",
+        "Slow Dip to Black"
+      ],
+      "effects": [
+        "Letterbox 2.39:1",
+        "Real Film Dust & Scratches",
+        "Optical Bloom"
+      ],
+      "filters": [
+        "Nordic Moody Cold Blue LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Opening Horizon Shot",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 15,
+          "label": "Wide Establishing Shot",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Intimate Detail Shot",
+          "type": "video",
+          "startTimeSeconds": 15,
+          "durationSeconds": 15,
+          "label": "Medium Atmospheric",
+          "defaultUrl": "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Dramatic Sunset Horizon",
+          "type": "video",
+          "startTimeSeconds": 30,
+          "durationSeconds": 15,
+          "label": "Climax Pan",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Cinematic Title",
+          "defaultText": "THE NORTHERN SHORES",
+          "startTimeSeconds": 2,
+          "durationSeconds": 8,
+          "fontFamily": "Playfair Display",
+          "fontSize": 52,
+          "fontWeight": "600",
+          "color": "#ffffff",
+          "letterSpacing": 8,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_vlog_cozy_morning",
+      "name": "Cozy Morning Routine & Aesthetic Daily Vlog",
+      "category": "vlog",
+      "primaryPlatform": "general",
+      "platforms": [
+        "reels",
+        "tiktok"
+      ],
+      "description": "Relaxed lifestyle vlog template featuring floating minimal time stamps, picture-in-picture talking box, and warm coffee palette.",
+      "thumbnail": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "style": "Aesthetic",
+      "tags": [
+        "Vlog",
+        "Cozy",
+        "Morning Routine",
+        "Aesthetic",
+        "Lofi"
+      ],
+      "creator": {
+        "name": "Mia Chen",
+        "handle": "@miacreates",
+        "verified": true
+      },
+      "usageCount": 138000,
+      "likesCount": 14200,
+      "rating": 4.89,
+      "createdAt": "2026-08-20T08:00:00Z",
+      "colorPalette": [
+        "#fef3c7",
+        "#d97706",
+        "#78350f"
+      ],
+      "transitions": [
+        "Soft Slide",
+        "Match Cut"
+      ],
+      "effects": [
+        "Soft Vignette",
+        "Warm Glow"
+      ],
+      "filters": [
+        "Warm Latte LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Wake Up / Sunrise",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 10,
+          "label": "Scene 1: Morning Light",
+          "defaultUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Coffee & Breakfast Prep",
+          "type": "any",
+          "startTimeSeconds": 10,
+          "durationSeconds": 10,
+          "label": "Scene 2: Coffee Ritual",
+          "defaultUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Studio Work & Desk",
+          "type": "any",
+          "startTimeSeconds": 20,
+          "durationSeconds": 10,
+          "label": "Scene 3: Creative Flow",
+          "defaultUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Timestamp Title",
+          "defaultText": "7:30 AM // MORNING FLOW",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 5,
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "700",
+          "color": "#78350f",
+          "backgroundColor": "#fef3c7",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_business_pitch_deck",
+      "name": "SaaS Pitch Deck & Corporate Key Metrics",
+      "category": "business",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "Professional high-impact corporate pitch video with clean infographic lower thirds, metric growth graphs, and logo reveal stinger.",
+      "thumbnail": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "style": "Professional",
+      "tags": [
+        "Business",
+        "SaaS",
+        "Pitch Deck",
+        "Corporate",
+        "Metrics",
+        "B2B"
+      ],
+      "creator": {
+        "name": "Enterprise Media",
+        "handle": "@enterprisemedia",
+        "verified": true
+      },
+      "usageCount": 94000,
+      "likesCount": 8800,
+      "rating": 4.91,
+      "isStaffPick": true,
+      "createdAt": "2026-08-18T10:00:00Z",
+      "colorPalette": [
+        "#1e40af",
+        "#3b82f6",
+        "#f8fafc"
+      ],
+      "transitions": [
+        "Smooth Push",
+        "Corporate Wipe"
+      ],
+      "effects": [
+        "Subtle Grid Overlay",
+        "Clean Box Shadow"
+      ],
+      "filters": [
+        "Corporate Crisp Blue LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Brand Hero / Office Visual",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 10,
+          "label": "Hero Scene",
+          "defaultUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Product Dashboard Demo",
+          "type": "any",
+          "startTimeSeconds": 10,
+          "durationSeconds": 10,
+          "label": "Product Interface Scene",
+          "defaultUrl": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Customer Success Testimonial",
+          "type": "any",
+          "startTimeSeconds": 20,
+          "durationSeconds": 10,
+          "label": "Testimonial / CTA Scene",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Pitch Title",
+          "defaultText": "SCALING REVENUE 10X",
+          "startTimeSeconds": 1,
+          "durationSeconds": 5,
+          "fontFamily": "Inter",
+          "fontSize": 48,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "backgroundColor": "#1e40af",
+          "alignment": "left"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Key Metric Callout",
+          "defaultText": "+340% YoY ARR GROWTH",
+          "startTimeSeconds": 10.5,
+          "durationSeconds": 5,
+          "fontFamily": "Inter",
+          "fontSize": 40,
+          "fontWeight": "800",
+          "color": "#38bdf8",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_edu_explainer_breakdown",
+      "name": "Step-by-Step Educational Explainer & Callout Boxes",
+      "category": "education",
+      "primaryPlatform": "general",
+      "platforms": [
+        "shorts",
+        "reels"
+      ],
+      "description": "High-clarity instructional video framework with animated numbered steps, arrow pointers, highlight callouts, and clean voiceover pacing.",
+      "thumbnail": "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "style": "Professional",
+      "tags": [
+        "Education",
+        "Tutorial",
+        "Explainer",
+        "Step-by-Step",
+        "How-to"
+      ],
+      "creator": {
+        "name": "EduStudio",
+        "handle": "@edustudio",
+        "verified": true
+      },
+      "usageCount": 81000,
+      "likesCount": 7600,
+      "rating": 4.9,
+      "createdAt": "2026-08-19T14:00:00Z",
+      "colorPalette": [
+        "#10b981",
+        "#064e3b",
+        "#f0fdf4"
+      ],
+      "transitions": [
+        "Slide Next",
+        "Clean Push"
+      ],
+      "effects": [
+        "Highlight Arrow Indicator",
+        "Paper Grid"
+      ],
+      "filters": [
+        "Clean High Key Neutral"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Concept Introduction",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 10,
+          "label": "Step 1 Demo",
+          "defaultUrl": "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Step Execution",
+          "type": "any",
+          "startTimeSeconds": 10,
+          "durationSeconds": 10,
+          "label": "Step 2 Action",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Key Takeaway / Summary",
+          "type": "any",
+          "startTimeSeconds": 20,
+          "durationSeconds": 10,
+          "label": "Summary Screen",
+          "defaultUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Lesson Title",
+          "defaultText": "HOW TO MASTER KEYFRAMES",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 44,
+          "fontWeight": "800",
+          "color": "#ffffff",
+          "backgroundColor": "#10b981",
+          "alignment": "left"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Step 1 Heading",
+          "defaultText": "STEP 1: POSITION THE PLAYHEAD",
+          "startTimeSeconds": 10,
+          "durationSeconds": 6,
+          "fontFamily": "Inter",
+          "fontSize": 36,
+          "fontWeight": "700",
+          "color": "#10b981",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_ads_ecommerce_ugc",
+      "name": "Direct-Response UGC Ad & TikTok Shop Hook",
+      "category": "ads",
+      "primaryPlatform": "tiktok",
+      "platforms": [
+        "tiktok",
+        "reels",
+        "shorts"
+      ],
+      "description": "High-converting vertical video advertisement template with floating price tags, 50% discount badge, customer reaction frame, and clickable CTA bar.",
+      "thumbnail": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Fast",
+      "tags": [
+        "Ads",
+        "E-commerce",
+        "TikTok Shop",
+        "UGC",
+        "Sale",
+        "Direct Response"
+      ],
+      "creator": {
+        "name": "DirectScale Ads",
+        "handle": "@directscale",
+        "verified": true
+      },
+      "usageCount": 289000,
+      "likesCount": 31000,
+      "rating": 4.93,
+      "isTrending": true,
+      "createdAt": "2026-08-21T15:00:00Z",
+      "colorPalette": [
+        "#f97316",
+        "#ef4444",
+        "#facc15"
+      ],
+      "transitions": [
+        "Quick Zoom Punch",
+        "Flash Cut"
+      ],
+      "effects": [
+        "Star Rating Burst",
+        "Pulsing CTA Glow"
+      ],
+      "filters": [
+        "High Vibrance Commercial LUT"
+      ],
+      "region": "US",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Unboxing / Problem Hook",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 3.5,
+          "label": "Hook (0-3.5s)",
+          "defaultUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Product in Use Feature",
+          "type": "video",
+          "startTimeSeconds": 3.5,
+          "durationSeconds": 5.5,
+          "label": "Feature Demonstration",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Results / Happy Reaction",
+          "type": "video",
+          "startTimeSeconds": 9,
+          "durationSeconds": 6,
+          "label": "Review & Offer Ending",
+          "defaultUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Offer Hook",
+          "defaultText": "WAIT... 50% OFF TODAY ONLY?! 🔥",
+          "startTimeSeconds": 0.1,
+          "durationSeconds": 4,
+          "fontFamily": "Montserrat",
+          "fontSize": 48,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "backgroundColor": "#ef4444",
+          "alignment": "center",
+          "animation": "pop"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "CTA Footer Button",
+          "defaultText": "TAP TO CLAIM DISCOUNT ➡️",
+          "startTimeSeconds": 9,
+          "durationSeconds": 6,
+          "fontFamily": "Montserrat",
+          "fontSize": 40,
+          "fontWeight": "900",
+          "color": "#000000",
+          "backgroundColor": "#facc15",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_doc_investigative",
+      "name": "Archival Documentary & Typewriter Log",
+      "category": "documents",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "Investigative journalism style with historical newspaper clippings, paper textures, authentic typewriter font effects, and subtle parallax zoom.",
+      "thumbnail": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "style": "Professional",
+      "tags": [
+        "Documentary",
+        "Documents",
+        "Historical",
+        "Typewriter",
+        "Investigative"
+      ],
+      "creator": {
+        "name": "Chronicle Media",
+        "handle": "@chronicle",
+        "verified": true
+      },
+      "usageCount": 67000,
+      "likesCount": 6100,
+      "rating": 4.87,
+      "createdAt": "2026-08-14T11:00:00Z",
+      "colorPalette": [
+        "#1c1917",
+        "#d6d3d1",
+        "#78716c"
+      ],
+      "transitions": [
+        "Paper Cut Slide",
+        "Fade to Sepia"
+      ],
+      "effects": [
+        "Dust & Scratches",
+        "Paper Texture Overlay",
+        "Typewriter Sound Sync"
+      ],
+      "filters": [
+        "1970s Archival Film Print"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Declassified Document / Case File",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 15,
+          "label": "Document Archival Evidence",
+          "defaultUrl": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Historical Footage Pan",
+          "type": "any",
+          "startTimeSeconds": 15,
+          "durationSeconds": 15,
+          "label": "Historical Footage",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "File Case Reference",
+          "defaultText": "DOSSIER #409-B // DECLASSIFIED 1984",
+          "startTimeSeconds": 1,
+          "durationSeconds": 8,
+          "fontFamily": "Courier Prime",
+          "fontSize": 32,
+          "fontWeight": "700",
+          "color": "#f5f5f4",
+          "backgroundColor": "#1c1917",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_presentation_keynote_deck",
+      "name": "Executive Keynote Slide Deck & Bullet Callouts",
+      "category": "presentations",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "Clean widescreen slide presentation with smooth card transitions, animated bullet lists, and executive infographic layout.",
+      "thumbnail": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:30",
+      "durationSeconds": 30,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "style": "Professional",
+      "tags": [
+        "Presentation",
+        "Keynote",
+        "Slides",
+        "Conference",
+        "Executive"
+      ],
+      "creator": {
+        "name": "SlideCraft Pro",
+        "handle": "@slidecraft",
+        "verified": true
+      },
+      "usageCount": 73000,
+      "likesCount": 6800,
+      "rating": 4.88,
+      "createdAt": "2026-08-20T12:00:00Z",
+      "colorPalette": [
+        "#0f172a",
+        "#6366f1",
+        "#f8fafc"
+      ],
+      "transitions": [
+        "Slide Left",
+        "Smooth Fade"
+      ],
+      "effects": [
+        "Subtle Gradient Backdrop",
+        "Clean Shadows"
+      ],
+      "filters": [
+        "High Clarity Studio"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Presentation Slide 1",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 15,
+          "label": "Slide 1: Vision & Road Map",
+          "defaultUrl": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Presentation Slide 2",
+          "type": "any",
+          "startTimeSeconds": 15,
+          "durationSeconds": 15,
+          "label": "Slide 2: Strategic Pillars",
+          "defaultUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Keynote Title",
+          "defaultText": "PRODUCT STRATEGY 2026",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 6,
+          "fontFamily": "Inter",
+          "fontSize": 48,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "alignment": "left"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_social_reaction_pip",
+      "name": "Social Media Reaction Frame & Live Chat PIP",
+      "category": "social_media",
+      "primaryPlatform": "tiktok",
+      "platforms": [
+        "tiktok",
+        "reels",
+        "shorts"
+      ],
+      "description": "Split screen and picture-in-picture layout designed for reaction videos, commentator sidebars, and chat message popups.",
+      "thumbnail": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:20",
+      "durationSeconds": 20,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Energetic",
+      "tags": [
+        "Social Media",
+        "Reaction",
+        "Split Screen",
+        "PIP",
+        "Commentary"
+      ],
+      "creator": {
+        "name": "SocialViral",
+        "handle": "@socialviral",
+        "verified": true
+      },
+      "usageCount": 174000,
+      "likesCount": 16500,
+      "rating": 4.9,
+      "createdAt": "2026-08-22T09:00:00Z",
+      "colorPalette": [
+        "#ec4899",
+        "#8b5cf6",
+        "#ffffff"
+      ],
+      "transitions": [
+        "Pop In",
+        "Slide Up"
+      ],
+      "effects": [
+        "Camera Border Ring",
+        "Comment Bubble Pop"
+      ],
+      "filters": [
+        "Punchy Social Color"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Source Video (Top / Main)",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 20,
+          "label": "Source Clip Being Reacted To",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Creator Reaction Camera (Bottom PIP)",
+          "type": "video",
+          "startTimeSeconds": 0,
+          "durationSeconds": 20,
+          "label": "Webcam / Selfie Reaction",
+          "defaultUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Reaction Headline",
+          "defaultText": "HIS REACTION IS PRICELESS 😱",
+          "startTimeSeconds": 0.2,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 44,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "backgroundColor": "#ec4899",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_photo_slideshow_3d",
+      "name": "3D Parallax Photo Slideshow & Film Strip",
+      "category": "photo_slideshow",
+      "primaryPlatform": "reels",
+      "platforms": [
+        "reels",
+        "tiktok"
+      ],
+      "description": "Turns still photographs into dynamic moving 3D parallax planes with organic camera drift, soft light leaks, and memory scrapbook borders.",
+      "thumbnail": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:20",
+      "durationSeconds": 20,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "style": "Aesthetic",
+      "tags": [
+        "Photo Slideshow",
+        "Parallax",
+        "Memories",
+        "Scrapbook",
+        "3D Zoom"
+      ],
+      "creator": {
+        "name": "PhotoMotion Studio",
+        "handle": "@photomotion",
+        "verified": true
+      },
+      "usageCount": 142000,
+      "likesCount": 13900,
+      "rating": 4.88,
+      "isStaffPick": true,
+      "createdAt": "2026-08-21T18:00:00Z",
+      "colorPalette": [
+        "#14b8a6",
+        "#f59e0b",
+        "#ffffff"
+      ],
+      "transitions": [
+        "3D Push Parallax",
+        "Light Leak Wipe"
+      ],
+      "effects": [
+        "Camera Drift & Ken Burns",
+        "Soft Film Dust"
+      ],
+      "filters": [
+        "Vintage Warm Kodachrome"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Photo 1",
+          "type": "image",
+          "startTimeSeconds": 0,
+          "durationSeconds": 5,
+          "label": "First Memory Photo",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Photo 2",
+          "type": "image",
+          "startTimeSeconds": 5,
+          "durationSeconds": 5,
+          "label": "Second Memory Photo",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Photo 3",
+          "type": "image",
+          "startTimeSeconds": 10,
+          "durationSeconds": 5,
+          "label": "Third Memory Photo",
+          "defaultUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_4",
+          "slotIndex": 3,
+          "name": "Photo 4",
+          "type": "image",
+          "startTimeSeconds": 15,
+          "durationSeconds": 5,
+          "label": "Fourth Memory Photo",
+          "defaultUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Album Title",
+          "defaultText": "UNFORGETTABLE SUMMER",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 4.5,
+          "fontFamily": "Playfair Display",
+          "fontSize": 48,
+          "fontWeight": "700",
+          "color": "#ffffff",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_intro_outro_stinger",
+      "name": "Channel Dynamic Logo Reveal & End-Card Stinger",
+      "category": "intro_outro",
+      "primaryPlatform": "general",
+      "platforms": [
+        "general"
+      ],
+      "description": "High-energy 8-second channel intro and subscribe outro with particle logo disintegration, optical flare sweep, and social icon tags.",
+      "thumbnail": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:08",
+      "durationSeconds": 8,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "style": "Fast",
+      "tags": [
+        "Intro",
+        "Outro",
+        "Stinger",
+        "Logo Reveal",
+        "Subscribe",
+        "Channel Branding"
+      ],
+      "creator": {
+        "name": "BrandStinger Pro",
+        "handle": "@brandstinger",
+        "verified": true
+      },
+      "usageCount": 220000,
+      "likesCount": 21500,
+      "rating": 4.95,
+      "isStaffPick": true,
+      "createdAt": "2026-08-20T16:00:00Z",
+      "colorPalette": [
+        "#eab308",
+        "#ef4444",
+        "#0f172a"
+      ],
+      "transitions": [
+        "Optical Flash Wipe",
+        "Particle Explode"
+      ],
+      "effects": [
+        "Anamorphic Flare",
+        "Bass Impact Shake"
+      ],
+      "filters": [
+        "High Dynamic Range Gold"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Channel Logo Image / Badge",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 8,
+          "label": "Logo / Channel Artwork",
+          "defaultUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Channel Name",
+          "defaultText": "VEECUT STUDIO",
+          "startTimeSeconds": 0.8,
+          "durationSeconds": 4.5,
+          "fontFamily": "Montserrat",
+          "fontSize": 72,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "glowColor": "#eab308",
+          "glowIntensity": 1,
+          "alignment": "center",
+          "animation": "pop"
+        },
+        {
+          "id": "text_2",
+          "slotIndex": 1,
+          "name": "Channel Slogan / CTA",
+          "defaultText": "SUBSCRIBE FOR WEEKLY EPISODES",
+          "startTimeSeconds": 2,
+          "durationSeconds": 5.5,
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "700",
+          "color": "#eab308",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_promo_product_launch",
+      "name": "3D Product Launch Reveal & Tech Specs",
+      "category": "promotional",
+      "primaryPlatform": "general",
+      "platforms": [
+        "reels",
+        "tiktok"
+      ],
+      "description": "Sleek dark-mode commercial trailer format for hardware & software launches with animated tech spec lower thirds and 3D angle pans.",
+      "thumbnail": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:20",
+      "durationSeconds": 20,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "style": "Professional",
+      "tags": [
+        "Promo",
+        "Product Launch",
+        "Commercial",
+        "Tech Specs",
+        "Hardware"
+      ],
+      "creator": {
+        "name": "Industrial FX",
+        "handle": "@industrialfx",
+        "verified": true
+      },
+      "usageCount": 112000,
+      "likesCount": 11800,
+      "rating": 4.92,
+      "createdAt": "2026-08-22T13:00:00Z",
+      "colorPalette": [
+        "#06b6d4",
+        "#3b82f6",
+        "#090d16"
+      ],
+      "transitions": [
+        "Laser Wipe",
+        "Subtle Push"
+      ],
+      "effects": [
+        "Volumetric Light Sweep",
+        "Subtle Grid Floor"
+      ],
+      "filters": [
+        "Midnight Blue Contrast"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Product Angle 1: Silhouette",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 6,
+          "label": "Silhouette Teaser",
+          "defaultUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Product Angle 2: Full Reveal",
+          "type": "any",
+          "startTimeSeconds": 6,
+          "durationSeconds": 7,
+          "label": "Full Product View",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Product Feature 3: In Action",
+          "type": "any",
+          "startTimeSeconds": 13,
+          "durationSeconds": 7,
+          "label": "In-Hand Feature",
+          "defaultUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Product Headline",
+          "defaultText": "ENGINEERED FOR PERFECTION",
+          "startTimeSeconds": 1,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 52,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "glowColor": "#06b6d4",
+          "glowIntensity": 0.8,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_ai_cinematic_storyboard",
+      "name": "AI Multi-Modal Storyboard & Neural Voiceover Flow",
+      "category": "ai_templates",
+      "primaryPlatform": "general",
+      "platforms": [
+        "shorts",
+        "reels"
+      ],
+      "description": "AI-assisted generation pipeline with dynamic prompt-to-video scenes, automated voiceover keying, and neural color balance.",
+      "thumbnail": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:20",
+      "durationSeconds": 20,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "style": "Cinematic",
+      "tags": [
+        "AI Templates",
+        "Generative",
+        "Gemini AI",
+        "Storyboard",
+        "Neural VFX"
+      ],
+      "creator": {
+        "name": "VeeCut AI Lab",
+        "handle": "@veecut_ai",
+        "verified": true
+      },
+      "usageCount": 298000,
+      "likesCount": 34000,
+      "rating": 4.98,
+      "isTrending": true,
+      "isAIPowered": true,
+      "aiFeatures": [
+        "Auto Caption Generation",
+        "Neural Color Grading",
+        "AI Voiceover Sync"
+      ],
+      "createdAt": "2026-08-22T08:00:00Z",
+      "colorPalette": [
+        "#8b5cf6",
+        "#06b6d4",
+        "#ec4899"
+      ],
+      "transitions": [
+        "Neural Morph",
+        "AI Dissolve"
+      ],
+      "effects": [
+        "Quantum Particle Drift",
+        "Neural Bloom"
+      ],
+      "filters": [
+        "Generative Sci-Fi LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "AI Scene 1: Concept Origin",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 7,
+          "label": "Prompt Generation 1",
+          "defaultUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "AI Scene 2: Evolution",
+          "type": "any",
+          "startTimeSeconds": 7,
+          "durationSeconds": 7,
+          "label": "Prompt Generation 2",
+          "defaultUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "AI Scene 3: Synthesis",
+          "type": "any",
+          "startTimeSeconds": 14,
+          "durationSeconds": 6,
+          "label": "Prompt Generation 3",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "AI Title Prompt",
+          "defaultText": "GENERATED WITH VEECUT AI",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 48,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "glowColor": "#8b5cf6",
+          "glowIntensity": 1,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_travel_wanderlust_map",
+      "name": "Travel Wanderlust & Drone Horizon Cut",
+      "category": "travel",
+      "primaryPlatform": "general",
+      "platforms": [
+        "reels",
+        "tiktok"
+      ],
+      "description": "Scenic holiday destination montage with dynamic location pin text, zoom-out map transition, and uplifting acoustic track.",
+      "thumbnail": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:25",
+      "durationSeconds": 25,
+      "aspectRatio": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "style": "Aesthetic",
+      "tags": [
+        "Travel",
+        "Wanderlust",
+        "Drone",
+        "Holiday",
+        "Cinematic"
+      ],
+      "creator": {
+        "name": "Lucas Wander",
+        "handle": "@lucaswander",
+        "verified": true
+      },
+      "usageCount": 154000,
+      "likesCount": 16800,
+      "rating": 4.93,
+      "isStaffPick": true,
+      "createdAt": "2026-08-21T17:00:00Z",
+      "colorPalette": [
+        "#0284c7",
+        "#38bdf8",
+        "#f0f9ff"
+      ],
+      "transitions": [
+        "Sky Wipe",
+        "Smooth Zoom In"
+      ],
+      "effects": [
+        "Lens Flare Warmth"
+      ],
+      "filters": [
+        "Oceanic Cyan & Gold LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Aerial Drone Shot",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 8,
+          "label": "Scene 1: Drone Coastline",
+          "defaultUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Exploring Streets",
+          "type": "any",
+          "startTimeSeconds": 8,
+          "durationSeconds": 8,
+          "label": "Scene 2: Local Streets",
+          "defaultUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Sunset Lookout",
+          "type": "any",
+          "startTimeSeconds": 16,
+          "durationSeconds": 9,
+          "label": "Scene 3: Golden Sunset",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Destination Tag",
+          "defaultText": "AMALFI COAST // ITALY 2026",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 5,
+          "fontFamily": "Montserrat",
+          "fontSize": 48,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_lyrics_kinetic_glow",
+      "name": "Kinetic Neon Lyric Flow & Spectrum Pulse",
+      "category": "lyrics_music",
+      "primaryPlatform": "tiktok",
+      "platforms": [
+        "tiktok",
+        "reels",
+        "shorts"
+      ],
+      "description": "Neon glowing kinetic typography perfectly synchronizing with vocals and bass frequencies.",
+      "thumbnail": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 60,
+      "style": "Energetic",
+      "tags": [
+        "Lyrics",
+        "Music",
+        "Karaoke",
+        "Neon",
+        "Beat Sync"
+      ],
+      "creator": {
+        "name": "AudioVibe FX",
+        "handle": "@audiovibe",
+        "verified": true
+      },
+      "usageCount": 165000,
+      "likesCount": 17200,
+      "rating": 4.92,
+      "createdAt": "2026-08-20T19:00:00Z",
+      "colorPalette": [
+        "#c084fc",
+        "#06b6d4",
+        "#f43f5e"
+      ],
+      "transitions": [
+        "RGB Glitch",
+        "Flash Cut"
+      ],
+      "effects": [
+        "Audio Reactive Glow",
+        "Bass Shake"
+      ],
+      "filters": [
+        "Vibrant Neon Pop LUT"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Music Visualizer Background",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 15,
+          "label": "Visualizer Background",
+          "defaultUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Hook Line",
+          "defaultText": "LIGHT UP THE NIGHT",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 4.5,
+          "fontFamily": "Montserrat",
+          "fontSize": 56,
+          "fontWeight": "900",
+          "color": "#ffffff",
+          "glowColor": "#c084fc",
+          "glowIntensity": 1,
+          "alignment": "center"
+        }
+      ]
+    },
+    {
+      "id": "tmpl_minimal_editorial_lookbook",
+      "name": "Minimal Editorial & Modernist Clean Cut",
+      "category": "minimal",
+      "primaryPlatform": "instagram",
+      "platforms": [
+        "instagram",
+        "reels"
+      ],
+      "description": "Understated Swiss typography, generous negative space, gentle cuts, and monochrome purity.",
+      "thumbnail": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80",
+      "duration": "00:15",
+      "durationSeconds": 15,
+      "aspectRatio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "style": "Minimal",
+      "tags": [
+        "Minimal",
+        "Editorial",
+        "Swiss Design",
+        "Clean",
+        "Monochrome"
+      ],
+      "creator": {
+        "name": "Studio Form",
+        "handle": "@studioform",
+        "verified": true
+      },
+      "usageCount": 98000,
+      "likesCount": 11200,
+      "rating": 4.9,
+      "createdAt": "2026-08-19T10:00:00Z",
+      "colorPalette": [
+        "#f8fafc",
+        "#0f172a",
+        "#64748b"
+      ],
+      "transitions": [
+        "Clean Cut",
+        "Subtle Fade"
+      ],
+      "effects": [
+        "Editorial 1px Border"
+      ],
+      "filters": [
+        "Natural Clean Balance"
+      ],
+      "region": "GLOBAL",
+      "language": "en",
+      "isPublished": true,
+      "sourceType": "veecut_official",
+      "mediaSlots": [
+        {
+          "id": "slot_1",
+          "slotIndex": 0,
+          "name": "Look 1 Portrait",
+          "type": "any",
+          "startTimeSeconds": 0,
+          "durationSeconds": 5,
+          "label": "Editorial Scene 1",
+          "defaultUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_2",
+          "slotIndex": 1,
+          "name": "Look 2 Detail",
+          "type": "any",
+          "startTimeSeconds": 5,
+          "durationSeconds": 5,
+          "label": "Editorial Scene 2",
+          "defaultUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+        },
+        {
+          "id": "slot_3",
+          "slotIndex": 2,
+          "name": "Look 3 Atmosphere",
+          "type": "any",
+          "startTimeSeconds": 10,
+          "durationSeconds": 5,
+          "label": "Editorial Scene 3",
+          "defaultUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop&q=80",
+          "thumbnailUrl": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=400&auto=format&fit=crop&q=80"
+        }
+      ],
+      "textSlots": [
+        {
+          "id": "text_1",
+          "slotIndex": 0,
+          "name": "Editorial Masthead",
+          "defaultText": "ISSUE Nº 04 / MINIMAL",
+          "startTimeSeconds": 0.5,
+          "durationSeconds": 4.5,
+          "fontFamily": "Inter",
+          "fontSize": 32,
+          "fontWeight": "700",
+          "color": "#0f172a",
+          "letterSpacing": 4,
+          "alignment": "center"
+        }
+      ]
+    }
+  ],
+  "template_versions": [],
+  "template_usage": [],
+  "favorites": [],
+  "trend_snapshots": []
+}

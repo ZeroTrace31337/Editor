@@ -28,7 +28,7 @@ interface MobileEditorHeaderProps {
 
 const ASPECT_OPTIONS = [
   { label: '9:16', name: 'Shorts / TikTok', width: 1080, height: 1920 },
-  { label: '16:9', name: 'YouTube / Widescreen', width: 1920, height: 1080 },
+  { label: '16:9', name: 'Landscape / Widescreen', width: 1920, height: 1080 },
   { label: '1:1', name: 'Instagram Square', width: 1080, height: 1080 },
   { label: '4:5', name: 'Portrait Social', width: 1080, height: 1350 },
   { label: '21:9', name: 'Cinematic Scope', width: 2560, height: 1080 },

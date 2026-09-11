@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type TrendPlatform = 'all' | 'youtube' | 'tiktok' | 'instagram' | 'shorts' | 'reels';
+export type TrendPlatform = 'all' | 'tiktok' | 'instagram' | 'shorts' | 'reels';
 
 export type TrendDataStatus = 'live' | 'recent' | 'cached' | 'veecut_curated';
 
@@ -21,7 +21,7 @@ export interface TrendItem {
   id: string;
   title: string;
   description?: string;
-  platform: 'youtube' | 'tiktok' | 'instagram';
+  platform: 'tiktok' | 'instagram';
   category: string;
   region: string;
   channelOrCreator: string;
@@ -35,7 +35,7 @@ export interface TrendItem {
   trendScore: number; // 0 - 100 normalized score
   trendVelocity: TrendVelocity;
   status: TrendDataStatus;
-  source: string; // e.g. "YouTube Data API v3", "TikTok Developer Insights", "Meta Graph API", "VeeCut Curated"
+  source: string; // e.g. "TikTok Developer Insights", "Meta Graph API", "VeeCut Curated"
   lastUpdated: string;
   recommendedTemplateIds: string[];
   tags: string[];
@@ -47,7 +47,7 @@ export interface TrendItem {
 export interface TrendSourceStatus {
   id: string;
   name: string;
-  platform: 'youtube' | 'tiktok' | 'instagram' | 'supabase';
+  platform: 'tiktok' | 'instagram' | 'supabase';
   status: 'live' | 'cached' | 'configured' | 'unconfigured' | 'rate_limited' | 'error';
   message: string;
   itemCount: number;

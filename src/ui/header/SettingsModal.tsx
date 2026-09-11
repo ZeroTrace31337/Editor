@@ -42,7 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [profileName, setProfileName] = useState('Studio Creator');
   const [profileEmail, setProfileEmail] = useState('creator@veecut.studio');
   const [profileRole, setProfileRole] = useState('Lead Video Editor');
-  const [profileBio, setProfileBio] = useState('Creating cinematic stories, commercials, and YouTube content with VeeCut.');
+  const [profileBio, setProfileBio] = useState('Creating cinematic stories, commercials, and digital content with VeeCut.');
 
   // Theme Settings
   const [themeMode, setThemeMode] = useState<'dark' | 'graphite' | 'midnight'>('graphite');
@@ -78,7 +78,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   // Security & Privacy
   const [optOutTelemetry, setOptOutTelemetry] = useState(true);
   const [localStorageOnly, setLocalStorageOnly] = useState(false);
-  const [youtubeApiConnected, setYoutubeApiConnected] = useState(true);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -357,19 +356,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 w-[15%]" />
                   </div>
                   <p className="text-[10px] text-zinc-500">85.2 GB available for cache proxies, generative media, and backups.</p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
-                  <span className="font-semibold text-zinc-200 block">Connected Video Services</span>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900 border border-zinc-800">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white">YouTube Data API v3</span>
-                      <span className="text-[10px] text-zinc-400">• Video Search & Trends</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-mono text-[9px] font-bold">
-                      Connected
-                    </span>
-                  </div>
                 </div>
 
                 <div className="pt-2">
@@ -770,10 +756,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                     <div className="flex items-center justify-between p-2 rounded bg-zinc-900">
                       <span className="text-zinc-300">Gemini Neural AI Service</span>
                       <span className="text-emerald-400 font-bold">Secure Server-Side Active</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 rounded bg-zinc-900">
-                      <span className="text-zinc-300">YouTube Data API Proxy</span>
-                      <span className="text-emerald-400 font-bold">Protected / Rate-Limited</span>
                     </div>
                   </div>
                 </div>

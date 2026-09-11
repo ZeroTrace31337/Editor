@@ -23,14 +23,6 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#f43f5e', // Rose
   },
   {
-    id: 'youtube',
-    label: 'YouTube',
-    iconName: 'Youtube',
-    description: 'Widescreen 16:9 layouts for intros, video essays, reviews, and vlogs',
-    tagline: 'Landscape 4K long-form production styles',
-    colorAccent: '#dc2626', // YouTube Red
-  },
-  {
     id: 'tiktok',
     label: 'TikTok',
     iconName: 'Smartphone',
@@ -39,11 +31,11 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryInfo[] = [
     colorAccent: '#06b6d4', // Cyan
   },
   {
-    id: 'youtube_shorts',
+    id: 'shorts',
     label: 'Shorts',
     iconName: 'Zap',
     description: 'Engaging vertical video templates engineered for maximum viewer retention',
-    tagline: 'Paced for Shorts algorithm discoverability',
+    tagline: 'Paced for vertical algorithm discoverability',
     colorAccent: '#ef4444', // Red
   },
   {

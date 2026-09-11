@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Flame,
-  Youtube,
   Instagram,
   Smartphone,
   RefreshCw,
@@ -108,8 +107,6 @@ export const LiveTrendsSection: React.FC<LiveTrendsSectionProps> = ({
 
   const getPlatformIcon = (plt: string) => {
     switch (plt) {
-      case 'youtube':
-        return <Youtube className="w-3.5 h-3.5 text-rose-400" />;
       case 'instagram':
         return <Instagram className="w-3.5 h-3.5 text-pink-400" />;
       case 'tiktok':
@@ -145,7 +142,7 @@ export const LiveTrendsSection: React.FC<LiveTrendsSectionProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Aggregating trending video formats, audio tracks, and pacing styles across YouTube Shorts, TikTok & Reels.
+            Aggregating trending video formats, audio tracks, and pacing styles across TikTok & Reels.
           </p>
         </div>
 
@@ -153,7 +150,7 @@ export const LiveTrendsSection: React.FC<LiveTrendsSectionProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           {/* Platform Pills */}
           <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/10">
-            {(['all', 'youtube', 'tiktok', 'instagram'] as TrendPlatform[]).map((plt) => (
+            {(['all', 'tiktok', 'instagram'] as TrendPlatform[]).map((plt) => (
               <button
                 key={plt}
                 type="button"

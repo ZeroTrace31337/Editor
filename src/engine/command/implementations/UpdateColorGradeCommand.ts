@@ -18,19 +18,23 @@ export class UpdateColorGradeCommand implements ICommand {
   constructor(
     private timelineEngine: TimelineEngine,
     private clipId: string,
-    private newColorGrade: ColorGrade
+    private newColorGrade: ColorGrade,
+    oldColorGradeOverride?: ColorGrade
   ) {
     const found = this.timelineEngine.findClip(clipId);
     if (!found) {
       throw new Error(`Clip ${clipId} not found`);
     }
-    this.oldColorGrade = JSON.parse(JSON.stringify(found.clip.colorGrade));
+    this.oldColorGrade = oldColorGradeOverride
+      ? JSON.parse(JSON.stringify(oldColorGradeOverride))
+      : JSON.parse(JSON.stringify(found.clip.colorGrade));
   }
 
   public execute(): void {
     const found = this.timelineEngine.findClip(this.clipId);
     if (found) {
       found.clip.colorGrade = JSON.parse(JSON.stringify(this.newColorGrade));
+      this.timelineEngine.notify();
     }
   }
 
@@ -38,6 +42,11 @@ export class UpdateColorGradeCommand implements ICommand {
     const found = this.timelineEngine.findClip(this.clipId);
     if (found) {
       found.clip.colorGrade = JSON.parse(JSON.stringify(this.oldColorGrade));
+      this.timelineEngine.notify();
     }
+  }
+
+  public redo(): void {
+    this.execute();
   }
 }

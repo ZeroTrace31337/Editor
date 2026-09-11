@@ -20,33 +20,19 @@ if (!fs.existsSync(DATA_DIR)) {
   }
 }
 
-// Category ID mapping for YouTube Data API v3
-const YT_CATEGORY_MAP: Record<string, string> = {
-  gaming: '20',
-  music: '10',
-  education: '27',
-  entertainment: '24',
-  tech: '28',
-  sports: '17',
-  film: '1',
-  autos: '2',
-  news: '25',
-  howto: '26',
-};
-
 // Verified baseline trend seed signals across platforms for when external APIs are unconfigured or rate limited
 const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
-  // YouTube 16:9 & Shorts
+  // Viral Challenges & Hooks
   {
-    id: 'yt_trend_1',
-    title: 'MrBeast Style Ultra-Fast Challenge Cut (Hook in 1.5s)',
+    id: 'viral_trend_1',
+    title: 'Ultra-Fast Challenge Cut (Hook in 1.5s)',
     description: 'High-retention editing formula featuring kinetic sound risers, full-bleed animated subtitles, and rapid 2.5-second pacing.',
-    platform: 'youtube',
+    platform: 'tiktok',
     category: 'Entertainment',
     region: 'US',
     channelOrCreator: 'Viral Formats Lab',
     thumbnailUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
-    externalUrl: 'https://youtube.com/trends',
+    externalUrl: 'https://tiktok.com',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     metrics: {
       views: 4850000,
@@ -58,22 +44,22 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     trendScore: 98,
     trendVelocity: 'Exploding',
     status: 'veecut_curated',
-    source: 'YouTube Data API (Curated Trend Signal)',
+    source: 'VeeCut Curated Trend Signal',
     lastUpdated: new Date().toISOString(),
-    recommendedTemplateIds: ['tmpl_velocity_beat', 'tmpl_youtube_hook_shorts', 'tmpl_gaming_clutch_esports'],
-    tags: ['YouTube', 'MrBeast Pacing', 'Fast Cut', 'Viral Hook', 'High Retention'],
-    aspectRatio: '16:9',
+    recommendedTemplateIds: ['tmpl_velocity_beat', 'tmpl_viral_hook_shorts', 'tmpl_gaming_clutch_esports'],
+    tags: ['Trending', 'Pacing', 'Fast Cut', 'Viral Hook', 'High Retention'],
+    aspectRatio: '9:16',
   },
   {
-    id: 'yt_trend_2',
+    id: 'viral_trend_2',
     title: 'Cinematic Unreal Engine 5 & AI Sci-Fi Teaser Trailer',
     description: 'Moody anamorphic sci-fi teaser pacing with volumetric lighting, orchestral drop transients, and 35mm film grain.',
-    platform: 'youtube',
+    platform: 'instagram',
     category: 'Cinematic',
     region: 'GLOBAL',
     channelOrCreator: 'CinemaFX Studio',
     thumbnailUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
-    externalUrl: 'https://youtube.com/trends',
+    externalUrl: 'https://instagram.com',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     metrics: {
       views: 2900000,
@@ -85,22 +71,22 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     trendScore: 92,
     trendVelocity: 'High Growth',
     status: 'veecut_curated',
-    source: 'YouTube Data API (Curated Trend Signal)',
+    source: 'VeeCut Curated Trend Signal',
     lastUpdated: new Date().toISOString(),
     recommendedTemplateIds: ['tmpl_cinematic_nordic', 'tmpl_ai_cinematic_storyboard', 'tmpl_doc_investigative'],
     tags: ['Cinematic', 'Sci-Fi', 'Anamorphic', 'Film Look', 'Sound Design'],
     aspectRatio: '16:9',
   },
   {
-    id: 'yt_trend_3',
-    title: 'POV: Day in the Life of a Tech Founder in Tokyo (Minimalist 4K Vlog)',
+    id: 'viral_trend_3',
+    title: 'POV: Day in the Life of a Tech Founder in Tokyo (Minimalist Vlog)',
     description: 'Clean aesthetic aesthetic lifestyle vlog with floating typewriter titles, ambient lofi beat, and smooth match cuts.',
-    platform: 'youtube',
+    platform: 'instagram',
     category: 'Vlogs',
     region: 'JP',
     channelOrCreator: 'Kaito Lifestyle',
     thumbnailUrl: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80',
-    externalUrl: 'https://youtube.com/trends',
+    externalUrl: 'https://instagram.com',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     metrics: {
       views: 1420000,
@@ -112,7 +98,7 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     trendScore: 89,
     trendVelocity: 'Viral Surge',
     status: 'veecut_curated',
-    source: 'YouTube Data API (Curated Trend Signal)',
+    source: 'VeeCut Curated Trend Signal',
     lastUpdated: new Date().toISOString(),
     recommendedTemplateIds: ['tmpl_vlog_cozy_morning', 'tmpl_travel_wanderlust_map', 'tmpl_minimal_editorial_lookbook'],
     tags: ['Vlog', 'Tokyo', 'Aesthetic', 'Minimalist', 'Cozy'],
@@ -272,12 +258,12 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     id: 'gaming_trend_1',
     title: 'Valorant / CS2 Clutch Multi-Kill Glitch Sync (Impact Audio Shake)',
     description: 'High-adrenaline gaming clip edit with slow-motion bullet impact zoom, audio bass drop, and Cyberpunk chromatic distortion.',
-    platform: 'youtube',
+    platform: 'tiktok',
     category: 'Gaming',
     region: 'GLOBAL',
     channelOrCreator: 'ClutchMontage HQ',
     thumbnailUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80',
-    externalUrl: 'https://youtube.com/gaming',
+    externalUrl: 'https://tiktok.com',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 7).toISOString(),
     metrics: {
       views: 3100000,
@@ -289,9 +275,9 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     trendScore: 93,
     trendVelocity: 'High Growth',
     status: 'veecut_curated',
-    source: 'YouTube Data API (Gaming Category)',
+    source: 'VeeCut Curated Trend Signal',
     lastUpdated: new Date().toISOString(),
-    recommendedTemplateIds: ['tmpl_gaming_clutch_esports', 'tmpl_velocity_beat', 'tmpl_youtube_hook_shorts'],
+    recommendedTemplateIds: ['tmpl_gaming_clutch_esports', 'tmpl_velocity_beat', 'tmpl_viral_hook_shorts'],
     tags: ['Gaming', 'Esports', 'Montage', 'Valorant', 'Clutch'],
     aspectRatio: '16:9',
   },
@@ -301,12 +287,12 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     id: 'biz_trend_1',
     title: 'SaaS Pitch Deck & Product Showcase Video (Clean 3D Infographics)',
     description: 'Corporate executive presentation layout with sleek metric callout cards, logo reveal animations, and modern blue gradients.',
-    platform: 'youtube',
+    platform: 'instagram',
     category: 'Business',
     region: 'US',
     channelOrCreator: 'VentureScale Media',
     thumbnailUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-    externalUrl: 'https://youtube.com',
+    externalUrl: 'https://instagram.com',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
     metrics: {
       views: 890000,
@@ -318,7 +304,7 @@ const CURATED_TREND_SNAPSHOTS: TrendItem[] = [
     trendScore: 84,
     trendVelocity: 'Steady Trend',
     status: 'veecut_curated',
-    source: 'YouTube Data API (Curated Trend Signal)',
+    source: 'VeeCut Curated Trend Signal',
     lastUpdated: new Date().toISOString(),
     recommendedTemplateIds: ['tmpl_business_pitch_deck', 'tmpl_presentation_keynote_deck', 'tmpl_edu_explainer_breakdown'],
     tags: ['Business', 'SaaS', 'Pitch Deck', 'Presentation', 'Corporate'],
@@ -417,135 +403,6 @@ export class TrendEngine {
     else if (total >= 65) velocity = 'Viral Surge';
 
     return { score: total, velocity };
-  }
-
-  /**
-   * Fetches official YouTube trending data if YOUTUBE_API_KEY is configured
-   */
-  public async fetchYouTubeTrends(region = 'US', category = 'all'): Promise<{ items: TrendItem[]; status: TrendSourceStatus }> {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-
-    if (!apiKey || apiKey.trim() === '' || apiKey === 'MY_YOUTUBE_API_KEY') {
-      const fallbackItems = CURATED_TREND_SNAPSHOTS.filter((t) => t.platform === 'youtube');
-      return {
-        items: fallbackItems,
-        status: {
-          id: 'source_youtube',
-          name: 'YouTube Data API v3',
-          platform: 'youtube',
-          status: 'unconfigured',
-          message: 'YOUTUBE_API_KEY not set in environment. Displaying VeeCut verified trend signals and curated templates.',
-          itemCount: fallbackItems.length,
-          lastRefreshed: new Date().toISOString(),
-          isOfficialApi: false,
-        },
-      };
-    }
-
-    try {
-      let url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=${region}&maxResults=20&key=${apiKey}`;
-      if (category !== 'all' && YT_CATEGORY_MAP[category.toLowerCase()]) {
-        url += `&videoCategoryId=${YT_CATEGORY_MAP[category.toLowerCase()]}`;
-      }
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn(`YouTube API returned HTTP ${response.status}: ${errorText}`);
-        const fallbackItems = CURATED_TREND_SNAPSHOTS.filter((t) => t.platform === 'youtube');
-        return {
-          items: fallbackItems,
-          status: {
-            id: 'source_youtube',
-            name: 'YouTube Data API v3',
-            platform: 'youtube',
-            status: response.status === 403 ? 'rate_limited' : 'error',
-            message: `YouTube API returned status ${response.status}. Falling back to cached and curated VeeCut trends.`,
-            itemCount: fallbackItems.length,
-            lastRefreshed: new Date().toISOString(),
-            isOfficialApi: false,
-          },
-        };
-      }
-
-      const json = (await response.json()) as any;
-      if (!json.items || !Array.isArray(json.items)) {
-        throw new Error('Invalid YouTube API response format');
-      }
-
-      const realItems: TrendItem[] = json.items.map((item: any) => {
-        const views = parseInt(item.statistics?.viewCount || '0', 10);
-        const likes = parseInt(item.statistics?.likeCount || '0', 10);
-        const comments = parseInt(item.statistics?.commentCount || '0', 10);
-        const snippet = item.snippet || {};
-        const { score, velocity } = this.calculateTrendScore({
-          views,
-          likes,
-          comments,
-          publishedAt: snippet.publishedAt,
-        });
-
-        const isShorts = snippet.title?.toLowerCase().includes('#shorts') || snippet.description?.toLowerCase().includes('#shorts');
-
-        return {
-          id: `yt_${item.id}`,
-          title: snippet.title || 'Trending Video',
-          description: snippet.description ? snippet.description.substring(0, 200) + '...' : '',
-          platform: 'youtube',
-          category: snippet.categoryId ? 'Trending' : 'General',
-          region,
-          channelOrCreator: snippet.channelTitle || 'YouTube Creator',
-          thumbnailUrl: snippet.thumbnails?.maxres?.url || snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || '',
-          externalUrl: `https://www.youtube.com/watch?v=${item.id}`,
-          embedUrl: `https://www.youtube-nocookie.com/embed/${item.id}`,
-          publishedAt: snippet.publishedAt || new Date().toISOString(),
-          metrics: {
-            views,
-            likes,
-            comments,
-            engagementRate: views > 0 ? parseFloat(((likes + comments) / views * 100).toFixed(1)) : 0,
-          },
-          trendScore: score,
-          trendVelocity: velocity,
-          status: 'live',
-          source: 'YouTube Data API v3 (Live Official)',
-          lastUpdated: new Date().toISOString(),
-          recommendedTemplateIds: this.matchTemplatesForTopic(snippet.title || '', isShorts ? '9:16' : '16:9'),
-          tags: snippet.tags?.slice(0, 5) || ['YouTube', 'Trending'],
-          aspectRatio: isShorts ? '9:16' : '16:9',
-        };
-      });
-
-      return {
-        items: realItems,
-        status: {
-          id: 'source_youtube',
-          name: 'YouTube Data API v3',
-          platform: 'youtube',
-          status: 'live',
-          message: `Connected to official YouTube Data API v3. Aggregated ${realItems.length} live trending records for region ${region}.`,
-          itemCount: realItems.length,
-          lastRefreshed: new Date().toISOString(),
-          isOfficialApi: true,
-        },
-      };
-    } catch (err: any) {
-      console.error('Error fetching live YouTube trends:', err);
-      const fallbackItems = CURATED_TREND_SNAPSHOTS.filter((t) => t.platform === 'youtube');
-      return {
-        items: fallbackItems,
-        status: {
-          id: 'source_youtube',
-          name: 'YouTube Data API v3',
-          platform: 'youtube',
-          status: 'error',
-          message: `Could not reach YouTube Data API (${err?.message || 'Network error'}). Using VeeCut curated trend library.`,
-          itemCount: fallbackItems.length,
-          lastRefreshed: new Date().toISOString(),
-          isOfficialApi: false,
-        },
-      };
-    }
   }
 
   /**
@@ -648,7 +505,7 @@ export class TrendEngine {
     const recommendations: string[] = [];
 
     if (t.includes('game') || t.includes('clutch') || t.includes('montage') || t.includes('kill') || t.includes('esport')) {
-      recommendations.push('tmpl_gaming_clutch_esports', 'tmpl_velocity_beat', 'tmpl_youtube_hook_shorts');
+      recommendations.push('tmpl_gaming_clutch_esports', 'tmpl_velocity_beat', 'tmpl_viral_hook_shorts');
     } else if (t.includes('vlog') || t.includes('travel') || t.includes('tokyo') || t.includes('day in')) {
       recommendations.push('tmpl_vlog_cozy_morning', 'tmpl_travel_wanderlust_map', 'tmpl_minimal_editorial_lookbook');
     } else if (t.includes('cinematic') || t.includes('trailer') || t.includes('movie') || t.includes('film') || t.includes('ai')) {
@@ -661,9 +518,9 @@ export class TrendEngine {
       recommendations.push('tmpl_reels_golden_hour_hook', 'tmpl_photo_slideshow_3d', 'tmpl_instagram_aesthetic_square');
     } else {
       if (aspectRatio === '16:9') {
-        recommendations.push('tmpl_youtube_master_intro', 'tmpl_cinematic_nordic', 'tmpl_business_pitch_deck');
+        recommendations.push('tmpl_cinematic_master_intro', 'tmpl_cinematic_nordic', 'tmpl_business_pitch_deck');
       } else {
-        recommendations.push('tmpl_velocity_beat', 'tmpl_youtube_hook_shorts', 'tmpl_reels_golden_hour_hook');
+        recommendations.push('tmpl_velocity_beat', 'tmpl_viral_hook_shorts', 'tmpl_reels_golden_hour_hook');
       }
     }
 
@@ -707,13 +564,12 @@ export class TrendEngine {
     }
 
     // Fetch in parallel from available connectors
-    const [ytResult, ttResult, igResult] = await Promise.all([
-      this.fetchYouTubeTrends(region, category),
+    const [ttResult, igResult] = await Promise.all([
       this.fetchTikTokTrends(region),
       this.fetchInstagramTrends(region),
     ]);
 
-    const aggregated = [...ytResult.items, ...ttResult.items, ...igResult.items];
+    const aggregated = [...ttResult.items, ...igResult.items];
 
     // Sort by normalized trend score
     aggregated.sort((a, b) => b.trendScore - a.trendScore);
@@ -743,7 +599,7 @@ export class TrendEngine {
 
     return {
       trends: filtered,
-      sources: [ytResult.status, ttResult.status, igResult.status],
+      sources: [ttResult.status, igResult.status],
       totalCount: filtered.length,
       timestamp: new Date(now).toISOString(),
       isCached: false,
@@ -754,23 +610,10 @@ export class TrendEngine {
   }
 
   public getSourceStatuses(region = 'US'): TrendSourceStatus[] {
-    const hasYt = !!process.env.YOUTUBE_API_KEY && process.env.YOUTUBE_API_KEY !== 'MY_YOUTUBE_API_KEY';
     const hasTt = !!process.env.TIKTOK_CLIENT_KEY;
     const hasMeta = !!process.env.META_APP_ID;
 
     return [
-      {
-        id: 'source_youtube',
-        name: 'YouTube Data API v3',
-        platform: 'youtube',
-        status: hasYt ? 'live' : 'unconfigured',
-        message: hasYt
-          ? `Connected to YouTube Data API v3 for region ${region}.`
-          : 'YOUTUBE_API_KEY not configured. Serving VeeCut curated trending formats.',
-        itemCount: 10,
-        lastRefreshed: new Date().toISOString(),
-        isOfficialApi: hasYt,
-      },
       {
         id: 'source_tiktok',
         name: 'TikTok Developer API',

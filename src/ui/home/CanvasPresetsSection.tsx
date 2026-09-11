@@ -5,7 +5,7 @@
 
 import React from 'react';
 import {
-  Youtube,
+  Monitor,
   Smartphone,
   Square,
   Instagram,
@@ -27,8 +27,8 @@ export const CanvasPresetsSection: React.FC<CanvasPresetsSectionProps> = ({
 }) => {
   const getIcon = (type: CanvasPreset['iconType']) => {
     switch (type) {
-      case 'youtube':
-        return <Youtube className="w-5 h-5 text-red-400" />;
+      case 'monitor':
+        return <Monitor className="w-5 h-5 text-indigo-400" />;
       case 'phone':
         return <Smartphone className="w-5 h-5 text-pink-400" />;
       case 'square':

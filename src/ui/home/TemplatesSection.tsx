@@ -43,7 +43,6 @@ export const TemplatesSection: React.FC<TemplatesSectionProps> = ({
     { id: 'tiktok', label: 'TikTok' },
     { id: 'shorts', label: 'Shorts' },
     { id: 'cinematic', label: 'Cinematic' },
-    { id: 'youtube', label: 'YouTube' },
     { id: 'beat_sync', label: 'Beat Sync' },
     { id: 'ai_templates', label: 'AI Templates' },
   ];

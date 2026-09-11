@@ -191,7 +191,7 @@ export const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
                 className="w-full px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white text-xs outline-none"
               >
                 <option value="9:16">9:16 (Vertical / Reels / TikTok)</option>
-                <option value="16:9">16:9 (Landscape / YouTube)</option>
+                <option value="16:9">16:9 (Landscape / Widescreen)</option>
                 <option value="1:1">1:1 (Square / Instagram Feed)</option>
                 <option value="4:5">4:5 (Portrait / Photography)</option>
               </select>

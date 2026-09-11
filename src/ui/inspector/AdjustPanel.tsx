@@ -60,6 +60,9 @@ interface AdjustmentRowProps {
   propertyPath?: string;
   clip?: TimelineClip;
   onChange: (val: number) => void;
+  onStartChange?: () => void;
+  onCommit?: (val: number) => void;
+  onReset?: () => void;
 }
 
 const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
@@ -77,14 +80,23 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
   propertyPath,
   clip,
   onChange,
+  onStartChange,
+  onCommit,
+  onReset,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempText, setTempText] = useState('');
 
   const displayVal = formatDecimals > 0 ? value.toFixed(formatDecimals) : Math.round(value).toString();
+  const isModified = Math.abs(value - defaultValue) > 0.0001;
 
   const handleDoubleClick = () => {
-    onChange(defaultValue);
+    if (onReset) {
+      onReset();
+    } else {
+      onChange(defaultValue);
+      onCommit?.(defaultValue);
+    }
   };
 
   const handleTextSubmit = () => {
@@ -93,6 +105,7 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
     if (!isNaN(parsed)) {
       const clamped = Math.max(min, Math.min(max, parsed));
       onChange(clamped);
+      onCommit?.(clamped);
     }
   };
 
@@ -114,13 +127,20 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
   return (
     <div className="flex items-center justify-between py-1 text-xs select-none group">
       {/* Label (double-click resets) */}
-      <span
+      <div
         onDoubleClick={handleDoubleClick}
         title="Double-click to reset"
-        className="w-24 text-zinc-300 font-medium text-[11px] truncate cursor-pointer hover:text-white transition"
+        className="w-24 flex items-center gap-1 cursor-pointer hover:text-white transition"
       >
-        {label}
-      </span>
+        {isModified && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 shadow-xs" />}
+        <span
+          className={`truncate text-[11px] font-medium transition ${
+            isModified ? 'text-amber-300 font-semibold' : 'text-zinc-300'
+          }`}
+        >
+          {label}
+        </span>
+      </div>
 
       {/* Slider */}
       <div className="flex-1 mx-2 flex items-center">
@@ -130,7 +150,9 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
           max={max}
           step={step}
           value={value}
+          onPointerDown={() => onStartChange?.()}
           onChange={(e) => onChange(parseFloat(e.target.value))}
+          onPointerUp={(e) => onCommit?.(parseFloat(e.currentTarget.value))}
           onDoubleClick={handleDoubleClick}
           style={trackStyle}
           className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${
@@ -165,9 +187,9 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
             }}
             onDoubleClick={handleDoubleClick}
             title="Click to edit, double-click to reset"
-            className="cursor-pointer hover:text-purple-300 transition"
+            className={`cursor-pointer transition ${isModified ? 'text-amber-300 font-semibold' : 'hover:text-purple-300'}`}
           >
-            {value > 0 && (unit === 'EV' || unit === 'dB' || isTempTrack || isTintTrack) ? `+${displayVal}` : displayVal}
+            {value > 0 && (unit === ' EV' || unit === 'dB' || isTempTrack || isTintTrack) ? `+${displayVal}` : displayVal}
             {unit}
           </span>
         )}
@@ -201,16 +223,18 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
   } = useEditor();
   const clip = propClip || selectedClip;
 
-  const [subTab, setSubTab] = useState<'basic' | 'light' | 'color' | 'detail' | 'hsl' | 'curves' | 'wheels' | 'lut'>('basic');
+  const [subTab, setSubTab] = useState<'basic' | 'light' | 'color' | 'detail' | 'creative' | 'hsl' | 'curves' | 'wheels' | 'lut'>('basic');
   const [openSections, setOpenSections] = useState({
     light: true,
     color: true,
     detail: true,
+    creative: true,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lutEngine = LutEngine.getInstance();
   const allLuts = lutEngine.getAllLuts();
+  const dragSnapshotRef = useRef<ColorGrade | null>(null);
 
   if (!clip) {
     return (
@@ -227,34 +251,63 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const updateGradeParam = (param: keyof ColorGrade, val: any) => {
+  const handleDragStart = () => {
+    dragSnapshotRef.current = JSON.parse(JSON.stringify(clip.colorGrade || createDefaultColorGrade()));
+  };
+
+  const handleLiveChange = (param: keyof ColorGrade, val: any) => {
+    if (!clip.colorGrade) {
+      clip.colorGrade = createDefaultColorGrade();
+    }
+    (clip.colorGrade as any)[param] = val;
+    timelineEngine.notify();
+  };
+
+  const handleCommitChange = (param: keyof ColorGrade, finalVal: any) => {
+    const initialGrade = dragSnapshotRef.current || JSON.parse(JSON.stringify(clip.colorGrade || createDefaultColorGrade()));
+    const newGrade: ColorGrade = {
+      ...(clip.colorGrade || createDefaultColorGrade()),
+      [param]: finalVal,
+    };
+    if (JSON.stringify(initialGrade) !== JSON.stringify(newGrade)) {
+      const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, newGrade, initialGrade);
+      commandManager.execute(cmd);
+    }
+    dragSnapshotRef.current = null;
+  };
+
+  const handleDirectChange = (param: keyof ColorGrade, val: any) => {
+    const initialGrade = JSON.parse(JSON.stringify(clip.colorGrade || createDefaultColorGrade()));
     const updated: ColorGrade = {
-      ...grade,
+      ...initialGrade,
       [param]: val,
     };
-    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, updated);
+    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, updated, initialGrade);
     commandManager.execute(cmd);
+  };
+
+  const updateGradeParam = (param: keyof ColorGrade, val: any) => {
+    handleDirectChange(param, val);
   };
 
   const handleResetAll = () => {
     const def = createDefaultColorGrade();
-    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, def);
+    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, def, grade);
     commandManager.execute(cmd);
   };
 
-  const handleResetSection = (section: 'light' | 'color' | 'detail') => {
+  const handleResetSection = (section: 'light' | 'color' | 'detail' | 'creative') => {
     const def = createDefaultColorGrade();
     let updated = { ...grade };
     if (section === 'light') {
       updated.exposure = def.exposure;
-      updated.contrast = def.contrast;
       updated.brightness = def.brightness;
-      updated.brilliance = def.brilliance;
+      updated.contrast = def.contrast;
       updated.highlights = def.highlights;
       updated.shadows = def.shadows;
       updated.whites = def.whites;
       updated.blacks = def.blacks;
-      updated.fade = def.fade;
+      updated.brilliance = def.brilliance;
     } else if (section === 'color') {
       updated.saturation = def.saturation;
       updated.vibrance = def.vibrance;
@@ -265,10 +318,12 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
       updated.sharpen = def.sharpen;
       updated.clarity = def.clarity;
       updated.noiseReduction = def.noiseReduction;
-      updated.grain = def.grain;
+    } else if (section === 'creative') {
+      updated.fade = def.fade;
       updated.vignette = def.vignette;
+      updated.grain = def.grain;
     }
-    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, updated);
+    const cmd = new UpdateColorGradeCommand(timelineEngine, clip.id, updated, grade);
     commandManager.execute(cmd);
   };
 
@@ -392,7 +447,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
         </div>
       </div>
 
-      {/* 2. Sub-Category Tabs: Basic, Light, Color, Detail, HSL, Curves, Wheels, LUT */}
+      {/* 2. Sub-Category Tabs: Basic, Light, Color, Detail, Creative, HSL, Curves, Wheels, LUT */}
       <div className="p-2 border-b border-zinc-800/80 bg-zinc-950/20">
         <div className="flex items-center gap-1 bg-zinc-950/80 p-0.5 rounded-lg border border-zinc-850 text-[11px] font-medium overflow-x-auto">
           {(
@@ -401,6 +456,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
               { id: 'light', label: 'Light' },
               { id: 'color', label: 'Color' },
               { id: 'detail', label: 'Detail' },
+              { id: 'creative', label: 'Creative' },
               { id: 'hsl', label: 'HSL' },
               { id: 'curves', label: 'Curves' },
               { id: 'wheels', label: 'Wheels' },
@@ -436,7 +492,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                 className="flex items-center gap-2 text-xs font-bold text-white hover:text-amber-300 transition"
               >
                 <span className="w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-400/60" />
-                <span>Light & Exposure</span>
+                <span>Light</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -476,7 +532,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={2}
                   propertyPath="colorGrade.exposure"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('exposure', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('exposure', val)}
+                  onCommit={(val) => handleCommitChange('exposure', val)}
+                  onReset={() => handleDirectChange('exposure', 0)}
                 />
                 <AdjustmentRow
                   label="Brightness"
@@ -488,19 +547,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={2}
                   propertyPath="colorGrade.brightness"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('brightness', val)}
-                />
-                <AdjustmentRow
-                  label="Brilliance"
-                  value={grade.brilliance ?? 0}
-                  min={-100}
-                  max={100}
-                  step={1}
-                  defaultValue={0}
-                  formatDecimals={0}
-                  propertyPath="colorGrade.brilliance"
-                  clip={clip}
-                  onChange={(val) => updateGradeParam('brilliance', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('brightness', val)}
+                  onCommit={(val) => handleCommitChange('brightness', val)}
+                  onReset={() => handleDirectChange('brightness', 0)}
                 />
                 <AdjustmentRow
                   label="Contrast"
@@ -512,7 +562,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={2}
                   propertyPath="colorGrade.contrast"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('contrast', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('contrast', val)}
+                  onCommit={(val) => handleCommitChange('contrast', val)}
+                  onReset={() => handleDirectChange('contrast', 1.0)}
                 />
                 <AdjustmentRow
                   label="Highlights"
@@ -524,7 +577,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.highlights"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('highlights', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('highlights', val)}
+                  onCommit={(val) => handleCommitChange('highlights', val)}
+                  onReset={() => handleDirectChange('highlights', 0)}
                 />
                 <AdjustmentRow
                   label="Shadows"
@@ -536,7 +592,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.shadows"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('shadows', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('shadows', val)}
+                  onCommit={(val) => handleCommitChange('shadows', val)}
+                  onReset={() => handleDirectChange('shadows', 0)}
                 />
                 <AdjustmentRow
                   label="Whites"
@@ -548,7 +607,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.whites"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('whites', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('whites', val)}
+                  onCommit={(val) => handleCommitChange('whites', val)}
+                  onReset={() => handleDirectChange('whites', 0)}
                 />
                 <AdjustmentRow
                   label="Blacks"
@@ -560,20 +622,25 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.blacks"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('blacks', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('blacks', val)}
+                  onCommit={(val) => handleCommitChange('blacks', val)}
+                  onReset={() => handleDirectChange('blacks', 0)}
                 />
                 <AdjustmentRow
-                  label="Film Fade"
-                  value={grade.fade ?? 0}
-                  min={0}
+                  label="Brilliance"
+                  value={grade.brilliance ?? 0}
+                  min={-100}
                   max={100}
                   step={1}
                   defaultValue={0}
-                  unit="%"
                   formatDecimals={0}
-                  propertyPath="colorGrade.fade"
+                  propertyPath="colorGrade.brilliance"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('fade', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('brilliance', val)}
+                  onCommit={(val) => handleCommitChange('brilliance', val)}
+                  onReset={() => handleDirectChange('brilliance', 0)}
                 />
               </div>
             )}
@@ -591,7 +658,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                 className="flex items-center gap-2 text-xs font-bold text-white hover:text-purple-300 transition"
               >
                 <span className="w-2 h-2 rounded-full bg-purple-400 shadow-sm shadow-purple-400/60" />
-                <span>Color & White Balance</span>
+                <span>Color</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -630,22 +697,13 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={2}
                   propertyPath="colorGrade.saturation"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('saturation', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('saturation', val)}
+                  onCommit={(val) => handleCommitChange('saturation', val)}
+                  onReset={() => handleDirectChange('saturation', 1.0)}
                 />
                 <AdjustmentRow
-                  label="Vibrance"
-                  value={grade.vibrance ?? 0}
-                  min={-100}
-                  max={100}
-                  step={1}
-                  defaultValue={0}
-                  formatDecimals={0}
-                  propertyPath="colorGrade.vibrance"
-                  clip={clip}
-                  onChange={(val) => updateGradeParam('vibrance', val)}
-                />
-                <AdjustmentRow
-                  label="Temperature"
+                  label="Warmth"
                   value={grade.temperature ?? 0}
                   min={-100}
                   max={100}
@@ -655,7 +713,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   isTempTrack
                   propertyPath="colorGrade.temperature"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('temperature', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('temperature', val)}
+                  onCommit={(val) => handleCommitChange('temperature', val)}
+                  onReset={() => handleDirectChange('temperature', 0)}
                 />
                 <AdjustmentRow
                   label="Tint"
@@ -668,7 +729,25 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   isTintTrack
                   propertyPath="colorGrade.tint"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('tint', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('tint', val)}
+                  onCommit={(val) => handleCommitChange('tint', val)}
+                  onReset={() => handleDirectChange('tint', 0)}
+                />
+                <AdjustmentRow
+                  label="Vibrance"
+                  value={grade.vibrance ?? 0}
+                  min={-100}
+                  max={100}
+                  step={1}
+                  defaultValue={0}
+                  formatDecimals={0}
+                  propertyPath="colorGrade.vibrance"
+                  clip={clip}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('vibrance', val)}
+                  onCommit={(val) => handleCommitChange('vibrance', val)}
+                  onReset={() => handleDirectChange('vibrance', 0)}
                 />
                 <AdjustmentRow
                   label="Hue Angle"
@@ -682,7 +761,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   isRainbowTrack
                   propertyPath="colorGrade.hue"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('hue', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('hue', val)}
+                  onCommit={(val) => handleCommitChange('hue', val)}
+                  onReset={() => handleDirectChange('hue', 0)}
                 />
               </div>
             )}
@@ -700,7 +782,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                 className="flex items-center gap-2 text-xs font-bold text-white hover:text-cyan-300 transition"
               >
                 <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/60" />
-                <span>Detail & Effects</span>
+                <span>Detail</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -730,7 +812,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
             {openSections.detail && (
               <div className="p-3 space-y-1">
                 <AdjustmentRow
-                  label="Sharpen"
+                  label="Sharpness"
                   value={grade.sharpen ?? 0}
                   min={0}
                   max={100}
@@ -740,7 +822,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.sharpen"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('sharpen', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('sharpen', val)}
+                  onCommit={(val) => handleCommitChange('sharpen', val)}
+                  onReset={() => handleDirectChange('sharpen', 0)}
                 />
                 <AdjustmentRow
                   label="Clarity"
@@ -752,7 +837,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.clarity"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('clarity', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('clarity', val)}
+                  onCommit={(val) => handleCommitChange('clarity', val)}
+                  onReset={() => handleDirectChange('clarity', 0)}
                 />
                 <AdjustmentRow
                   label="Noise Red."
@@ -765,7 +853,86 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.noiseReduction"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('noiseReduction', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('noiseReduction', val)}
+                  onCommit={(val) => handleCommitChange('noiseReduction', val)}
+                  onReset={() => handleDirectChange('noiseReduction', 0)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECTION 4: CREATIVE */}
+        {(subTab === 'basic' || subTab === 'creative') && (
+          <div className="rounded-xl border border-zinc-800/80 bg-[#121422] overflow-hidden shadow-xs">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/60 border-b border-zinc-800/60">
+              <button
+                type="button"
+                onClick={() => toggleSection('creative')}
+                className="flex items-center gap-2 text-xs font-bold text-white hover:text-rose-300 transition"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-400 shadow-sm shadow-rose-400/60" />
+                <span>Creative</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleResetSection('creative')}
+                  className="text-zinc-500 hover:text-amber-300 p-0.5 transition"
+                  title="Reset Creative Adjustments"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('creative')}
+                  className="text-zinc-500 hover:text-zinc-300 p-0.5 transition"
+                >
+                  {openSections.creative ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Sliders */}
+            {openSections.creative && (
+              <div className="p-3 space-y-1">
+                <AdjustmentRow
+                  label="Fade"
+                  value={grade.fade ?? 0}
+                  min={0}
+                  max={100}
+                  step={1}
+                  defaultValue={0}
+                  unit="%"
+                  formatDecimals={0}
+                  propertyPath="colorGrade.fade"
+                  clip={clip}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('fade', val)}
+                  onCommit={(val) => handleCommitChange('fade', val)}
+                  onReset={() => handleDirectChange('fade', 0)}
+                />
+                <AdjustmentRow
+                  label="Vignette"
+                  value={grade.vignette ?? 0}
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  defaultValue={0}
+                  formatDecimals={2}
+                  propertyPath="colorGrade.vignette"
+                  clip={clip}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('vignette', val)}
+                  onCommit={(val) => handleCommitChange('vignette', val)}
+                  onReset={() => handleDirectChange('vignette', 0)}
                 />
                 <AdjustmentRow
                   label="Film Grain"
@@ -778,19 +945,10 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
                   formatDecimals={0}
                   propertyPath="colorGrade.grain"
                   clip={clip}
-                  onChange={(val) => updateGradeParam('grain', val)}
-                />
-                <AdjustmentRow
-                  label="Vignette"
-                  value={grade.vignette ?? 0}
-                  min={0}
-                  max={1}
-                  step={0.02}
-                  defaultValue={0}
-                  formatDecimals={2}
-                  propertyPath="colorGrade.vignette"
-                  clip={clip}
-                  onChange={(val) => updateGradeParam('vignette', val)}
+                  onStartChange={handleDragStart}
+                  onChange={(val) => handleLiveChange('grain', val)}
+                  onCommit={(val) => handleCommitChange('grain', val)}
+                  onReset={() => handleDirectChange('grain', 0)}
                 />
               </div>
             )}

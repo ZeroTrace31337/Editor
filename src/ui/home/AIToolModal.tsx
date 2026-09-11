@@ -32,6 +32,7 @@ import {
   Upload,
   Radio,
   FileAudio,
+  AlertCircle,
 } from 'lucide-react';
 import { AIToolItem } from './homeData';
 
@@ -188,13 +189,27 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
 
       switch (tool.id) {
         case 'ai_video_gen':
-          setGenerationStatusText('Synthesizing 60fps cinematic video stream...');
-          endpoint = '/api/ai/video-gen';
+          setGenerationStatusText('Initializing Veo 3.1 video generation...');
+          endpoint = '/api/ai/video-generate';
           payload = {
             prompt: videoPrompt,
             style: videoStyle,
             duration: videoDuration,
             aspectRatio: videoAspect,
+            resolution: '1080p',
+          };
+          break;
+
+        case 'ai_image_to_video':
+          setGenerationStatusText('Sending image to Veo 3.1 motion engine...');
+          endpoint = '/api/ai/image-to-video-generate';
+          payload = {
+            imageData: uploadedBgImage || uploadedObjImage,
+            motionPrompt: videoPrompt || 'Subtle cinematic camera push-in and natural motion',
+            duration: videoDuration || 5,
+            cameraMotion: 'Pan Right',
+            aspectRatio: videoAspect || '16:9',
+            resolution: '1080p',
           };
           break;
 
@@ -219,7 +234,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           break;
 
         case 'ai_bg_removal':
-          setGenerationStatusText('Segmenting subject alpha mask and despilling edges...');
+          setGenerationStatusText('Segmenting subject alpha mask with Gemini vision...');
           endpoint = '/api/ai/bg-removal';
           payload = {
             imageData: uploadedBgImage,
@@ -229,7 +244,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           break;
 
         case 'ai_object_removal':
-          setGenerationStatusText('Inpainting clean plate and reconstructing texture layers...');
+          setGenerationStatusText('Inpainting clean plate with Gemini vision...');
           endpoint = '/api/ai/object-removal';
           payload = {
             imageData: uploadedObjImage,
@@ -289,7 +304,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           break;
 
         case 'ai_music_sfx':
-          setGenerationStatusText('Synthesizing cinematic music track with neural synth engine...');
+          setGenerationStatusText('Synthesizing cinematic audio track with neural synth engine...');
           endpoint = '/api/ai/music-gen';
           payload = {
             prompt: musicPrompt,
@@ -319,8 +334,67 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           break;
 
         default:
-          endpoint = '/api/ai/video-gen';
+          endpoint = '/api/ai/video-generate';
           payload = { prompt: videoPrompt };
+      }
+
+      // Handle Asynchronous Veo Video Generation
+      if (tool.id === 'ai_video_gen' || tool.id === 'ai_image_to_video') {
+        const startRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const startData = await startRes.json().catch(() => ({}));
+        if (!startRes.ok) {
+          throw new Error(startData.error || `Failed to start video generation (HTTP ${startRes.status})`);
+        }
+
+        if (startData.operationName) {
+          setGenerationStatusText('Veo 3.1 neural operation in progress... Synthesizing frames');
+          let attempts = 0;
+          const maxAttempts = 60; // 5 minutes max
+          while (attempts < maxAttempts) {
+            attempts++;
+            await new Promise((r) => setTimeout(r, 5000));
+            const pollRes = await fetch('/api/ai/video-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ operationName: startData.operationName }),
+            });
+            const pollData = await pollRes.json().catch(() => ({}));
+            if (pollData.error) {
+              throw new Error(pollData.error);
+            }
+            if (pollData.done) {
+              clearInterval(progressTimer);
+              setGenerationProgress(100);
+              const downloadUrl = pollData.videoUri
+                ? `/api/ai/video-download?uri=${encodeURIComponent(pollData.videoUri)}`
+                : null;
+              setResultData({
+                id: `veo_${Date.now()}`,
+                title: tool.id === 'ai_image_to_video' ? 'AI Animated Motion Shot' : 'Veo 3.1 Generative Video',
+                videoUrl: downloadUrl,
+                duration: payload.duration || 5,
+                aspectRatio: payload.aspectRatio || '16:9',
+                status: 'ready',
+              });
+              return;
+            }
+            setGenerationProgress((p) => Math.min(94, p + 2));
+            setGenerationStatusText(`Synthesizing frames with Veo 3.1 (${attempts * 5}s elapsed)...`);
+          }
+          throw new Error('Video generation timed out while waiting for Veo 3.1 operation to complete.');
+        } else if (startData.videoUrl) {
+          clearInterval(progressTimer);
+          setGenerationProgress(100);
+          setResultData(startData);
+          return;
+        } else {
+          throw new Error(startData.error || 'Failed to initialize video generation');
+        }
       }
 
       const res = await fetch(endpoint, {
@@ -330,7 +404,8 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error(`Server returned status ${res.status}: ${res.statusText}`);
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server returned status ${res.status}: ${res.statusText}`);
       }
 
       const data = await res.json();
@@ -343,25 +418,10 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
       }
     } catch (err: any) {
       clearInterval(progressTimer);
-      console.warn('AI API fallback:', err);
-      // Construct dependable result so the user workflow is never blocked
-      const fallbackResult: any = {
-        status: 'ready',
-        title: `${tool.name} Output`,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (tool.id === 'ai_captions') {
-        fallbackResult.captions = [
-          { id: 'sub_1', startMs: 0, endMs: 1400, text: 'Welcome to VeeCut Studio', highlightWord: 'VeeCut' },
-          { id: 'sub_2', startMs: 1400, endMs: 3200, text: 'Create high-impact cinematic videos', highlightWord: 'high-impact' },
-          { id: 'sub_3', startMs: 3200, endMs: 4800, text: 'Powered by advanced AI tools', highlightWord: 'AI' },
-        ];
-        setEditableCaptions(fallbackResult.captions);
-      }
-
-      setResultData(fallbackResult);
-      setGenerationProgress(100);
+      console.error('AI processing error:', err);
+      setErrorMsg(err.message || 'AI processing request failed. Please check your configuration and try again.');
+      setResultData(null);
+      setGenerationProgress(0);
     } finally {
       setIsGenerating(false);
     }
@@ -371,9 +431,9 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
     onApplyToTimeline({
       title: resultData?.title || `${tool.name} Result`,
       type: tool.category,
-      assetUrl: resultData?.imageUrl || resultData?.audioData,
+      assetUrl: resultData?.videoUrl || resultData?.imageUrl || resultData?.audioData || resultData?.audioUrl,
       imageUrl: resultData?.imageUrl,
-      audioData: resultData?.audioData,
+      audioData: resultData?.audioData || resultData?.audioUrl,
       videoUrl: resultData?.videoUrl,
       colorGrade: resultData?.colorGrade,
       captions: editableCaptions.length > 0 ? editableCaptions : resultData?.captions,
@@ -385,22 +445,23 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
   };
 
   const toggleAudioPlay = () => {
-    if (resultData?.audioData) {
-      if (!audioPlayerRef.current) {
-        const audio = new Audio(resultData.audioData);
-        audio.onended = () => setIsPlayingAudio(false);
-        audioPlayerRef.current = audio;
+    const audioSrc = resultData?.audioData || resultData?.audioUrl;
+    if (audioSrc) {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
       }
       if (isPlayingAudio) {
-        audioPlayerRef.current.pause();
         setIsPlayingAudio(false);
-      } else {
-        audioPlayerRef.current.play().catch(() => {});
-        setIsPlayingAudio(true);
+        return;
       }
+      const audio = new Audio(audioSrc);
+      audio.onended = () => setIsPlayingAudio(false);
+      audio.onerror = () => setIsPlayingAudio(false);
+      audioPlayerRef.current = audio;
+      audio.play().then(() => setIsPlayingAudio(true)).catch(() => setIsPlayingAudio(false));
     } else {
       // Web Speech Synthesis fallback
-      if ('speechSynthesis' in window) {
+      if ('speechSynthesis' in window && voiceScript) {
         if (isPlayingAudio) {
           window.speechSynthesis.cancel();
           setIsPlayingAudio(false);
@@ -1086,25 +1147,38 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
               </div>
             ) : resultData ? (
               <div className="relative w-full h-full flex flex-col items-center justify-center rounded-lg overflow-hidden">
-                {/* TOOL 1: VIDEO GEN PREVIEW */}
-                {tool.id === 'ai_video_gen' && (
-                  <div className="relative w-full h-full bg-gradient-to-tr from-cyan-950/60 via-slate-900 to-black rounded-lg border border-cyan-500/40 p-4 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">
-                        {resultData.resolution || '1080p'} • 60 FPS • {resultData.aspectRatio || videoAspect}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">{videoDuration}s Video</span>
+                {/* TOOL 1: VIDEO GEN & IMAGE TO VIDEO PREVIEW */}
+                {(tool.id === 'ai_video_gen' || tool.id === 'ai_image_to_video') && (
+                  resultData.videoUrl ? (
+                    <div className="relative w-full h-full flex items-center justify-center bg-black rounded-lg overflow-hidden">
+                      <video
+                        src={resultData.videoUrl}
+                        controls
+                        autoPlay
+                        loop
+                        playsInline
+                        className="w-full h-full object-contain"
+                      />
                     </div>
-                    <div className="text-center py-2">
-                      <Video className="w-9 h-9 text-cyan-400 mx-auto mb-1.5 animate-pulse" />
-                      <p className="text-xs font-bold text-white">{resultData.title || 'Generative Cinematic Shot'}</p>
-                      <p className="text-[10px] text-cyan-300/80 mt-0.5">{resultData.cameraPath || 'Cinematic Steadycam Push'}</p>
+                  ) : (
+                    <div className="relative w-full h-full bg-gradient-to-tr from-cyan-950/60 via-slate-900 to-black rounded-lg border border-cyan-500/40 p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">
+                          {resultData.resolution || '1080p'} • Veo 3.1 • {resultData.aspectRatio || videoAspect}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 font-mono">{videoDuration}s Video</span>
+                      </div>
+                      <div className="text-center py-2">
+                        <Video className="w-9 h-9 text-cyan-400 mx-auto mb-1.5 animate-pulse" />
+                        <p className="text-xs font-bold text-white">{resultData.title || 'Generative Cinematic Shot'}</p>
+                        <p className="text-[10px] text-cyan-300/80 mt-0.5">Veo 3.1 Neural Output Ready</p>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/80 pt-1.5">
+                        <span>Status: Rendered</span>
+                        <span className="text-cyan-400 font-semibold">Ready for Timeline</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/80 pt-1.5">
-                      <span>Lighting: {resultData.lighting?.substring(0, 32)}...</span>
-                      <span className="text-cyan-400 font-semibold">Ready for Timeline</span>
-                    </div>
-                  </div>
+                  )
                 )}
 
                 {/* TOOL 2: IMAGE GEN PREVIEW */}
@@ -1380,6 +1454,19 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+            ) : errorMsg ? (
+              <div className="text-center text-red-400 p-4 max-w-md">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                <p className="text-xs font-bold text-red-300 mb-1">AI Request Error</p>
+                <p className="text-[11px] text-zinc-300 leading-relaxed mb-3">{errorMsg}</p>
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  className="px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-[11px] font-semibold hover:bg-red-500/30 transition cursor-pointer"
+                >
+                  Retry Request
+                </button>
               </div>
             ) : (
               <div className="text-center text-zinc-400">

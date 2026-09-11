@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   ShieldCheck,
-  Youtube,
   Instagram,
   Smartphone,
   Database,
@@ -57,8 +56,6 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
 
   const getSourceIcon = (platform: string) => {
     switch (platform) {
-      case 'youtube':
-        return <Youtube className="w-5 h-5 text-rose-500" />;
       case 'tiktok':
         return <Smartphone className="w-5 h-5 text-sky-400" />;
       case 'instagram':
@@ -173,10 +170,9 @@ export const ApiStatusModal: React.FC<ApiStatusModalProps> = ({ isOpen, onClose 
               <span className="font-mono text-[10px] text-slate-400">/.env.example</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              To activate official live streaming quotas from YouTube Data API v3, TikTok Commercial Content API, or Meta Graph API, configure:
+              To activate official live streaming quotas from TikTok Commercial Content API or Meta Graph API, configure:
             </p>
             <div className="p-2.5 rounded-lg bg-[#07090e] font-mono text-[11px] text-sky-300 space-y-1 overflow-x-auto">
-              <div>YOUTUBE_API_KEY=your_key_here</div>
               <div>TIKTOK_API_KEY=your_client_key_here</div>
               <div>META_ACCESS_TOKEN=your_meta_token_here</div>
               <div>SUPABASE_URL=optional_cloud_url</div>

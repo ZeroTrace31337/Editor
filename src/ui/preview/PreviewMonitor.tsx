@@ -109,25 +109,31 @@ export const PreviewMonitor: React.FC = () => {
   const isBeforeAfterRef = useRef(isBeforeAfterActive);
   isBeforeAfterRef.current = isBeforeAfterActive;
 
-  // Immediate stationary frame rendering when paused or seeking
+  // Immediate stationary frame rendering when paused, seeking, or adjusting parameters
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const renderFrame = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    if (!isPlaying) {
-      compositor.renderSequence(
-        ctx,
-        timelineEngine.getSequence(),
-        currentTime,
-        renderWidth,
-        renderHeight,
-        isBeforeAfterActive,
-        false
-      );
-    }
-  }, [currentTime, isPlaying, renderWidth, renderHeight, isBeforeAfterActive, compositor, timelineEngine]);
+      if (!isPlaying) {
+        compositor.renderSequence(
+          ctx,
+          timelineEngine.getSequence(),
+          currentTime,
+          renderWidthRef.current,
+          renderHeightRef.current,
+          isBeforeAfterRef.current,
+          false
+        );
+      }
+    };
+
+    renderFrame();
+    const unsub = timelineEngine.subscribe(renderFrame);
+    return () => unsub();
+  }, [currentTime, isPlaying, renderWidth, renderHeight, isBeforeAfterActive, compositor, timelineEngine, project]);
 
   // Continuous uninterrupted 60/120 FPS hardware-synchronized playback frame loop
   useEffect(() => {

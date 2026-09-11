@@ -95,24 +95,49 @@ export class GPUColorGradingPass {
       // Set Uniforms
       const uImage = gl.getUniformLocation(this.program, 'u_image');
       const uExp = gl.getUniformLocation(this.program, 'u_exposure');
+      const uBrightness = gl.getUniformLocation(this.program, 'u_brightness');
       const uContrast = gl.getUniformLocation(this.program, 'u_contrast');
       const uPivot = gl.getUniformLocation(this.program, 'u_pivot');
+      const uBrilliance = gl.getUniformLocation(this.program, 'u_brilliance');
+      const uHighlights = gl.getUniformLocation(this.program, 'u_highlights');
+      const uShadows = gl.getUniformLocation(this.program, 'u_shadows');
+      const uWhites = gl.getUniformLocation(this.program, 'u_whites');
+      const uBlacks = gl.getUniformLocation(this.program, 'u_blacks');
+      const uFade = gl.getUniformLocation(this.program, 'u_fade');
       const uSat = gl.getUniformLocation(this.program, 'u_saturation');
       const uTemp = gl.getUniformLocation(this.program, 'u_temperature');
       const uTint = gl.getUniformLocation(this.program, 'u_tint');
+      const uSharpen = gl.getUniformLocation(this.program, 'u_sharpen');
+      const uClarity = gl.getUniformLocation(this.program, 'u_clarity');
+      const uVignette = gl.getUniformLocation(this.program, 'u_vignette');
+      const uGrain = gl.getUniformLocation(this.program, 'u_grain');
+      const uResolution = gl.getUniformLocation(this.program, 'u_resolution');
+      const uTime = gl.getUniformLocation(this.program, 'u_time');
       const uLift = gl.getUniformLocation(this.program, 'u_lift');
       const uGamma = gl.getUniformLocation(this.program, 'u_gamma');
       const uGain = gl.getUniformLocation(this.program, 'u_gain');
       const uOffset = gl.getUniformLocation(this.program, 'u_offset');
-      const uVignette = gl.getUniformLocation(this.program, 'u_vignette');
 
       gl.uniform1i(uImage, 0);
       gl.uniform1f(uExp, grade.exposure || 0);
+      gl.uniform1f(uBrightness, grade.brightness || 0);
       gl.uniform1f(uContrast, grade.contrast ?? 1.0);
       gl.uniform1f(uPivot, 0.435);
+      gl.uniform1f(uBrilliance, (grade.brilliance || 0) / 100);
+      gl.uniform1f(uHighlights, (grade.highlights || 0) / 100);
+      gl.uniform1f(uShadows, (grade.shadows || 0) / 100);
+      gl.uniform1f(uWhites, (grade.whites || 0) / 100);
+      gl.uniform1f(uBlacks, (grade.blacks || 0) / 100);
+      gl.uniform1f(uFade, Math.max(0, Math.min(1, (grade.fade || 0) / 100)));
       gl.uniform1f(uSat, grade.saturation ?? 1.0);
       gl.uniform1f(uTemp, grade.temperature || 0);
       gl.uniform1f(uTint, grade.tint || 0);
+      gl.uniform1f(uSharpen, Math.max(0, Math.min(1, (grade.sharpen || 0) / 100)));
+      gl.uniform1f(uClarity, Math.max(-1, Math.min(1, (grade.clarity || 0) / 100)));
+      gl.uniform1f(uVignette, Math.max(0, Math.min(1, grade.vignette || 0)));
+      gl.uniform1f(uGrain, Math.max(0, Math.min(1, (grade.grain || 0) / 100)));
+      gl.uniform2f(uResolution, width, height);
+      gl.uniform1f(uTime, performance.now() / 1000);
 
       // 4-Way Color Wheels
       const wheels = grade.wheels;
@@ -120,8 +145,6 @@ export class GPUColorGradingPass {
       gl.uniform3f(uGamma, wheels?.gamma?.r ?? 1, wheels?.gamma?.g ?? 1, wheels?.gamma?.b ?? 1);
       gl.uniform3f(uGain, wheels?.gain?.r ?? 1, wheels?.gain?.g ?? 1, wheels?.gain?.b ?? 1);
       gl.uniform3f(uOffset, wheels?.offset?.r ?? 0, wheels?.offset?.g ?? 0, wheels?.offset?.b ?? 0);
-
-      gl.uniform1f(uVignette, grade.vignette || 0);
 
       // Bind VAO & Draw Quad
       const shaderMgr = ShaderManager.getInstance();

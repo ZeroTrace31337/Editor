@@ -24,7 +24,6 @@ import {
   X,
   RefreshCw,
   Info,
-  Youtube,
   Smartphone,
   ChevronRight,
   ShieldAlert,
@@ -242,7 +241,7 @@ export const VideoReconstructionModal: React.FC<VideoReconstructionModalProps> =
                   }`}
                 >
                   <Link className="w-3.5 h-3.5" />
-                  <span>Video URL (YouTube / Web)</span>
+                  <span>Video URL (Web Video / Direct URL)</span>
                 </button>
                 <button
                   onClick={() => setSourceType('file')}
@@ -262,7 +261,7 @@ export const VideoReconstructionModal: React.FC<VideoReconstructionModalProps> =
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Paste YouTube, TikTok or direct MP4 URL (e.g. https://www.youtube.com/watch?v=...)"
+                      placeholder="Paste TikTok, Vimeo or direct MP4 URL (e.g. https://example.com/video.mp4)"
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
                       className="flex-1 bg-[#141824] border border-zinc-800 focus:border-cyan-500 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none transition"
@@ -340,7 +339,7 @@ export const VideoReconstructionModal: React.FC<VideoReconstructionModalProps> =
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { id: '9:16', label: '9:16 Reels / Shorts' },
-                      { id: '16:9', label: '16:9 Landscape / YouTube' },
+                      { id: '16:9', label: '16:9 Widescreen / Landscape' },
                       { id: '1:1', label: '1:1 Square Feed' },
                     ].map((asp) => (
                       <button

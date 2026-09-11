@@ -43,48 +43,26 @@ export class ColorEngine {
       return;
     }
 
-    const hasAdvancedPasses =
-      this.hasActiveCurves(grade.curves) ||
-      this.hasActiveHsl(grade.hsl) ||
-      this.hasActiveColorWheels(grade.wheels) ||
-      (grade.lutId && grade.lutEnabled !== false) ||
-      (grade.highlights || 0) !== 0 ||
-      (grade.shadows || 0) !== 0 ||
-      (grade.whites || 0) !== 0 ||
-      (grade.blacks || 0) !== 0 ||
-      (grade.sharpen || 0) > 0 ||
-      (grade.clarity || 0) !== 0 ||
-      (grade.vibrance || 0) !== 0 ||
-      (grade.temperature || 0) !== 0 ||
-      (grade.tint || 0) !== 0 ||
-      (grade.hue || 0) !== 0 ||
-      (grade.fade || 0) > 0;
-
-    if (hasAdvancedPasses) {
-      // 1. Try Hardware-Accelerated WebGL2 GPU Shader Pass first (<0.5ms)
-      const gpuPass = GPUColorGradingPass.getInstance();
-      let handledByGPU = false;
-      if (gpuPass.canAccelerate()) {
-        handledByGPU = gpuPass.applyGPUColorGrade(ctx, canvasWidth, canvasHeight, grade);
-      }
-
-      // 2. CPU fallback if GPU context lost or unsupported
-      if (!handledByGPU) {
-        this.applyFullPixelGrading(ctx, canvasWidth, canvasHeight, grade);
-      }
-    } else {
-      // Fast-path hardware-accelerated filter pass for simple light/contrast adjustments
-      this.applyFastFilter(ctx, canvasWidth, canvasHeight, grade);
+    // 1. Try Hardware-Accelerated WebGL2 GPU Shader Pass first (<0.5ms)
+    const gpuPass = GPUColorGradingPass.getInstance();
+    let handledByGPU = false;
+    if (gpuPass.canAccelerate()) {
+      handledByGPU = gpuPass.applyGPUColorGrade(ctx, canvasWidth, canvasHeight, grade);
     }
 
-    // Procedural Film Grain Overlay
-    if ((grade.grain || 0) > 0.5) {
-      this.applyGrain(ctx, canvasWidth, canvasHeight, grade.grain);
-    }
+    // 2. High-Performance CPU fallback if GPU context lost or unsupported
+    if (!handledByGPU) {
+      this.applyFullPixelGrading(ctx, canvasWidth, canvasHeight, grade);
 
-    // Optical Vignette
-    if ((grade.vignette || 0) > 0.005) {
-      this.applyVignette(ctx, canvasWidth, canvasHeight, grade.vignette);
+      // Procedural Film Grain Overlay (CPU fallback)
+      if ((grade.grain || 0) > 0.5) {
+        this.applyGrain(ctx, canvasWidth, canvasHeight, grade.grain);
+      }
+
+      // Optical Vignette (CPU fallback)
+      if ((grade.vignette || 0) > 0.005) {
+        this.applyVignette(ctx, canvasWidth, canvasHeight, grade.vignette);
+      }
     }
   }
 

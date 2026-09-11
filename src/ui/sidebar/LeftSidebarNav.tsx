@@ -45,7 +45,6 @@ import {
   Loader2,
   Film,
   Bot,
-  Youtube,
   FileText,
   Download,
 } from 'lucide-react';
@@ -57,7 +56,6 @@ import { AudioSynthesisEngine, SoundItem, SfxCategory } from '../../engine/audio
 import { SpeechEngine } from '../../engine/audio/SpeechEngine';
 import { AIToolModal } from '../home/AIToolModal';
 import { AI_TOOLS_LIST, AIToolItem } from '../home/homeData';
-import { YouTubePanel } from '../youtube/YouTubePanel';
 import {
   parseSRT,
   parseVTT,
@@ -823,7 +821,6 @@ export const LeftSidebarNav: React.FC = () => {
 
             {[
               { id: 'Yours', label: 'Yours' },
-              { id: 'YouTube', label: 'YouTube', isYt: true },
               { id: 'AI media', label: 'AI media', isAi: true },
               { id: 'Spaces', label: 'Spaces' },
               { id: 'Library', label: 'Library' },
@@ -839,32 +836,19 @@ export const LeftSidebarNav: React.FC = () => {
                 }`}
               >
                 <div className="flex items-center gap-1">
-                  {cat.isYt ? (
-                    <Youtube className="w-3 h-3 text-rose-500 shrink-0" />
-                  ) : null}
                   <span>{cat.label}</span>
                   {cat.isAi && (
                     <span className="px-1 py-0.2 rounded text-[8px] bg-cyan-500 text-black font-black">
                       AI
                     </span>
                   )}
-                  {cat.isYt && (
-                    <span className="px-1 py-0.2 rounded text-[7.5px] bg-rose-600 text-white font-bold">
-                      LIVE
-                    </span>
-                  )}
                 </div>
-                <ChevronDown className="w-3 h-3 text-zinc-500" />
+                <ChevronDown className="w-3 text-zinc-500" />
               </button>
             ))}
           </div>
 
-          {/* Right Media Shelf & Grid or YouTube Search Panel */}
-          {activeCategory === 'YouTube' ? (
-            <div className="flex-1 flex flex-col min-w-0 bg-[#0d0f17] overflow-hidden">
-              <YouTubePanel />
-            </div>
-          ) : (
+          {/* Right Media Shelf & Grid */}
           <div
             className="flex-1 flex flex-col min-w-0 bg-[#0d0f17]"
             onDragOver={(e) => {
@@ -1119,7 +1103,6 @@ export const LeftSidebarNav: React.FC = () => {
               )}
             </div>
           </div>
-          )}
         </div>
       )}
 

@@ -34,6 +34,17 @@ export class AIServiceLayer {
     return !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY";
   }
 
+  public formatErrorMessage(err: any): string {
+    let message = err?.message || String(err || "An unknown error occurred");
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed?.error?.message) {
+        return parsed.error.message;
+      }
+    } catch {}
+    return message;
+  }
+
   /**
    * Helper to invoke generateContent with automatic retry and model fallback
    * (e.g. if a model is temporarily experiencing 503 high demand or transient rate limits).
@@ -184,77 +195,19 @@ export class AIServiceLayer {
     resolution?: string;
   }) {
     const ai = this.getClient();
-
-    let scriptDetails: any = {
-      title: "Cinematic Neural Video",
-      cameraPath: "Dynamic cinematic push with subtle rotational drift",
-      lighting: "Volumetric anamorphic lens flare with cinematic rim light",
-      colorPalette: ["#06b6d4", "#3b82f6", "#8b5cf6", "#f43f5e"],
-      scenePacing: "Smooth cinematic 60fps acceleration",
-      motionVectors: 240,
-    };
-
-    if (ai) {
-      try {
-        const descPrompt = `You are a Hollywood cinematic VFX director. Analyze this video generation prompt: "${params.prompt}".
-Style: ${params.style || "Cinematic"}, Aspect Ratio: ${params.aspectRatio || "16:9"}, Duration: ${params.duration || 5}s, Resolution: ${params.resolution || "1080p"}.
-Return a JSON object:
-{
-  "title": "Short punchy video title",
-  "cameraPath": "Description of the simulated camera path",
-  "lighting": "Description of lighting aesthetics",
-  "colorPalette": ["#hex1", "#hex2", "#hex3", "#hex4"],
-  "scenePacing": "Pacing description",
-  "motionVectors": number
-}`;
-        const response = await this.generateTextWithFallback({
-          preferredModel: "gemini-3.8-flash",
-          contents: descPrompt,
-          config: { responseMimeType: "application/json" },
-        });
-        if (response?.text) {
-          scriptDetails = JSON.parse(response.text);
-        }
-      } catch (e: any) {
-        console.log("Using procedural video metadata fallback:", e?.message || "Model unavailable");
-      }
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to enable Veo Video Generation."
+      );
     }
 
-    const sampleVideos = [
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    ];
-    let selectedVideo = sampleVideos[Math.floor(Math.random() * sampleVideos.length)];
-    const pLower = (params.prompt || "").toLowerCase();
-    if (pLower.includes("drone") || pLower.includes("mountain") || pLower.includes("sunset")) {
-      selectedVideo = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-    } else if (pLower.includes("cyberpunk") || pLower.includes("sci-fi") || pLower.includes("city") || pLower.includes("future")) {
-      selectedVideo = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4";
-    } else if (pLower.includes("nature") || pLower.includes("forest") || pLower.includes("animal") || pLower.includes("animation")) {
-      selectedVideo = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4";
-    }
-
-    return {
-      id: `vid_${Date.now()}`,
-      title: scriptDetails.title || "AI Generative Video Clip",
-      prompt: params.prompt,
-      style: params.style || "Cinematic",
-      duration: params.duration || 5,
+    const fullPrompt = `${params.prompt}, ${params.style || "Cinematic"} aesthetic, professional cinematography, 60fps`;
+    return await this.startVideoGeneration({
+      prompt: fullPrompt,
       aspectRatio: params.aspectRatio || "16:9",
       resolution: params.resolution || "1080p",
-      videoUrl: selectedVideo,
-      cameraPath: scriptDetails.cameraPath || "Cinematic steadycam push",
-      lighting: scriptDetails.lighting || "Volumetric natural atmosphere",
-      colorPalette: scriptDetails.colorPalette || ["#06b6d4", "#6366f1"],
-      status: "ready",
-      fps: 60,
-      timestamp: new Date().toISOString(),
-    };
+      duration: params.duration || 5,
+    });
   }
 
   // =========================================================================
@@ -266,104 +219,122 @@ Return a JSON object:
     style?: string;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to generate images."
+      );
+    }
+
     const validAspect = ["1:1", "3:4", "4:3", "9:16", "16:9"].includes(params.aspectRatio || "")
       ? params.aspectRatio!
       : "16:9";
 
-    if (ai) {
-      try {
-        const fullPrompt = `${params.prompt}, in ${params.style || "Photorealistic"} style, masterpiece, 8k resolution, cinematic lighting`;
+    const fullPrompt = `${params.prompt}, in ${params.style || "Photorealistic"} style, masterpiece, 8k resolution, cinematic lighting`;
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite-image",
-          contents: {
-            parts: [{ text: fullPrompt }],
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-lite-image",
+        contents: {
+          parts: [{ text: fullPrompt }],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: validAspect as any,
           },
-          config: {
-            imageConfig: {
-              aspectRatio: validAspect as any,
-            },
-          },
-        });
+        },
+      });
 
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData && part.inlineData.data) {
-            const mimeType = part.inlineData.mimeType || "image/png";
-            return {
-              id: `img_${Date.now()}`,
-              imageUrl: `data:${mimeType};base64,${part.inlineData.data}`,
-              prompt: params.prompt,
-              style: params.style || "Photorealistic",
-              aspectRatio: validAspect,
-              source: "gemini-3.1-flash-lite-image",
-              timestamp: new Date().toISOString(),
-            };
-          }
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData && part.inlineData.data) {
+          const mimeType = part.inlineData.mimeType || "image/png";
+          return {
+            id: `img_${Date.now()}`,
+            imageUrl: `data:${mimeType};base64,${part.inlineData.data}`,
+            prompt: params.prompt,
+            style: params.style || "Photorealistic",
+            aspectRatio: validAspect,
+            source: "gemini-3.1-flash-lite-image",
+            timestamp: new Date().toISOString(),
+          };
         }
-      } catch (err: any) {
-        console.warn("Gemini Image Gen fallback triggered:", err.message);
       }
+      throw new Error("Model completed generation but returned no image data.");
+    } catch (err: any) {
+      throw new Error(this.formatErrorMessage(err));
     }
-
-    return {
-      id: `img_${Date.now()}`,
-      prompt: params.prompt,
-      style: params.style || "Photorealistic",
-      aspectRatio: validAspect,
-      source: "neural-renderer",
-      timestamp: new Date().toISOString(),
-    };
   }
 
   // =========================================================================
   // 3. AI IMAGE TO VIDEO (Veo Motion / Animate)
   // =========================================================================
+  public async startImageToVideoGeneration(params: {
+    imageData?: string;
+    motionPrompt?: string;
+    duration?: number;
+    cameraMotion?: string;
+    aspectRatio?: string;
+    resolution?: string;
+  }) {
+    const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to animate images with Veo."
+      );
+    }
+
+    if (!params.imageData || typeof params.imageData !== "string" || !params.imageData.startsWith("data:")) {
+      throw new Error("Please provide a valid uploaded image (base64 data URL) to animate into video.");
+    }
+
+    let mimeType = "image/png";
+    let base64Data = "";
+    const matches = params.imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (matches && matches[2]) {
+      mimeType = matches[1];
+      base64Data = matches[2];
+    } else {
+      throw new Error("Invalid image format. Expected base64 data URL.");
+    }
+
+    const validAspect = ["16:9", "9:16", "1:1"].includes(params.aspectRatio || "")
+      ? params.aspectRatio
+      : "16:9";
+    const validRes = params.resolution === "1080p" ? "1080p" : "720p";
+
+    const promptText = `${params.motionPrompt || "Subtle cinematic motion and atmospheric particles"}, ${params.cameraMotion || "Pan Right"}`;
+
+    const operation = await ai.models.generateVideos({
+      model: "veo-3.1-lite-generate-preview",
+      prompt: promptText,
+      image: {
+        imageBytes: base64Data,
+        mimeType: mimeType as any,
+      },
+      config: {
+        numberOfVideos: 1,
+        resolution: validRes as any,
+        aspectRatio: validAspect as any,
+      },
+    });
+
+    return {
+      operationName: operation.name,
+      status: "generating",
+      prompt: promptText,
+      aspectRatio: validAspect,
+      duration: params.duration || 5,
+    };
+  }
+
   public async animateImageToVideo(params: {
     imageData?: string;
     motionPrompt?: string;
     duration?: number;
     cameraMotion?: string;
+    aspectRatio?: string;
+    resolution?: string;
   }) {
-    const ai = this.getClient();
-    const sampleVideos = [
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    ];
-    const selectedVideo = sampleVideos[Math.floor(Math.random() * sampleVideos.length)];
-
-    let analysis = {
-      motionVectors: 180,
-      cameraTrack: params.cameraMotion || "Pan Right",
-      sceneDepth: "Multi-plane volumetric parallax",
-    };
-
-    if (ai) {
-      try {
-        const response = await this.generateTextWithFallback({
-          preferredModel: "gemini-3.8-flash",
-          contents: `Analyze image-to-video motion prompt: "${params.motionPrompt}". Camera movement: "${params.cameraMotion}".
-Return JSON: { "motionVectors": number, "cameraTrack": string, "sceneDepth": string }`,
-          config: { responseMimeType: "application/json" },
-        });
-        if (response?.text) {
-          analysis = JSON.parse(response.text);
-        }
-      } catch (e: any) {
-        console.log("Image-to-video script fallback:", e?.message || "Model unavailable");
-      }
-    }
-
-    return {
-      id: `i2v_${Date.now()}`,
-      status: "ready",
-      videoUrl: selectedVideo,
-      motionPrompt: params.motionPrompt,
-      duration: params.duration || 5,
-      cameraMotion: params.cameraMotion || "Pan Right",
-      analysis,
-      timestamp: new Date().toISOString(),
-    };
+    return await this.startImageToVideoGeneration(params);
   }
 
   // =========================================================================
@@ -376,63 +347,60 @@ Return JSON: { "motionVectors": number, "cameraTrack": string, "sceneDepth": str
     subjectType?: string;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to use AI Background Removal."
+      );
+    }
+
     const { imageData, mode = "transparent", feather = 2, subjectType = "person" } = params;
 
-    if (ai && imageData && typeof imageData === "string" && imageData.startsWith("data:")) {
-      try {
-        const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-        if (matches && matches[2]) {
-          const mimeType = matches[1];
-          const base64Data = matches[2];
+    if (!imageData || typeof imageData !== "string" || !imageData.startsWith("data:")) {
+      throw new Error("Please upload an image first to perform background removal.");
+    }
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.1-flash-lite-image",
-            contents: {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: "Isolate the primary foreground subject and remove the background completely. Replace the background with a pure solid chroma key green #00FF00 background.",
-                },
-              ],
+    const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (!matches || !matches[2]) {
+      throw new Error("Invalid image format. Expected base64 data URL.");
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-image",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
             },
-          });
+          },
+          {
+            text: "Isolate the primary foreground subject and remove the background completely. Replace the background with a pure solid chroma key green #00FF00 background.",
+          },
+        ],
+      },
+    });
 
-          for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData && part.inlineData.data) {
-              const outMime = part.inlineData.mimeType || "image/png";
-              return {
-                id: `bg_cutout_${Date.now()}`,
-                status: "success",
-                mode,
-                feather,
-                subjectType,
-                imageUrl: `data:${outMime};base64,${part.inlineData.data}`,
-                edgeRefinement: "Hair-level alpha matte with neural edge despill",
-                depthLayers: 3,
-              };
-            }
-          }
-        }
-      } catch (err: any) {
-        console.warn("AI BG removal model fallback:", err.message);
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData && part.inlineData.data) {
+        const outMime = part.inlineData.mimeType || "image/png";
+        return {
+          id: `bg_cutout_${Date.now()}`,
+          status: "success",
+          mode,
+          feather,
+          subjectType,
+          imageUrl: `data:${outMime};base64,${part.inlineData.data}`,
+          edgeRefinement: "Hair-level alpha matte with neural edge despill",
+          depthLayers: 3,
+        };
       }
     }
 
-    return {
-      id: `bg_cutout_${Date.now()}`,
-      status: "success",
-      mode,
-      feather,
-      subjectType,
-      imageUrl: imageData || null,
-      edgeRefinement: "Hair-level alpha matte with edge despill",
-      depthLayers: 3,
-    };
+    throw new Error("Neural matting completed but returned no output image.");
   }
 
   public async removeObject(params: {
@@ -441,65 +409,63 @@ Return JSON: { "motionVectors": number, "cameraTrack": string, "sceneDepth": str
     inpaintMode?: string;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to use AI Object Inpainting."
+      );
+    }
+
     const { imageData, targetDescription = "Microphone in upper right", inpaintMode = "temporal" } = params;
 
-    if (ai && imageData && typeof imageData === "string" && imageData.startsWith("data:")) {
-      try {
-        const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-        if (matches && matches[2]) {
-          const mimeType = matches[1];
-          const base64Data = matches[2];
+    if (!imageData || typeof imageData !== "string" || !imageData.startsWith("data:")) {
+      throw new Error("Please upload an image first to perform object removal.");
+    }
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.1-flash-lite-image",
-            contents: {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: `Inpaint and completely erase the ${targetDescription} from this image, seamlessly restoring the background textures, lighting, and structure without artifacts.`,
-                },
-              ],
+    const matches = imageData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (!matches || !matches[2]) {
+      throw new Error("Invalid image format. Expected base64 data URL.");
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-image",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
             },
-          });
+          },
+          {
+            text: `Inpaint and completely erase the ${targetDescription} from this image, seamlessly restoring the background textures, lighting, and structure without artifacts.`,
+          },
+        ],
+      },
+    });
 
-          for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData && part.inlineData.data) {
-              const outMime = part.inlineData.mimeType || "image/png";
-              return {
-                id: `inpaint_${Date.now()}`,
-                status: "success",
-                imageUrl: `data:${outMime};base64,${part.inlineData.data}`,
-                targetDescription,
-                inpaintMode,
-                confidence: 0.988,
-                cleanPlateGenerated: true,
-              };
-            }
-          }
-        }
-      } catch (err: any) {
-        console.warn("AI Object removal model fallback:", err.message);
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData && part.inlineData.data) {
+        const outMime = part.inlineData.mimeType || "image/png";
+        return {
+          id: `inpaint_${Date.now()}`,
+          status: "success",
+          imageUrl: `data:${outMime};base64,${part.inlineData.data}`,
+          targetDescription,
+          inpaintMode,
+          confidence: 0.988,
+          cleanPlateGenerated: true,
+        };
       }
     }
 
-    return {
-      id: `inpaint_${Date.now()}`,
-      status: "success",
-      imageUrl: imageData || null,
-      targetDescription,
-      inpaintMode,
-      confidence: 0.985,
-      cleanPlateGenerated: true,
-    };
+    throw new Error("Object inpainting completed but returned no output image.");
   }
 
   // =========================================================================
-  // 5. AI AUTO CAPTIONS (gemini-3.7-flash)
+  // 5. AI AUTO CAPTIONS (gemini-3.8-flash)
   // =========================================================================
   public async generateCaptions(params: {
     language?: string;
@@ -508,21 +474,19 @@ Return JSON: { "motionVectors": number, "cameraTrack": string, "sceneDepth": str
     audioData?: string;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to generate AI captions."
+      );
+    }
+
     const {
       language = "English",
       style = "Viral TikTok Karaoke",
       audioPrompt = "Welcome to VeeCut Studio. Create high-impact cinematic videos with advanced AI tools.",
     } = params;
 
-    let captions = [
-      { id: "sub_1", startMs: 0, endMs: 1400, text: "Welcome to VeeCut Studio", highlightWord: "VeeCut" },
-      { id: "sub_2", startMs: 1400, endMs: 3200, text: "Create high-impact cinematic videos", highlightWord: "high-impact" },
-      { id: "sub_3", startMs: 3200, endMs: 4800, text: "Powered by advanced AI tools", highlightWord: "AI" },
-    ];
-
-    if (ai) {
-      try {
-        const prompt = `You are an expert video subtitle transcription engine.
+    const prompt = `You are an expert video subtitle transcription engine.
 Transcribe and create synchronized subtitle cues in language: "${language}" for style: "${style}".
 Script/Context: "${audioPrompt}".
 
@@ -531,27 +495,23 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
   { "id": "sub_1", "startMs": 0, "endMs": 1500, "text": "...", "highlightWord": "..." }
 ]`;
 
-        const response = await this.generateTextWithFallback({
-          preferredModel: "gemini-3.8-flash",
-          contents: prompt,
-          config: { responseMimeType: "application/json" },
-        });
+    const response = await this.generateTextWithFallback({
+      preferredModel: "gemini-3.8-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" },
+    });
 
-        const parsed = JSON.parse(response?.text || "[]");
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          captions = parsed;
-        }
-      } catch (e: any) {
-        console.log("Captions generation fallback:", e?.message || "Model unavailable");
-      }
+    const parsed = JSON.parse(response?.text || "[]");
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("Failed to parse subtitle cues from Gemini transcription response.");
     }
 
     return {
       id: `captions_${Date.now()}`,
       language,
       style,
-      cueCount: captions.length,
-      captions,
+      cueCount: parsed.length,
+      captions: parsed,
     };
   }
 
@@ -566,59 +526,177 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
     pitch?: number;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to use Gemini Text-to-Speech."
+      );
+    }
+
     const { text, voice = "Puck", emotion = "Cinematic Narrator", rate = 1.0, pitch = 1.0 } = params;
 
-    if (ai) {
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: `Say with tone ${emotion}: ${text}` }] }],
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: voice || "Puck" },
-              },
-            },
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-tts-preview",
+      contents: [{ parts: [{ text: `Say with tone ${emotion}: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voice || "Puck" },
           },
-        });
+        },
+      },
+    });
 
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (base64Audio) {
-          const rawPcm = Buffer.from(base64Audio, "base64");
-          const wavBuffer = this.pcmToWav(rawPcm, 24000, 1, 16);
-          const wavBase64 = wavBuffer.toString("base64");
-
-          return {
-            id: `voice_${Date.now()}`,
-            text,
-            voice,
-            emotion,
-            audioData: `data:audio/wav;base64,${wavBase64}`,
-            durationSec: Math.max(2, Math.round(text.split(" ").length * 0.4)),
-            source: "gemini-3.1-flash-tts-preview",
-          };
-        }
-      } catch (e: any) {
-        console.warn("Gemini TTS fallback:", e.message);
-      }
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      throw new Error("Gemini TTS completed but returned no audio bytes.");
     }
+
+    const rawPcm = Buffer.from(base64Audio, "base64");
+    const wavBuffer = this.pcmToWav(rawPcm, 24000, 1, 16);
+    const wavBase64 = wavBuffer.toString("base64");
 
     return {
       id: `voice_${Date.now()}`,
       text,
       voice,
       emotion,
-      rate,
-      pitch,
+      audioData: `data:audio/wav;base64,${wavBase64}`,
       durationSec: Math.max(2, Math.round(text.split(" ").length * 0.4)),
-      source: "web-speech-synthesis",
+      source: "gemini-3.1-flash-tts-preview",
     };
   }
 
   // =========================================================================
-  // 7. AI MUSIC & SOUND EFFECTS GENERATION (MusicGen & SfxGen)
+  // 7. AI MUSIC & SOUND EFFECTS SYNTHESIS (Real Waveform Audio Synthesis)
   // =========================================================================
+  public generateSynthesizedMusic(params: {
+    genre?: string;
+    mood?: string;
+    durationSeconds?: number;
+    bpm?: number;
+  }): Buffer {
+    const sampleRate = 22050;
+    const duration = Math.min(params.durationSeconds || 10, 30);
+    const totalSamples = Math.floor(sampleRate * duration);
+    const pcmBuffer = Buffer.alloc(totalSamples * 2); // 16-bit mono
+
+    const bpm = params.bpm || 120;
+    const beatsPerSecond = bpm / 60;
+
+    // Harmonic scales (D Minor / A Minor based on mood)
+    const scale = [146.83, 174.61, 196.0, 220.0, 261.63, 293.66, 349.23];
+    const bassScale = [73.42, 87.31, 98.0, 110.0];
+
+    for (let i = 0; i < totalSamples; i++) {
+      const t = i / sampleRate;
+      const beat = t * beatsPerSecond;
+      const beatFraction = beat % 1;
+      const bar = Math.floor(beat / 4);
+
+      // 1. Kick Drum (on every beat)
+      let kick = 0;
+      if (beatFraction < 0.18) {
+        const kickEnv = Math.exp(-beatFraction * 26);
+        const kickFreq = 120 * Math.exp(-beatFraction * 32) + 42;
+        kick = Math.sin(2 * Math.PI * kickFreq * t) * kickEnv * 0.5;
+      }
+
+      // 2. Snare (on beats 1 and 3 of 4-beat bar)
+      let snare = 0;
+      const inBarBeat = Math.floor(beat) % 2;
+      if (inBarBeat === 1 && beatFraction < 0.22) {
+        const snareEnv = Math.exp(-beatFraction * 18);
+        const noise = (Math.random() * 2 - 1) * 0.35;
+        const tone = Math.sin(2 * Math.PI * 190 * t) * 0.2;
+        snare = (noise + tone) * snareEnv * 0.42;
+      }
+
+      // 3. Bassline (warm triangle / sine)
+      const bassIndex = Math.floor(beat / 2) % bassScale.length;
+      const bassFreq = bassScale[bassIndex];
+      const bass = (
+        Math.sin(2 * Math.PI * bassFreq * t) * 0.45 +
+        Math.sin(2 * Math.PI * bassFreq * 2 * t) * 0.2
+      ) * 0.35;
+
+      // 4. Harmonic Chords / Pad
+      const chordIndex = bar % 4;
+      const rootFreq = scale[chordIndex % scale.length];
+      const thirdFreq = scale[(chordIndex + 2) % scale.length];
+      const fifthFreq = scale[(chordIndex + 4) % scale.length];
+      const pad = (
+        Math.sin(2 * Math.PI * rootFreq * t) * 0.15 +
+        Math.sin(2 * Math.PI * thirdFreq * t) * 0.12 +
+        Math.sin(2 * Math.PI * fifthFreq * t) * 0.1
+      );
+
+      // 5. Arpeggio / Lead
+      const arpStep = Math.floor(beat * 4) % 8;
+      const leadFreq = scale[arpStep % scale.length] * 2;
+      const leadEnv = Math.exp(-(beat * 4 % 1) * 6);
+      const lead = Math.sin(2 * Math.PI * leadFreq * t) * leadEnv * 0.16;
+
+      // Master soft saturation
+      const mix = kick + snare + bass + pad + lead;
+      const compressed = Math.tanh(mix * 1.25) * 0.88;
+      const sample16 = Math.max(-32767, Math.min(32767, Math.round(compressed * 32767)));
+      pcmBuffer.writeInt16LE(sample16, i * 2);
+    }
+
+    return this.pcmToWav(pcmBuffer, sampleRate, 1, 16);
+  }
+
+  public generateSynthesizedSfx(params: {
+    category?: string;
+    durationSeconds?: number;
+    prompt?: string;
+  }): Buffer {
+    const sampleRate = 24000;
+    const duration = Math.min(params.durationSeconds || 1.8, 5.0);
+    const totalSamples = Math.floor(sampleRate * duration);
+    const pcmBuffer = Buffer.alloc(totalSamples * 2);
+    const cat = (params.category || params.prompt || "whoosh").toLowerCase();
+
+    for (let i = 0; i < totalSamples; i++) {
+      const t = i / sampleRate;
+      const norm = t / duration; // 0 to 1
+      let val = 0;
+
+      if (cat.includes("impact") || cat.includes("boom") || cat.includes("hit") || cat.includes("bass")) {
+        // Low sub-bass drop with punch and decay
+        const env = Math.exp(-norm * 6);
+        const freq = 130 * Math.exp(-norm * 8) + 36;
+        const noisePunch = norm < 0.05 ? (Math.random() * 2 - 1) * (1 - norm / 0.05) * 0.45 : 0;
+        val = (Math.sin(2 * Math.PI * freq * t) * 0.82 + noisePunch) * env;
+      } else if (cat.includes("riser") || cat.includes("tension") || cat.includes("build")) {
+        // Ascending frequency sweep with tremolo
+        const env = Math.pow(norm, 1.8);
+        const freq = 80 + Math.pow(norm, 2.5) * 1200;
+        const tremolo = 1 + 0.3 * Math.sin(2 * Math.PI * (4 + norm * 12) * t);
+        val = Math.sin(2 * Math.PI * freq * t) * env * tremolo * 0.72;
+      } else if (cat.includes("glitch") || cat.includes("click") || cat.includes("sci-fi")) {
+        // High frequency modulated glitch bursts
+        const burst = Math.sin(norm * 40 * Math.PI) > 0.3 ? 1 : 0;
+        const freq = 600 + (Math.sin(t * 1200) * 400);
+        val = (Math.sin(2 * Math.PI * freq * t) * 0.5 + (Math.random() * 2 - 1) * 0.2) * burst * Math.exp(-norm * 2);
+      } else {
+        // Cinematic Whoosh: Gaussian envelope noise with resonant bandpass sweep
+        const env = Math.exp(-Math.pow((norm - 0.45) / 0.22, 2));
+        const centerFreq = 250 + 1800 * Math.sin(norm * Math.PI);
+        const noise = Math.random() * 2 - 1;
+        const modulated = Math.sin(2 * Math.PI * centerFreq * t) * noise;
+        val = (modulated * 0.7 + noise * 0.15) * env;
+      }
+
+      const compressed = Math.tanh(val * 1.3) * 0.85;
+      const sample16 = Math.max(-32767, Math.min(32767, Math.round(compressed * 32767)));
+      pcmBuffer.writeInt16LE(sample16, i * 2);
+    }
+
+    return this.pcmToWav(pcmBuffer, sampleRate, 1, 16);
+  }
+
   public async generateMusicTrack(params: {
     prompt?: string;
     genre?: string;
@@ -626,41 +704,19 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
     durationSeconds?: number;
     bpm?: number;
   }) {
-    const musicLibrary = [
-      {
-        title: "Epic Cinematic Trailer Synth",
-        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        genre: "Cinematic",
-        bpm: 128,
-        mood: "Epic",
-      },
-      {
-        title: "Midnight Lo-Fi Chill Hop",
-        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-        genre: "Lo-Fi",
-        bpm: 85,
-        mood: "Chill",
-      },
-      {
-        title: "Cyberpunk Neon Drive",
-        url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        genre: "Synthwave",
-        bpm: 120,
-        mood: "Action",
-      },
-    ];
-
-    const selected = musicLibrary[Math.floor(Math.random() * musicLibrary.length)];
-    const peaks = Array.from({ length: 100 }, (_, i) => Math.sin(i * 0.2) * 0.4 + Math.random() * 0.5);
+    const wavBuffer = this.generateSynthesizedMusic(params);
+    const audioData = `data:audio/wav;base64,${wavBuffer.toString("base64")}`;
+    const peaks = Array.from({ length: 100 }, (_, i) => Math.abs(Math.sin(i * 0.18) * 0.5 + Math.random() * 0.4));
 
     return {
       id: `mus_${Date.now()}`,
-      title: (params.prompt || "").slice(0, 40) || selected.title,
-      audioUrl: selected.url,
-      durationSeconds: params.durationSeconds || 30,
-      bpm: params.bpm || selected.bpm,
-      genre: params.genre || selected.genre,
-      mood: params.mood || selected.mood,
+      title: params.prompt || `${params.genre || "Cinematic"} ${params.mood || "Epic"} Theme`,
+      audioData,
+      audioUrl: audioData,
+      durationSeconds: params.durationSeconds || 10,
+      bpm: params.bpm || 120,
+      genre: params.genre || "Cinematic",
+      mood: params.mood || "Epic",
       waveformPeaks: peaks,
     };
   }
@@ -670,12 +726,16 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
     category?: string;
     durationSeconds?: number;
   }) {
+    const wavBuffer = this.generateSynthesizedSfx(params);
+    const audioData = `data:audio/wav;base64,${wavBuffer.toString("base64")}`;
+
     return {
       id: `sfx_${Date.now()}`,
-      name: params.prompt || "Cinematic Sound Effect",
-      audioUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      name: params.prompt || `${params.category || "Whoosh"} Sound Effect`,
+      audioData,
+      audioUrl: audioData,
       category: params.category || "whoosh",
-      durationSeconds: params.durationSeconds || 1.5,
+      durationSeconds: params.durationSeconds || 1.8,
     };
   }
 
@@ -687,13 +747,17 @@ Return a JSON array of timestamped subtitle cue objects with startMs, endMs, tex
     language?: string;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to transcribe speech."
+      );
+    }
+
     const { audioUrl, language = "auto" } = params;
 
-    if (ai) {
-      try {
-        const response = await this.generateTextWithFallback({
-          preferredModel: "gemini-3.8-flash",
-          contents: `You are an ultra-accurate speech-to-text audio transcriber.
+    const response = await this.generateTextWithFallback({
+      preferredModel: "gemini-3.8-flash",
+      contents: `You are an ultra-accurate speech-to-text audio transcriber.
 Transcribe audio input from: "${audioUrl || "speech stream"}".
 Language setting: "${language}".
 Return a JSON object:
@@ -702,21 +766,14 @@ Return a JSON object:
   "detectedLanguage": "English (US)",
   "confidence": 0.985
 }`,
-          config: { responseMimeType: "application/json" },
-        });
-        if (response?.text) {
-          return JSON.parse(response.text);
-        }
-      } catch (e: any) {
-        console.log("STT model fallback:", e?.message || "Model unavailable");
-      }
+      config: { responseMimeType: "application/json" },
+    });
+
+    if (!response?.text) {
+      throw new Error("Gemini speech-to-text returned an empty transcription response.");
     }
 
-    return {
-      transcription: "Welcome to VeeCut video editor. Create cinematic storytelling with multi-track timelines and advanced AI editing tools.",
-      detectedLanguage: "English (US)",
-      confidence: 0.98,
-    };
+    return JSON.parse(response.text);
   }
 
   // =========================================================================
@@ -729,6 +786,12 @@ Return a JSON object:
     selectedClipInfo?: any;
   }) {
     const ai = this.getClient();
+    if (!ai) {
+      throw new Error(
+        "GEMINI_API_KEY is not configured. Please add your Gemini API key in Settings > Secrets to use Gemini Copilot."
+      );
+    }
+
     const { message, projectSummary = "VeeCut Project", currentTimeSeconds = 0, selectedClipInfo = null } = params;
 
     const systemInstruction = `You are the VeeCut AI Video Editing Assistant (Copilot).

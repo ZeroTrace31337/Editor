@@ -11,9 +11,8 @@ import { AspectRatioPreset } from '../project/Project';
 
 export type TemplateCategoryId =
   | 'trending'
-  | 'youtube'
   | 'tiktok'
-  | 'youtube_shorts'
+  | 'shorts'
   | 'reels'
   | 'instagram'
   | 'gaming'
@@ -43,7 +42,6 @@ export type TemplateCategoryId =
 
 export type TemplatePlatform =
   | 'all'
-  | 'youtube'
   | 'tiktok'
   | 'instagram'
   | 'reels'

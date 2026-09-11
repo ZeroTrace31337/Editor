@@ -16,7 +16,7 @@ void main() {
 }
 `;
 
-// 1. Color Grading & 3D LUT Shader
+// 1. Color Grading & 3D LUT Shader with Complete 16 Adjustment Controls
 const COLOR_GRADE_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
@@ -25,16 +25,28 @@ out vec4 fragColor;
 
 uniform sampler2D u_image;
 uniform float u_exposure;
+uniform float u_brightness;
 uniform float u_contrast;
 uniform float u_pivot;
+uniform float u_brilliance;
+uniform float u_highlights;
+uniform float u_shadows;
+uniform float u_whites;
+uniform float u_blacks;
+uniform float u_fade;
 uniform float u_saturation;
 uniform float u_temperature;
 uniform float u_tint;
+uniform float u_sharpen;
+uniform float u_clarity;
+uniform float u_vignette;
+uniform float u_grain;
+uniform vec2 u_resolution;
+uniform float u_time;
 uniform vec3 u_lift;
 uniform vec3 u_gamma;
 uniform vec3 u_gain;
 uniform vec3 u_offset;
-uniform float u_vignette;
 
 vec3 adjustTemperatureAndTint(vec3 color, float temp, float tintVal) {
   // Temperature: -100 (Cool blue) to +100 (Warm orange)
@@ -47,54 +59,102 @@ vec3 adjustTemperatureAndTint(vec3 color, float temp, float tintVal) {
   return color;
 }
 
-vec3 rgbToHsv(vec3 c) {
-  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-  float d = q.x - min(q.w, q.y);
-  float e = 1.0e-10;
-  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-
-vec3 hsvToRgb(vec3 c) {
-  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
 void main() {
   vec4 tex = texture(u_image, v_texCoord);
   vec3 rgb = tex.rgb;
 
-  // 1. Exposure (in stops)
+  // 1. Unsharp Mask Sharpness & Clarity (Spatial convolution)
+  if (u_sharpen > 0.001 || abs(u_clarity) > 0.001) {
+    vec2 texel = 1.0 / max(u_resolution, vec2(1.0, 1.0));
+    vec3 up = texture(u_image, v_texCoord + vec2(0.0, texel.y)).rgb;
+    vec3 down = texture(u_image, v_texCoord - vec2(0.0, texel.y)).rgb;
+    vec3 left = texture(u_image, v_texCoord - vec2(texel.x, 0.0)).rgb;
+    vec3 right = texture(u_image, v_texCoord + vec2(texel.x, 0.0)).rgb;
+    float k = (u_sharpen * 0.6 + u_clarity * 0.4) * 0.8;
+    rgb = rgb * (1.0 + 4.0 * k) - (up + down + left + right) * k;
+  }
+
+  // 2. Exposure (in stops: 2^EV)
   rgb *= pow(2.0, u_exposure);
 
-  // 2. Temp & Tint
+  // 3. Brightness & Contrast (with neutral midtone pivot)
+  rgb = (rgb - u_pivot) * u_contrast + u_pivot + vec3(u_brightness);
+
+  // 4. Brilliance (smart dynamic midtone & deep shadows roll-off)
+  float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  if (abs(u_brilliance) > 0.001) {
+    float brCurve = sin(clamp(luma, 0.0, 1.0) * 3.14159265);
+    rgb += vec3(u_brilliance * 0.22 * brCurve);
+  }
+
+  // 5. Highlights (protects shadows/midtones, affects upper range > 0.25)
+  luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  if (abs(u_highlights) > 0.001 && luma > 0.25) {
+    float hlFactor = smoothstep(0.25, 1.0, luma);
+    rgb += vec3(u_highlights * 0.35 * hlFactor * hlFactor);
+  }
+
+  // 6. Shadows (protects highlights/midtones, affects lower range < 0.75)
+  if (abs(u_shadows) > 0.001 && luma < 0.75) {
+    float shFactor = smoothstep(0.75, 0.0, luma);
+    rgb += vec3(u_shadows * 0.35 * shFactor * shFactor);
+  }
+
+  // 7. Whites (adjusts extreme upper white levels > 0.6)
+  luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  if (abs(u_whites) > 0.001 && luma > 0.6) {
+    float whFactor = smoothstep(0.6, 1.0, luma);
+    rgb += vec3(u_whites * 0.4 * whFactor * whFactor);
+  }
+
+  // 8. Blacks (adjusts extreme lower black levels < 0.4)
+  if (abs(u_blacks) > 0.001 && luma < 0.4) {
+    float blFactor = smoothstep(0.4, 0.0, luma);
+    rgb += vec3(u_blacks * 0.4 * blFactor * blFactor);
+  }
+
+  // 9. Film Fade (pedestal black level lift)
+  if (u_fade > 0.001) {
+    rgb = rgb * (1.0 - u_fade * 0.4) + vec3(u_fade * 0.18);
+  }
+
+  // 10. Temperature & Tint (White Balance)
   rgb = adjustTemperatureAndTint(rgb, u_temperature, u_tint);
 
-  // 3. Primary Color Wheels (Lift, Gamma, Gain, Offset)
+  // 11. Primary Color Wheels (Lift, Gamma, Gain, Offset)
   // Lift (Shadows)
-  rgb = rgb + u_lift * (1.0 - rgb);
+  float wLift = max(0.0, 1.0 - luma) * max(0.0, 1.0 - luma);
+  rgb += u_lift * (wLift * 0.4);
+
   // Gain (Highlights)
-  rgb = rgb * u_gain;
+  float wGain = luma * luma;
+  rgb += u_gain * (wGain * 0.4);
+
   // Gamma (Midtones)
-  rgb = pow(max(rgb, vec3(0.0)), 1.0 / max(u_gamma, vec3(0.001)));
+  float wGamma = 4.0 * luma * (1.0 - luma);
+  rgb += u_gamma * (wGamma * 0.35);
+
   // Offset (Global)
-  rgb = rgb + u_offset;
+  rgb += u_offset * 0.25;
 
-  // 4. Contrast & Pivot
-  rgb = (rgb - u_pivot) * u_contrast + u_pivot;
+  // 12. Saturation
+  luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  rgb = mix(vec3(luma), rgb, max(0.0, u_saturation));
 
-  // 5. Saturation
-  float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
-  rgb = mix(vec3(luma), rgb, u_saturation);
-
-  // 6. Vignette
+  // 13. Optical Vignette
   if (u_vignette > 0.0) {
-    vec2 uv = v_texCoord * 2.0 - 1.0;
+    vec2 uv = (v_texCoord - 0.5) * 2.0;
     float dist = length(uv);
-    float vig = smoothstep(0.4, 1.4, dist);
-    rgb = mix(rgb, rgb * (1.0 - u_vignette), vig);
+    float vig = smoothstep(0.45, 1.35, dist);
+    rgb = mix(rgb, rgb * (1.0 - u_vignette * 0.85), vig);
+  }
+
+  // 14. Procedural Film Grain
+  if (u_grain > 0.001) {
+    vec2 grainUv = v_texCoord * u_resolution * 0.75 + vec2(sin(u_time * 17.0) * 100.0, cos(u_time * 23.0) * 100.0);
+    float noise = fract(sin(dot(grainUv, vec2(12.9898, 78.233))) * 43758.5453);
+    float grainAmt = (noise - 0.5) * (u_grain * 0.3);
+    rgb += vec3(grainAmt);
   }
 
   fragColor = vec4(clamp(rgb, 0.0, 1.0), tex.a);

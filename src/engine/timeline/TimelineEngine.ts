@@ -396,7 +396,7 @@ export class TimelineEngine {
     return () => this.listeners.delete(listener);
   }
 
-  private notify(): void {
+  public notify(): void {
     this.listeners.forEach((l) => l());
   }
 }

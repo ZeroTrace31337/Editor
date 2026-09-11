@@ -18,7 +18,7 @@ export class TrendService {
   }
 
   /**
-   * Fetches aggregated live & curated trends across YouTube, TikTok, and Instagram
+   * Fetches aggregated live & curated trends across TikTok and Instagram
    */
   public async getTrends(options: TrendFilterOptions, forceRefresh = false): Promise<TrendEngineResponse> {
     try {
@@ -43,7 +43,7 @@ export class TrendService {
   }
 
   /**
-   * Fetches API connection status for YouTube, TikTok, and Meta
+   * Fetches API connection status for TikTok and Meta
    */
   public async getStatus(): Promise<{ status: string; sources: TrendSourceStatus[]; features: any }> {
     try {
@@ -105,7 +105,7 @@ export class TrendService {
         {
           id: 'source_fallback',
           name: 'VeeCut Trend Cache',
-          platform: 'youtube',
+          platform: 'tiktok',
           status: 'cached',
           message: 'Connecting to local VeeCut Trend Engine cache.',
           itemCount: 0,

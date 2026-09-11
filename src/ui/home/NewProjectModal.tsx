@@ -40,7 +40,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
 }) => {
   const [projectName, setProjectName] = useState('Untitled Project');
   const [selectedPresetId, setSelectedPresetId] = useState<string>(
-    initialPreset ? initialPreset.id : 'preset_youtube'
+    initialPreset ? initialPreset.id : 'preset_widescreen'
   );
   const [customWidth, setCustomWidth] = useState(1920);
   const [customHeight, setCustomHeight] = useState(1080);
@@ -237,7 +237,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
               onChange={(e) => setColorSpace(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 focus:border-cyan-500 rounded-lg px-3 py-2 text-xs text-white font-medium focus:outline-none"
             >
-              <option value="Rec.709">Rec.709 (SDR Standard Web & YouTube)</option>
+              <option value="Rec.709">Rec.709 (SDR Standard Web & Broadcast)</option>
               <option value="DCI-P3">DCI-P3 (Wide Color Gamut Cinema)</option>
               <option value="Rec.2020 HDR">Rec.2020 / HDR10 (High Dynamic Range)</option>
               <option value="Apple Log">Apple Log / ACEScc</option>

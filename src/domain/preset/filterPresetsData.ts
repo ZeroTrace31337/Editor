@@ -501,7 +501,7 @@ export const BUILT_IN_FILTER_PRESETS: FilterPreset[] = [
     popularityScore: 97,
     usageCount: 380000,
     isTrending: true,
-    tags: ['vlog', 'creator', 'studio', 'clean', 'bright', 'youtube', 'talking-head'],
+    tags: ['vlog', 'creator', 'studio', 'clean', 'bright', 'talking-head'],
     previewGradient: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #94a3b8 100%)',
     colorGrade: {
       ...baseGrade(),

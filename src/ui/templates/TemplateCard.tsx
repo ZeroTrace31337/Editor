@@ -16,7 +16,6 @@ import {
   Star,
   Eye,
   Wand2,
-  Youtube,
   Instagram,
   Smartphone,
   Download,
@@ -59,11 +58,10 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
 
   const getPlatformBadge = () => {
     switch (template.primaryPlatform) {
-      case 'youtube_shorts':
-      case 'youtube':
+      case 'shorts':
         return (
           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-            <Youtube className="w-3 h-3 text-rose-400" />
+            <Film className="w-3 h-3 text-rose-400" />
             Shorts
           </span>
         );

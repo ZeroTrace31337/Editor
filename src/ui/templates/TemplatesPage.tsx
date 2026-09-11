@@ -16,7 +16,6 @@ import {
   Instagram,
   Smartphone,
   Zap,
-  Youtube,
   Film,
   Compass,
   Video,
@@ -74,7 +73,6 @@ const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
   Instagram: <Instagram className="w-3.5 h-3.5" />,
   Smartphone: <Smartphone className="w-3.5 h-3.5" />,
   Zap: <Zap className="w-3.5 h-3.5" />,
-  Youtube: <Youtube className="w-3.5 h-3.5" />,
   Film: <Film className="w-3.5 h-3.5" />,
   Compass: <Compass className="w-3.5 h-3.5" />,
   Video: <Video className="w-3.5 h-3.5" />,
@@ -234,7 +232,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Multi-track video templates & real-time viral trends across YouTube, TikTok & Reels.
+                Multi-track video templates & real-time viral trends across TikTok & Reels.
               </p>
             </div>
           </div>
@@ -396,7 +394,6 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ onOpenEditor }) =>
                   className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 focus:outline-none focus:border-sky-500"
                 >
                   <option value="all" className="bg-slate-900">All Platforms</option>
-                  <option value="youtube_shorts" className="bg-slate-900">YouTube Shorts</option>
                   <option value="tiktok" className="bg-slate-900">TikTok</option>
                   <option value="instagram_reels" className="bg-slate-900">Instagram Reels</option>
                   <option value="cinema" className="bg-slate-900">Cinematic 16:9</option>

@@ -133,7 +133,7 @@ export function runAudioUnitTests(): { name: string; passed: boolean; details?: 
       return Math.pow(10, clampedDelta / 20);
     };
 
-    // Streaming target: -14 LUFS (YouTube, Spotify)
+    // Streaming target: -14 LUFS (Web Media, Spotify)
     // Audio at -20 LUFS should boost by +6 dB (gain approx 1.995)
     const gainToStreaming = calculateNormalizationGain(-20, -14);
     assert(Math.abs(gainToStreaming - 1.995) < 0.05, `Expected ~2.0x gain boost, got ${gainToStreaming}`);

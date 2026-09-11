@@ -5,7 +5,6 @@ import { GoogleGenAI, GenerateVideosOperation, Modality } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { TrendEngine } from "./server/trendEngine";
 import { TemplateDatabase } from "./server/templateDatabase";
-import { YouTubeService } from "./server/youtubeService";
 import { AIServiceLayer } from "./server/aiServices";
 
 
@@ -209,6 +208,33 @@ app.post("/api/ai/image-to-video", async (req, res) => {
       motionPrompt,
       duration,
       cameraMotion,
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error("Image-to-Video Error:", err);
+    res.status(500).json({ error: err.message || "Failed to animate image" });
+  }
+});
+
+app.post("/api/ai/image-to-video-generate", async (req, res) => {
+  const {
+    imageData,
+    motionPrompt = "Subtle cinematic camera push-in with atmospheric mist and natural lighting motion",
+    duration = 5,
+    cameraMotion = "Pan Right",
+    aspectRatio = "16:9",
+    resolution = "1080p",
+  } = req.body;
+
+  try {
+    const aiService = AIServiceLayer.getInstance();
+    const result = await aiService.startImageToVideoGeneration({
+      imageData,
+      motionPrompt,
+      duration,
+      cameraMotion,
+      aspectRatio,
+      resolution,
     });
     res.json(result);
   } catch (err: any) {
@@ -722,7 +748,7 @@ app.post("/api/ai/object-remove", (req, res, next) => {
 // REAL-TIME TRENDING & TEMPLATE HUB API LAYER
 // =========================================================================
 
-// 1. Aggregated Real-time Trends (YouTube, TikTok, Instagram, VeeCut Curated)
+// 1. Aggregated Real-time Trends (TikTok, Instagram, VeeCut Curated)
 app.get("/api/trends/all", async (req, res) => {
   try {
     const {
@@ -754,19 +780,7 @@ app.get("/api/trends/all", async (req, res) => {
   }
 });
 
-// 2. YouTube Data API specific trends
-app.get("/api/trends/youtube", async (req, res) => {
-  try {
-    const { region = "US", category = "all" } = req.query;
-    const trendEngine = TrendEngine.getInstance();
-    const result = await trendEngine.fetchYouTubeTrends(String(region), String(category));
-    res.json(result);
-  } catch (error: any) {
-    res.status(500).json({ error: error?.message || "Failed to fetch YouTube trends" });
-  }
-});
-
-// 3. TikTok Developer / Creator Trends
+// 2. TikTok Developer / Creator Trends
 app.get("/api/trends/tiktok", async (req, res) => {
   try {
     const { region = "US" } = req.query;
@@ -799,7 +813,6 @@ app.get("/api/trends/status", (_req, res) => {
     timestamp: new Date().toISOString(),
     sources: statuses,
     features: {
-      officialYouTubeApi: !!process.env.YOUTUBE_API_KEY && process.env.YOUTUBE_API_KEY !== "MY_YOUTUBE_API_KEY",
       officialTikTokApi: !!process.env.TIKTOK_CLIENT_KEY,
       officialMetaApi: !!process.env.META_APP_ID,
       supabaseDatabase: !!process.env.SUPABASE_URL,
@@ -1163,7 +1176,7 @@ app.get("/api/settings", (_req, res) => {
           name: "Studio Creator",
           email: "creator@veecut.studio",
           role: "Lead Video Editor",
-          bio: "Creating cinematic stories, commercials, and YouTube content with VeeCut.",
+          bio: "Creating cinematic stories, commercials, and digital content with VeeCut.",
           avatar: "U",
         },
         account: {
@@ -1221,102 +1234,6 @@ app.post("/api/settings", (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save settings' });
   }
-});
-
-// =========================================================================
-// YOUTUBE DATA API V3 INTEGRATION ENDPOINTS
-// =========================================================================
-
-// 1. Search YouTube Videos
-app.get("/api/youtube/search", async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const {
-      q = "",
-      maxResults = "18",
-      pageToken,
-      order = "relevance",
-      videoDuration = "any",
-      videoDefinition = "any",
-      type = "video",
-      regionCode = "US",
-      safeSearch = "moderate",
-      videoCategoryId,
-    } = req.query;
-
-    const referer = (req.headers.referer || req.headers.origin || "https://ai.studio") as string;
-    const youtubeService = YouTubeService.getInstance();
-    const result = await youtubeService.searchVideos({
-      q: String(q),
-      maxResults: parseInt(String(maxResults), 10) || 18,
-      pageToken: pageToken ? String(pageToken) : undefined,
-      order: order as any,
-      videoDuration: videoDuration as any,
-      videoDefinition: videoDefinition as any,
-      type: type as any,
-      regionCode: String(regionCode),
-      safeSearch: safeSearch as any,
-      videoCategoryId: videoCategoryId ? String(videoCategoryId) : undefined,
-      referer,
-    });
-
-    res.json(result);
-  } catch (error: any) {
-    console.error("YouTube search API error:", error?.message || error);
-    const statusCode = error.statusCode || (error.isApiKeyMissing ? 503 : error.isQuotaExceeded ? 429 : 500);
-    res.status(statusCode).json({
-      error: error.message || "Failed to search YouTube",
-      isApiKeyMissing: !!error.isApiKeyMissing,
-      isQuotaExceeded: !!error.isQuotaExceeded,
-      isInvalidKey: !!error.isInvalidKey,
-    });
-  }
-});
-
-// 2. Get Video Details by ID
-app.get("/api/youtube/video/:id", async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const { id } = req.params;
-    const youtubeService = YouTubeService.getInstance();
-    const video = await youtubeService.getVideoDetails(id);
-    res.json(video);
-  } catch (error: any) {
-    console.error(`YouTube video details error for ${req.params.id}:`, error?.message || error);
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
-      error: error.message || "Failed to fetch video details",
-      isApiKeyMissing: !!error.isApiKeyMissing,
-      isQuotaExceeded: !!error.isQuotaExceeded,
-    });
-  }
-});
-
-// 3. Get Channel Details by ID
-app.get("/api/youtube/channel/:id", async (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  try {
-    const { id } = req.params;
-    const youtubeService = YouTubeService.getInstance();
-    const channel = await youtubeService.getChannelDetails(id);
-    res.json(channel);
-  } catch (error: any) {
-    console.error(`YouTube channel details error for ${req.params.id}:`, error?.message || error);
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({
-      error: error.message || "Failed to fetch channel details",
-      isApiKeyMissing: !!error.isApiKeyMissing,
-      isQuotaExceeded: !!error.isQuotaExceeded,
-    });
-  }
-});
-
-// 4. Check YouTube API Connection Status
-app.get("/api/youtube/status", (_req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  const youtubeService = YouTubeService.getInstance();
-  const status = youtubeService.getStatus();
-  res.json(status);
 });
 
 // Serve public folder statically for assets, logos, and favicons
