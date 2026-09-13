@@ -120,22 +120,24 @@ export class VideoReconstructionEngine {
     // Try server-side AI reconstruction if available
     let serverAnalysis: any = null;
     try {
-      if (input.sourceType === 'url' && input.url) {
-        notify('Sending video stream to Gemini Vision AI pipeline...', 25);
-        const res = await fetch('/api/ai/reconstruct-template', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            videoUrl: input.url,
-            title: input.title || 'Reconstructed Video Project',
-            targetAspectRatio: input.targetAspectRatio || '9:16',
-          }),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.analysis) {
-            serverAnalysis = json.analysis;
-          }
+      const targetUrl = input.sourceType === 'url' ? input.url : undefined;
+      const targetTitle =
+        input.title || (input.file ? input.file.name.replace(/\.[^/.]+$/, '') : 'Reconstructed Video Project');
+
+      notify('Sending video stream to Gemini Vision AI pipeline...', 25);
+      const res = await fetch('/api/ai/reconstruct-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: targetUrl,
+          title: targetTitle,
+          targetAspectRatio: input.targetAspectRatio || '9:16',
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.analysis) {
+          serverAnalysis = json.analysis;
         }
       }
     } catch {

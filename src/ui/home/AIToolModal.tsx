@@ -33,6 +33,9 @@ import {
   Radio,
   FileAudio,
   AlertCircle,
+  StopCircle,
+  FolderPlus,
+  Bookmark,
 } from 'lucide-react';
 import { AIToolItem } from './homeData';
 
@@ -53,6 +56,19 @@ interface AIToolModalProps {
     assistantActions?: any[];
     durationSec?: number;
   }) => void;
+  onSaveToMediaLibrary?: (resultInfo: {
+    title: string;
+    type: string;
+    assetUrl?: string;
+    videoUrl?: string;
+    audioData?: string;
+    imageUrl?: string;
+    colorGrade?: any;
+    captions?: any[];
+    keyframes?: any[];
+    assistantActions?: any[];
+    durationSec?: number;
+  }) => void;
 }
 
 export const AIToolModal: React.FC<AIToolModalProps> = ({
@@ -60,6 +76,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
   onClose,
   tool,
   onApplyToTimeline,
+  onSaveToMediaLibrary,
 }) => {
   // Common States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -67,6 +84,8 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
   const [generationStatusText, setGenerationStatusText] = useState('Initializing AI Model...');
   const [resultData, setResultData] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSavedToMediaLibrary, setIsSavedToMediaLibrary] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Tool 1: AI Video Generator
   const [videoPrompt, setVideoPrompt] = useState(
@@ -173,6 +192,10 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
     setGenerationStatusText('Communicating with Gemini AI neural model...');
     setErrorMsg(null);
     setResultData(null);
+    setIsSavedToMediaLibrary(false);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     const progressTimer = setInterval(() => {
       setGenerationProgress((p) => {
@@ -344,6 +367,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: abortController.signal,
         });
 
         const startData = await startRes.json().catch(() => ({}));
@@ -356,12 +380,19 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
           let attempts = 0;
           const maxAttempts = 60; // 5 minutes max
           while (attempts < maxAttempts) {
+            if (abortController.signal.aborted) {
+              throw new DOMException('Generation cancelled by user', 'AbortError');
+            }
             attempts++;
             await new Promise((r) => setTimeout(r, 5000));
+            if (abortController.signal.aborted) {
+              throw new DOMException('Generation cancelled by user', 'AbortError');
+            }
             const pollRes = await fetch('/api/ai/video-status', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ operationName: startData.operationName }),
+              signal: abortController.signal,
             });
             const pollData = await pollRes.json().catch(() => ({}));
             if (pollData.error) {
@@ -401,6 +432,7 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortController.signal,
       });
 
       if (!res.ok) {
@@ -419,12 +451,55 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
     } catch (err: any) {
       clearInterval(progressTimer);
       console.error('AI processing error:', err);
-      setErrorMsg(err.message || 'AI processing request failed. Please check your configuration and try again.');
+      if (err.name === 'AbortError' || err.message?.includes('cancelled')) {
+        setErrorMsg(null);
+        setGenerationStatusText('Generation cancelled by user');
+      } else {
+        const isRateLimit =
+          err.message?.includes('429') ||
+          err.message?.includes('RESOURCE_EXHAUSTED') ||
+          err.message?.includes('quota');
+        setErrorMsg(
+          isRateLimit
+            ? 'Gemini API rate limit reached (60 RPM Free Tier). Please wait 20-30 seconds before retrying.'
+            : err.message || 'AI processing request failed. Please check your configuration and try again.'
+        );
+      }
       setResultData(null);
       setGenerationProgress(0);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleCancelGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setIsGenerating(false);
+    setGenerationStatusText('Generation cancelled by user');
+    setGenerationProgress(0);
+  };
+
+  const handleSaveToLibrary = () => {
+    if (!resultData || !tool) return;
+    const payload = {
+      title: resultData?.title || `${tool.name} Result`,
+      type: tool.category,
+      assetUrl: resultData?.videoUrl || resultData?.imageUrl || resultData?.audioData || resultData?.audioUrl,
+      imageUrl: resultData?.imageUrl,
+      audioData: resultData?.audioData || resultData?.audioUrl,
+      videoUrl: resultData?.videoUrl,
+      colorGrade: resultData?.colorGrade,
+      captions: editableCaptions.length > 0 ? editableCaptions : resultData?.captions,
+      keyframes: resultData?.keyframes,
+      assistantActions: resultData?.actions,
+      durationSec: resultData?.duration || resultData?.durationSec || 5,
+    };
+    if (onSaveToMediaLibrary) {
+      onSaveToMediaLibrary(payload);
+    }
+    setIsSavedToMediaLibrary(true);
   };
 
   const handleApply = () => {
@@ -511,12 +586,18 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
               <p className="text-[11px] text-zinc-400">{tool.description}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2.5">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-400">
+              <span className={`w-1.5 h-1.5 rounded-full ${isGenerating ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+              <span>{isGenerating ? 'Inference Active' : 'Gemini 3.8 Flash • Online'}</span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -1144,6 +1225,14 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
                     style={{ width: `${generationProgress}%` }}
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCancelGeneration}
+                  className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] font-bold transition cursor-pointer"
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  <span>Cancel Generation</span>
+                </button>
               </div>
             ) : resultData ? (
               <div className="relative w-full h-full flex flex-col items-center justify-center rounded-lg overflow-hidden">
@@ -1488,8 +1577,23 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
             Close
           </button>
 
-          <div className="flex items-center gap-3">
-            {!resultData ? (
+          <div className="flex items-center gap-2.5">
+            {isGenerating ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelGeneration}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 font-bold text-xs transition cursor-pointer"
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+                <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400/20 text-cyan-300 border border-cyan-400/30 font-bold text-xs">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Processing with AI...</span>
+                </div>
+              </div>
+            ) : !resultData ? (
               <button
                 type="button"
                 onClick={handleGenerate}
@@ -1497,17 +1601,50 @@ export const AIToolModal: React.FC<AIToolModalProps> = ({
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold text-xs shadow-md shadow-cyan-400/20 active:scale-95 transition disabled:opacity-50 cursor-pointer"
               >
                 <Wand2 className="w-3.5 h-3.5" />
-                <span>{isGenerating ? 'Processing with AI...' : 'Generate with AI'}</span>
+                <span>Generate with AI</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleApply}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold text-xs shadow-md shadow-cyan-400/20 active:scale-95 transition cursor-pointer"
-              >
-                <span>Add to Timeline & Open Studio</span>
-                <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerate}
+                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold border border-white/10 transition cursor-pointer"
+                  title="Regenerate with current settings"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveToLibrary}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                    isSavedToMediaLibrary
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                  }`}
+                >
+                  {isSavedToMediaLibrary ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Saved to Media Pool</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Save to Media Library</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold text-xs shadow-md shadow-cyan-400/20 active:scale-95 transition cursor-pointer"
+                >
+                  <span>Add to Timeline & Open Studio</span>
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              </div>
             )}
           </div>
         </div>

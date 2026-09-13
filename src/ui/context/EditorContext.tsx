@@ -111,6 +111,7 @@ export interface EditorContextValue {
   addSampleMedia: () => Promise<void>;
   addMediaAssetAndClip: (asset: MediaAsset, targetTrackId?: string, startTime?: RationalTime) => Promise<{ asset: MediaAsset; clip: any }>;
   applyAIResultToTimeline: (resultInfo: any) => Promise<void>;
+  saveAIResultToMediaPool: (resultInfo: any) => Promise<MediaAsset | null>;
 }
 
 const EditorContext = createContext<EditorContextValue | null>(null);
@@ -815,6 +816,94 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await addMediaAssetAndClip(newAsset);
   };
 
+  /**
+   * Saves an AI-generated result directly into the Media Pool / Asset Library
+   * without immediately inserting it into the timeline.
+   */
+  const saveAIResultToMediaPool = async (resultInfo: any): Promise<MediaAsset | null> => {
+    if (!resultInfo) return null;
+
+    const isAud =
+      resultInfo.type === 'Audio & Dubbing' ||
+      resultInfo.type === 'Audio Mixing' ||
+      resultInfo.type === 'ai_voice' ||
+      resultInfo.type === 'ai_audio_enhance' ||
+      resultInfo.type === 'ai_music_sfx' ||
+      !!resultInfo.audioData;
+    const isImg =
+      !resultInfo.videoUrl &&
+      (resultInfo.type === 'Asset Creation' ||
+        resultInfo.type === 'VFX & Rotoscoping' ||
+        resultInfo.type === 'Cleanup & Inpainting' ||
+        resultInfo.type === 'ai_image_gen' ||
+        resultInfo.type === 'ai_bg_removal' ||
+        resultInfo.type === 'ai_object_removal' ||
+        resultInfo.type === 'ai_upscale');
+    const mediaType: 'video' | 'image' | 'audio' = isAud ? 'audio' : isImg ? 'image' : 'video';
+
+    const durSec = resultInfo.durationSec || (isAud ? 8 : isImg ? 4 : 5);
+    const durRational = secondsToRationalTime(durSec);
+
+    let mediaUri = resultInfo.videoUrl || resultInfo.imageUrl || resultInfo.audioData || resultInfo.assetUrl || '';
+    if (!mediaUri && mediaType === 'video') {
+      mediaUri = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    } else if (!mediaUri && mediaType === 'image') {
+      mediaUri = createCinematicThumbnail('sunset');
+    }
+
+    const thumbUrl =
+      resultInfo.imageUrl ||
+      (mediaType === 'video'
+        ? createCinematicThumbnail('drone')
+        : mediaType === 'image'
+        ? createCinematicThumbnail('sunset')
+        : createCinematicThumbnail('waveform'));
+
+    const newAsset: MediaAsset = {
+      id: `ai_asset_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name:
+        resultInfo.title ||
+        (mediaType === 'video'
+          ? 'AI Cinematic Video'
+          : mediaType === 'image'
+          ? 'AI Generated Image'
+          : 'AI Audio Track'),
+      uri: mediaUri,
+      type: mediaType,
+      fileSize: 1024 * 1024 * 6,
+      duration: durRational,
+      videoMetadata:
+        mediaType !== 'audio'
+          ? {
+              width: resultInfo.width || 1920,
+              height: resultInfo.height || 1080,
+              fps: resultInfo.fps || 60,
+              codec: 'h264',
+            }
+          : undefined,
+      audioMetadata:
+        mediaType === 'audio'
+          ? {
+              sampleRate: 48000,
+              channels: 2,
+              codec: 'aac',
+            }
+          : undefined,
+      thumbnailUrl: thumbUrl,
+      isOffline: false,
+      importedAt: new Date().toISOString(),
+    };
+
+    mediaRegistry.registerAsset(newAsset);
+    const currentProj = projectService.getProject();
+    if (!currentProj.mediaPool) currentProj.mediaPool = [];
+    currentProj.mediaPool.unshift(newAsset);
+    projectService.setProject({ ...currentProj });
+    projectService.saveToLocalStorage();
+
+    return newAsset;
+  };
+
   const currentTimeSeconds = rationalTimeToSeconds(currentTime);
   const formattedTimecode = formatTimecode(currentTime, project.settings.frameRate);
   const isUploading = uploadStates.some((u) => u.status === 'uploading' || u.status === 'processing' || u.status === 'generating_thumbnail');
@@ -876,6 +965,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addSampleMedia,
     addMediaAssetAndClip,
     applyAIResultToTimeline,
+    saveAIResultToMediaPool,
   };
 
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;

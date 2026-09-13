@@ -212,6 +212,7 @@ export const LeftSidebarNav: React.FC = () => {
     setWorkspaceMode,
     addMediaAssetAndClip,
     applyAIResultToTimeline,
+    saveAIResultToMediaPool,
   } = useEditor();
 
   const [activeTool, setActiveTool] = useState<TopToolSection>('media');
@@ -1799,6 +1800,12 @@ export const LeftSidebarNav: React.FC = () => {
           onClose={() => setSelectedAIToolModal(null)}
           tool={selectedAIToolModal}
           onApplyToTimeline={handleApplyAIResult}
+          onSaveToMediaLibrary={async (res) => {
+            const asset = await saveAIResultToMediaPool(res);
+            if (asset) {
+              notifyToast(`Saved "${asset.name}" to Media Pool`, 'success');
+            }
+          }}
         />
       )}
 

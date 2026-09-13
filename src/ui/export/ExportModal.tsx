@@ -75,10 +75,14 @@ export const ExportModal: React.FC<{ isOpen: boolean; onClose: () => void }> = (
           height = width;
         }
 
+        const targetBitrate =
+          bitrateMode === 'ultra' ? 35000000 : bitrateMode === 'high' ? 18000000 : 8000000;
+
         const settings: ExportSettings = {
           width,
           height,
           fps,
+          bitrate: targetBitrate,
           format: 'video/webm',
           filename,
         };

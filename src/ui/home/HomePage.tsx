@@ -70,7 +70,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   hasActiveSession = true,
   currentProjectName = 'Iceland 4K Master',
 }) => {
-  const { applyAIResultToTimeline, projectService } = useEditor();
+  const { applyAIResultToTimeline, saveAIResultToMediaPool, projectService } = useEditor();
   const [activeTab, setActiveTab] = useState<string>('home');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [recentProjects, setRecentProjects] = useState<RecentProjectItem[]>(() => {
@@ -902,6 +902,12 @@ export const HomePage: React.FC<HomePageProps> = ({
         onClose={() => setSelectedAITool(null)}
         tool={selectedAITool}
         onApplyToTimeline={handleApplyAIResult}
+        onSaveToMediaLibrary={async (res) => {
+          const asset = await saveAIResultToMediaPool(res);
+          if (asset) {
+            notifyToast(`Saved "${asset.name}" to Media Pool`, 'success');
+          }
+        }}
       />
 
       <RecordStudioModal
