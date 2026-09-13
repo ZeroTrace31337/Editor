@@ -87,8 +87,9 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [tempText, setTempText] = useState('');
 
-  const displayVal = formatDecimals > 0 ? value.toFixed(formatDecimals) : Math.round(value).toString();
-  const isModified = Math.abs(value - defaultValue) > 0.0001;
+  const safeValue = typeof value === 'number' && Number.isFinite(value) ? value : defaultValue;
+  const displayVal = formatDecimals > 0 ? safeValue.toFixed(formatDecimals) : Math.round(safeValue).toString();
+  const isModified = Math.abs(safeValue - defaultValue) > 0.0001;
 
   const handleDoubleClick = () => {
     if (onReset) {
@@ -102,7 +103,7 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
   const handleTextSubmit = () => {
     setIsEditing(false);
     const parsed = parseFloat(tempText);
-    if (!isNaN(parsed)) {
+    if (Number.isFinite(parsed)) {
       const clamped = Math.max(min, Math.min(max, parsed));
       onChange(clamped);
       onCommit?.(clamped);
@@ -149,10 +150,18 @@ const AdjustmentRow: React.FC<AdjustmentRowProps> = ({
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={safeValue}
           onPointerDown={() => onStartChange?.()}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          onPointerUp={(e) => onCommit?.(parseFloat(e.currentTarget.value))}
+          onChange={(e) => {
+            const parsed = parseFloat(e.target.value);
+            const val = Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : defaultValue;
+            onChange(val);
+          }}
+          onPointerUp={(e) => {
+            const parsed = parseFloat(e.currentTarget.value);
+            const val = Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : defaultValue;
+            onCommit?.(val);
+          }}
           onDoubleClick={handleDoubleClick}
           style={trackStyle}
           className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${
@@ -256,6 +265,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
   };
 
   const handleLiveChange = (param: keyof ColorGrade, val: any) => {
+    if (typeof val === 'number' && !Number.isFinite(val)) return;
     if (!clip.colorGrade) {
       clip.colorGrade = createDefaultColorGrade();
     }
@@ -264,6 +274,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
   };
 
   const handleCommitChange = (param: keyof ColorGrade, finalVal: any) => {
+    if (typeof finalVal === 'number' && !Number.isFinite(finalVal)) return;
     const initialGrade = dragSnapshotRef.current || JSON.parse(JSON.stringify(clip.colorGrade || createDefaultColorGrade()));
     const newGrade: ColorGrade = {
       ...(clip.colorGrade || createDefaultColorGrade()),
@@ -277,6 +288,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ clip: propClip }) => {
   };
 
   const handleDirectChange = (param: keyof ColorGrade, val: any) => {
+    if (typeof val === 'number' && !Number.isFinite(val)) return;
     const initialGrade = JSON.parse(JSON.stringify(clip.colorGrade || createDefaultColorGrade()));
     const updated: ColorGrade = {
       ...initialGrade,

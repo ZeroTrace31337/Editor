@@ -43,14 +43,21 @@ export class ColorEngine {
       return;
     }
 
-    // 1. Try Hardware-Accelerated WebGL2 GPU Shader Pass first (<0.5ms)
+    // Check if advanced grading (LUT, Curves, Selective HSL) is used
+    const hasAdvancedGrading = Boolean(
+      (grade.lutId && grade.lutEnabled !== false) ||
+      this.hasActiveCurves(grade.curves) ||
+      this.hasActiveHsl(grade.hsl)
+    );
+
+    // 1. Try Hardware-Accelerated WebGL2 GPU Shader Pass first (<0.5ms) for basic & wheel adjustments
     const gpuPass = GPUColorGradingPass.getInstance();
     let handledByGPU = false;
-    if (gpuPass.canAccelerate()) {
+    if (!hasAdvancedGrading && gpuPass.canAccelerate()) {
       handledByGPU = gpuPass.applyGPUColorGrade(ctx, canvasWidth, canvasHeight, grade);
     }
 
-    // 2. High-Performance CPU fallback if GPU context lost or unsupported
+    // 2. High-Performance CPU fallback if GPU context lost, unsupported, or advanced grading active
     if (!handledByGPU) {
       this.applyFullPixelGrading(ctx, canvasWidth, canvasHeight, grade);
 
@@ -130,7 +137,14 @@ export class ColorEngine {
     height: number,
     grade: ColorGrade
   ): void {
-    const imgData = ctx.getImageData(0, 0, width, height);
+    if (width <= 0 || height <= 0 || !ctx) return;
+    let imgData: ImageData;
+    try {
+      imgData = ctx.getImageData(0, 0, width, height);
+    } catch (e) {
+      console.warn('[ColorEngine] Failed to getImageData for grading:', e);
+      return;
+    }
     const data = imgData.data;
     const len = data.length;
 
@@ -138,15 +152,15 @@ export class ColorEngine {
     const curveLuts = grade.curves ? ToneCurveEvaluator.generateCurveLut(grade.curves) : null;
 
     // 2. Precompute 256-entry Tone Mapping Table for Exposure, Contrast, Brightness, Brilliance, Highlights, Shadows, Whites, Blacks, Fade
-    const expMult = Math.pow(2, grade.exposure || 0);
-    const contrastVal = grade.contrast ?? 1.0;
-    const brightnessOffset = grade.brightness || 0;
-    const brAmount = (grade.brilliance || 0) / 100;
-    const hlAmount = (grade.highlights || 0) / 100;
-    const shAmount = (grade.shadows || 0) / 100;
-    const whAmount = (grade.whites || 0) / 100;
-    const blAmount = (grade.blacks || 0) / 100;
-    const fadeAmount = Math.max(0, Math.min(1, (grade.fade || 0) / 100));
+    const expMult = Math.pow(2, Number.isFinite(grade.exposure) ? grade.exposure : 0);
+    const contrastVal = Number.isFinite(grade.contrast) ? grade.contrast : 1.0;
+    const brightnessOffset = Number.isFinite(grade.brightness) ? grade.brightness : 0;
+    const brAmount = (Number.isFinite(grade.brilliance) ? grade.brilliance : 0) / 100;
+    const hlAmount = (Number.isFinite(grade.highlights) ? grade.highlights : 0) / 100;
+    const shAmount = (Number.isFinite(grade.shadows) ? grade.shadows : 0) / 100;
+    const whAmount = (Number.isFinite(grade.whites) ? grade.whites : 0) / 100;
+    const blAmount = (Number.isFinite(grade.blacks) ? grade.blacks : 0) / 100;
+    const fadeAmount = Math.max(0, Math.min(1, (Number.isFinite(grade.fade) ? grade.fade : 0) / 100));
 
     const toneLut = new Float32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -193,7 +207,7 @@ export class ColorEngine {
         v = v * (1 - fadeAmount * 0.4) + fadeAmount * 0.18;
       }
 
-      toneLut[i] = Math.max(0, Math.min(1, v));
+      toneLut[i] = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : (i / 255.0);
     }
 
     // 3. White Balance multipliers (Temperature & Tint)
@@ -351,9 +365,13 @@ export class ColorEngine {
         [normR, normG, normB] = this.lutEngine.sampleLut3D(lut, normR, normG, normB, lutIntensity);
       }
 
-      data[i] = Math.round(Math.max(0, Math.min(255, normR * 255)));
-      data[i + 1] = Math.round(Math.max(0, Math.min(255, normG * 255)));
-      data[i + 2] = Math.round(Math.max(0, Math.min(255, normB * 255)));
+      const finalR = Number.isFinite(normR) ? Math.max(0, Math.min(1, normR)) : (r / 255.0);
+      const finalG = Number.isFinite(normG) ? Math.max(0, Math.min(1, normG)) : (g / 255.0);
+      const finalB = Number.isFinite(normB) ? Math.max(0, Math.min(1, normB)) : (b / 255.0);
+
+      data[i] = Math.round(finalR * 255);
+      data[i + 1] = Math.round(finalG * 255);
+      data[i + 2] = Math.round(finalB * 255);
     }
 
     ctx.putImageData(imgData, 0, 0);
@@ -534,28 +552,36 @@ export class ColorEngine {
   }
 
   private static hslToRgb(h: number, s: number, l: number): [number, number, number] {
-    if (s === 0) {
-      return [l, l, l];
+    const clampedL = Math.max(0, Math.min(1, Number.isFinite(l) ? l : 0.5));
+    const clampedS = Math.max(0, Math.min(1, Number.isFinite(s) ? s : 0));
+
+    if (clampedS === 0) {
+      return [clampedL, clampedL, clampedL];
     }
 
     const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      let normT = t;
+      if (normT < 0) normT += 1;
+      if (normT > 1) normT -= 1;
+      if (normT < 1 / 6) return p + (q - p) * 6 * normT;
+      if (normT < 1 / 2) return q;
+      if (normT < 2 / 3) return p + (q - p) * (2 / 3 - normT) * 6;
       return p;
     };
 
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    const normH = h / 360.0;
+    const q = clampedL < 0.5 ? clampedL * (1 + clampedS) : clampedL + clampedS - clampedL * clampedS;
+    const p = 2 * clampedL - q;
+    const normH = (((Number.isFinite(h) ? h : 0) % 360 + 360) % 360) / 360.0;
 
     const r = hue2rgb(p, q, normH + 1 / 3);
     const g = hue2rgb(p, q, normH);
     const b = hue2rgb(p, q, normH - 1 / 3);
 
-    return [r, g, b];
+    return [
+      Number.isFinite(r) ? Math.max(0, Math.min(1, r)) : clampedL,
+      Number.isFinite(g) ? Math.max(0, Math.min(1, g)) : clampedL,
+      Number.isFinite(b) ? Math.max(0, Math.min(1, b)) : clampedL,
+    ];
   }
 
   /**

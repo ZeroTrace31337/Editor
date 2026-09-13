@@ -103,35 +103,45 @@ export class RenderGraphCompiler {
         Math.min(1, this.evaluateProp(clip, 'opacity', clip.opacity ?? 1.0, elapsedOnTimeline))
       );
 
+      // Helper for safe evaluated numbers
+      const safeNum = (val: unknown, fallback: number): number =>
+        typeof val === 'number' && Number.isFinite(val) ? val : fallback;
+
       // Evaluate animated Color Grade
       let evaluatedColorGrade: ColorGrade;
+      const defaultGrade = createDefaultColorGrade();
       if (clip.colorGrade?.colorGradeEnabled === false) {
         evaluatedColorGrade = {
-          ...createDefaultColorGrade(),
+          ...defaultGrade,
           colorGradeEnabled: false,
         };
       } else {
+        const baseGrade = clip.colorGrade || defaultGrade;
         evaluatedColorGrade = {
-          ...clip.colorGrade,
-          exposure: this.evaluateProp(clip, 'colorGrade.exposure', clip.colorGrade?.exposure ?? 0, elapsedOnTimeline),
-          contrast: this.evaluateProp(clip, 'colorGrade.contrast', clip.colorGrade?.contrast ?? 1.0, elapsedOnTimeline),
-          brightness: this.evaluateProp(clip, 'colorGrade.brightness', clip.colorGrade?.brightness ?? 0, elapsedOnTimeline),
-          brilliance: this.evaluateProp(clip, 'colorGrade.brilliance', clip.colorGrade?.brilliance ?? 0, elapsedOnTimeline),
-          saturation: this.evaluateProp(clip, 'colorGrade.saturation', clip.colorGrade?.saturation ?? 1.0, elapsedOnTimeline),
-          vibrance: this.evaluateProp(clip, 'colorGrade.vibrance', clip.colorGrade?.vibrance ?? 0, elapsedOnTimeline),
-          temperature: this.evaluateProp(clip, 'colorGrade.temperature', clip.colorGrade?.temperature ?? 0, elapsedOnTimeline),
-          tint: this.evaluateProp(clip, 'colorGrade.tint', clip.colorGrade?.tint ?? 0, elapsedOnTimeline),
-          hue: this.evaluateProp(clip, 'colorGrade.hue', clip.colorGrade?.hue ?? 0, elapsedOnTimeline),
-          highlights: this.evaluateProp(clip, 'colorGrade.highlights', clip.colorGrade?.highlights ?? 0, elapsedOnTimeline),
-          shadows: this.evaluateProp(clip, 'colorGrade.shadows', clip.colorGrade?.shadows ?? 0, elapsedOnTimeline),
-          whites: this.evaluateProp(clip, 'colorGrade.whites', clip.colorGrade?.whites ?? 0, elapsedOnTimeline),
-          blacks: this.evaluateProp(clip, 'colorGrade.blacks', clip.colorGrade?.blacks ?? 0, elapsedOnTimeline),
-          sharpen: this.evaluateProp(clip, 'colorGrade.sharpen', clip.colorGrade?.sharpen ?? 0, elapsedOnTimeline),
-          clarity: this.evaluateProp(clip, 'colorGrade.clarity', clip.colorGrade?.clarity ?? 0, elapsedOnTimeline),
-          noiseReduction: this.evaluateProp(clip, 'colorGrade.noiseReduction', clip.colorGrade?.noiseReduction ?? 0, elapsedOnTimeline),
-          fade: this.evaluateProp(clip, 'colorGrade.fade', clip.colorGrade?.fade ?? 0, elapsedOnTimeline),
-          vignette: this.evaluateProp(clip, 'colorGrade.vignette', clip.colorGrade?.vignette ?? 0, elapsedOnTimeline),
-          grain: this.evaluateProp(clip, 'colorGrade.grain', clip.colorGrade?.grain ?? 0, elapsedOnTimeline),
+          ...defaultGrade,
+          ...baseGrade,
+          exposure: safeNum(this.evaluateProp(clip, 'colorGrade.exposure', baseGrade.exposure ?? 0, elapsedOnTimeline), 0),
+          contrast: safeNum(this.evaluateProp(clip, 'colorGrade.contrast', baseGrade.contrast ?? 1.0, elapsedOnTimeline), 1.0),
+          brightness: safeNum(this.evaluateProp(clip, 'colorGrade.brightness', baseGrade.brightness ?? 0, elapsedOnTimeline), 0),
+          brilliance: safeNum(this.evaluateProp(clip, 'colorGrade.brilliance', baseGrade.brilliance ?? 0, elapsedOnTimeline), 0),
+          saturation: safeNum(this.evaluateProp(clip, 'colorGrade.saturation', baseGrade.saturation ?? 1.0, elapsedOnTimeline), 1.0),
+          vibrance: safeNum(this.evaluateProp(clip, 'colorGrade.vibrance', baseGrade.vibrance ?? 0, elapsedOnTimeline), 0),
+          temperature: safeNum(this.evaluateProp(clip, 'colorGrade.temperature', baseGrade.temperature ?? 0, elapsedOnTimeline), 0),
+          tint: safeNum(this.evaluateProp(clip, 'colorGrade.tint', baseGrade.tint ?? 0, elapsedOnTimeline), 0),
+          hue: safeNum(this.evaluateProp(clip, 'colorGrade.hue', baseGrade.hue ?? 0, elapsedOnTimeline), 0),
+          highlights: safeNum(this.evaluateProp(clip, 'colorGrade.highlights', baseGrade.highlights ?? 0, elapsedOnTimeline), 0),
+          shadows: safeNum(this.evaluateProp(clip, 'colorGrade.shadows', baseGrade.shadows ?? 0, elapsedOnTimeline), 0),
+          whites: safeNum(this.evaluateProp(clip, 'colorGrade.whites', baseGrade.whites ?? 0, elapsedOnTimeline), 0),
+          blacks: safeNum(this.evaluateProp(clip, 'colorGrade.blacks', baseGrade.blacks ?? 0, elapsedOnTimeline), 0),
+          sharpen: safeNum(this.evaluateProp(clip, 'colorGrade.sharpen', baseGrade.sharpen ?? 0, elapsedOnTimeline), 0),
+          clarity: safeNum(this.evaluateProp(clip, 'colorGrade.clarity', baseGrade.clarity ?? 0, elapsedOnTimeline), 0),
+          noiseReduction: safeNum(this.evaluateProp(clip, 'colorGrade.noiseReduction', baseGrade.noiseReduction ?? 0, elapsedOnTimeline), 0),
+          fade: safeNum(this.evaluateProp(clip, 'colorGrade.fade', baseGrade.fade ?? 0, elapsedOnTimeline), 0),
+          vignette: safeNum(this.evaluateProp(clip, 'colorGrade.vignette', baseGrade.vignette ?? 0, elapsedOnTimeline), 0),
+          grain: safeNum(this.evaluateProp(clip, 'colorGrade.grain', baseGrade.grain ?? 0, elapsedOnTimeline), 0),
+          wheels: baseGrade.wheels || defaultGrade.wheels,
+          curves: baseGrade.curves || defaultGrade.curves,
+          hsl: baseGrade.hsl || defaultGrade.hsl,
         };
       }
 
